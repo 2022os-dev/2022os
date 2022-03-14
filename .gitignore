@@ -1,4 +1,3 @@
 /target
-kernel.bin
-.img
-/*.img
+/kernel.bin
+/fat32.img
