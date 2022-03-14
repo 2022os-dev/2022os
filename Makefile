@@ -10,7 +10,7 @@ kernel.bin:
 	riscv64-linux-gnu-objcopy target/riscv64gc-unknown-none-elf/debug/os -O binary kernel.bin
 
 sdcard.raw:
-		dd if=/dev/zero of=sdcard.img bs=1M count=$(SDCARD_SIZE_KB)
+		dd if=/dev/zero of=sdcard.img bs=1048576 count=$(SDCARD_SIZE_KB)
 
 sdcard.part: sdcard.raw
 		@sgdisk --clear --set-alignment=2 -g \
@@ -34,19 +34,19 @@ sdcard-unleashed: sdcard.part rootfs
 		sudo dd if=bootloader/fw_payload_u-boot_unleashed.bin of=sdcard.img bs=512 seek=2048 conv=notrunc
 
 qemu-unleashed: sdcard-unleashed
-		qemu-system-riscv64 -M sifive_u -m 2G \
+		qemu-system-riscv64 -M sifive_u \
 			-bios bootloader/fw_payload_u-boot_unleashed.bin \
 			-drive file=sdcard.img,if=sd,format=raw \
 			-nographic
 qemu-unleashed-jump: kernel.bin
-		qemu-system-riscv64 -M sifive_u \
+		qemu-system-riscv64 -M sifive_u\
 			-bios bootloader/fw_jump.bin \
 			-drive file=sdcard.img,if=sd,format=raw \
 			-device loader,file=kernel.bin,addr=0x80200000 \
 			-nographic
 
 clean:
-		@rm sdcard.img -f
-		@rm kernel.bin -f
-		@rm fat32.img -f
+		@rm -f sdcard.img
+		@rm -f kernel.bin
+		@rm -f fat32.img
 		@cargo clean
