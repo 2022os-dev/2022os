@@ -16,6 +16,6 @@ pub fn init() {
 }
 
 #[alloc_error_handler]
-pub fn alloc_error_handler(_ : core::alloc::Layout) -> ! {
+pub fn alloc_error_handler(_: core::alloc::Layout) -> ! {
     panic!("Alloc Error");
 }

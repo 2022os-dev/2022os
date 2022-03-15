@@ -1,13 +1,13 @@
 use super::address::*;
-use spin::Mutex;
-use lazy_static::lazy_static;
 use crate::config::PAGE_SIZE;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
 struct MemRun {
-    next: usize
+    next: usize,
 }
 
-lazy_static!{ 
+lazy_static! {
     pub static ref KALLOCATOR: Mutex<Kallocator> = Mutex::new(Kallocator::default());
 }
 
@@ -56,6 +56,4 @@ impl Kallocator {
         *pa.as_mut() = next;
         self.0 = page.0;
     }
-    
 }
-

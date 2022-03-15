@@ -1,11 +1,11 @@
-use spin::{Mutex, MutexGuard};
 use crate::mm::memory_space::MemorySpace;
 use crate::process::cpu::{current_hart, current_hart_set_pid};
-use crate::process::{PcbState, Pcb, Pid, restore_trapframe};
+use crate::process::{restore_trapframe, Pcb, PcbState, Pid};
+use spin::{Mutex, MutexGuard};
 
-lazy_static!{
+lazy_static! {
     pub static ref TASKMANAGER: Mutex<TaskManagerInner<'static>> = Mutex::new(TaskManagerInner {
-            pcbs: [None, None, None],
+        pcbs: [None, None, None],
     });
 }
 
@@ -29,9 +29,7 @@ impl<'a> TaskManagerInner<'a> {
 
     pub fn get_pcb(&self, pid: Pid) -> MutexGuard<Pcb<'a>> {
         match self.pcbs[pid] {
-            Some(ref p) => {
-                p.lock()
-            },
+            Some(ref p) => p.lock(),
             None => {
                 panic!("invalid pid");
             }
@@ -63,4 +61,3 @@ pub fn schedule_pcb() -> ! {
         panic!("No ready pcb");
     }
 }
-

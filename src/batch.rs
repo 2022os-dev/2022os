@@ -4,7 +4,9 @@
 
 const USER_STACK_SIZE: usize = 4096 * 2;
 const KERNEL_STACK_SIZE: usize = 4096 * 2;
-pub static KERNEL_STACK: KernelStack = KernelStack { data: [0; KERNEL_STACK_SIZE] };
+pub static KERNEL_STACK: KernelStack = KernelStack {
+    data: [0; KERNEL_STACK_SIZE],
+};
 
 #[repr(align(4096))]
 pub struct KernelStack {

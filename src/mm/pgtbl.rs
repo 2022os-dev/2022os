@@ -1,33 +1,26 @@
-use crate::asm;
 use super::address::*;
-use super::pte_sv39::{
-    PTE,
-    PTEFlag
-};
+use super::pte_sv39::{PTEFlag, PTE};
+use crate::asm;
 
-use crate::config::*;
 use super::kalloc::KALLOCATOR;
+use crate::config::*;
 use riscv::register::satp;
 
 #[derive(Copy, Clone)]
 pub struct Pgtbl {
-    pub root: PageNum
+    pub root: PageNum,
 }
 
 impl const Default for Pgtbl {
     fn default() -> Self {
-        Self {
-            root: PageNum(0)
-        }
+        Self { root: PageNum(0) }
     }
 }
 
 impl Pgtbl {
     pub fn new() -> Self {
         let page = KALLOCATOR.lock().kalloc();
-        Self {
-            root: page
-        }
+        Self { root: page }
     }
     pub fn init(&mut self, page: PageNum) {
         self.root = page;
@@ -38,7 +31,9 @@ impl Pgtbl {
         let mut ppn = self.root;
         let mut pte;
         for level in (1..PAGE_TABLE_LEVEL).rev() {
-            let pte_ptr = ppn.offset(page.vpn_block_sv39(level) * core::mem::size_of::<usize>()).0 as *mut PTE;
+            let pte_ptr = ppn
+                .offset(page.vpn_block_sv39(level) * core::mem::size_of::<usize>())
+                .0 as *mut PTE;
             pte = unsafe { pte_ptr.as_mut().unwrap() };
             if pte.is_valid() {
                 if pte.is_leaf() {
@@ -57,21 +52,28 @@ impl Pgtbl {
             }
         }
         unsafe {
-        (ppn.offset(page.vpn_block_sv39(0) * core::mem::size_of::<usize>()).0 as *mut PTE).as_mut().unwrap()
+            (ppn.offset(page.vpn_block_sv39(0) * core::mem::size_of::<usize>())
+                .0 as *mut PTE)
+                .as_mut()
+                .unwrap()
         }
     }
 
-    pub fn mappages(&mut self, pages: core::ops::Range<VirtualAddr>,
-                    mut start: PageNum, flags: PTEFlag) 
-    {
+    pub fn mappages(
+        &mut self,
+        pages: core::ops::Range<VirtualAddr>,
+        mut start: PageNum,
+        flags: PTEFlag,
+    ) {
         let start_num = pages.start.floor();
         let end_num = pages.end.floor();
-        (start_num.0..end_num.0).map(|page| {
-            self.map(Into::<PageNum>::into(page).into(), start, flags);
-            start = start + 1.into();
-            0
-        }).count();
-
+        (start_num.0..end_num.0)
+            .map(|page| {
+                self.map(Into::<PageNum>::into(page).into(), start, flags);
+                start = start + 1.into();
+                0
+            })
+            .count();
     }
 
     pub fn map(&mut self, va: VirtualAddr, page: PageNum, flags: PTEFlag) {

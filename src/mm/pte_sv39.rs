@@ -1,3 +1,4 @@
+use super::PageNum;
 ///  Riscv SV39 PTE (Page Table Entry)
 ///
 ///  |----------|---------- ppn -----------|-------|--------|
@@ -8,20 +9,17 @@
 ///                                        |- PTE_FLAG_SIZE-|
 /// use super::address::PageNum;
 use crate::config::*;
-use super::PageNum;
 
 #[derive(Clone, Copy)]
 pub struct PTE(usize);
 
 impl PTE {
     pub fn new(ppn: PageNum, flag: PTEFlag) -> Self {
-        PTE (ppn.0 << PTE_PPN_OFFSET | flag.bits() as usize)
+        PTE(ppn.0 << PTE_PPN_OFFSET | flag.bits() as usize)
     }
 
     pub fn ppn(&self) -> PageNum {
-        PageNum(
-            (self.0 >> PTE_PPN_OFFSET) & ((1 << 27) -1)
-        )
+        PageNum((self.0 >> PTE_PPN_OFFSET) & ((1 << 27) - 1))
     }
 
     pub fn is_valid(&self) -> bool {
@@ -33,9 +31,7 @@ impl PTE {
     }
 
     pub fn is_leaf(&self) -> bool {
-        self.is_valid()
-            && (self.test_flags(PTEFlag::R)
-            ||  self.test_flags(PTEFlag::X))
+        self.is_valid() && (self.test_flags(PTEFlag::R) || self.test_flags(PTEFlag::X))
     }
 
     pub fn is_readable(&self) -> bool {
@@ -43,8 +39,7 @@ impl PTE {
     }
 
     pub fn set_ppn(&mut self, page_num: PageNum) {
-        self.0 = (page_num.0 << PTE_PPN_OFFSET) 
-            | (self.0 % (1 << PTE_PPN_OFFSET));
+        self.0 = (page_num.0 << PTE_PPN_OFFSET) | (self.0 % (1 << PTE_PPN_OFFSET));
     }
 
     pub fn flags(&self) -> PTEFlag {
@@ -52,8 +47,7 @@ impl PTE {
     }
 
     pub fn set_flags(&mut self, flags: PTEFlag) {
-        self.0 = (self.0 >> PTE_FLAG_SIZE << PTE_FLAG_SIZE)
-            | flags.bits() as usize
+        self.0 = (self.0 >> PTE_FLAG_SIZE << PTE_FLAG_SIZE) | flags.bits() as usize
     }
 }
 
@@ -72,7 +66,7 @@ const PTE_FLAG_G: usize = 5;
 const PTE_FLAG_A: usize = 6;
 const PTE_FLAG_D: usize = 7;
 
-bitflags!{
+bitflags! {
     pub struct PTEFlag: usize {
         const V = 1 << PTE_FLAG_V;
         const R = 1 << PTE_FLAG_R ;
@@ -84,4 +78,3 @@ bitflags!{
         const D = 1 << PTE_FLAG_D ;
     }
 }
-

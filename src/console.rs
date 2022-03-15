@@ -1,11 +1,11 @@
-use core::fmt::{self, Write};
 use crate::sbi;
+use core::fmt::{self, Write};
 
-static mut KERNEL_LOG: bool = true ;
+static mut KERNEL_LOG: bool = true;
 pub struct Stdout;
 
 impl Write for Stdout {
-    fn write_str(&mut self, s : &str) -> fmt::Result {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
         for c in s.chars() {
             sbi::sbi_call(sbi::PUT_CHAR, [c as usize, 0, 0]);
         }
@@ -14,7 +14,7 @@ impl Write for Stdout {
 }
 impl Stdout {
     pub fn is_log() -> bool {
-        return  unsafe { KERNEL_LOG }  
+        return unsafe { KERNEL_LOG };
     }
 }
 
@@ -23,10 +23,14 @@ pub fn print(args: fmt::Arguments) {
 }
 
 pub fn turn_off_log() {
-    unsafe { KERNEL_LOG = false; };
+    unsafe {
+        KERNEL_LOG = false;
+    };
 }
 pub fn turn_on_log() {
-    unsafe { KERNEL_LOG = true; };
+    unsafe {
+        KERNEL_LOG = true;
+    };
 }
 
 #[macro_export]

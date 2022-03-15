@@ -11,5 +11,4 @@ pub fn set_timecmp(timecmp: usize) {
 }
 pub fn set_next_trigger() {
     set_timecmp(get_time() + CLOCK_FREQ / TICKS_PER_SEC);
-
 }

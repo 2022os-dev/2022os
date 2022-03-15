@@ -1,4 +1,4 @@
-/// Symbol about memory map, 
+/// Symbol about memory map,
 /// provided by linker
 
 extern "C" {
