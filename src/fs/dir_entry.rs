@@ -1,5 +1,11 @@
 const NAME_LIMIT: u32 = 27;
 
+const BLOCK_SIZE: u32 = 512;
+
+type IndirectBlock = [u32; BLOCK_SZ / 4];
+
+type DataBlock = [u8; BLOCK_SZ];
+
 pub struct DirectoryEntry {
     name: [u8; NAME_LIMIT + 1],
     id: u32,
