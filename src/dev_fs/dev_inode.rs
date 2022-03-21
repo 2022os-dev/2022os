@@ -34,82 +34,117 @@ pub struct DevInode {
     // BLOCK_SIZE / 4 * BLOCK_SIZE / 4 * BLOCK_SIZE+
     // BLOCK_SIZE / 4 *BLOCK_SIZE / 4 * BLOCK_SIZE / 4 * BLOCK_SIZE字节
     pub data_block: [u32,DIRECT_COUNT+3],
-    //最后一次访问文件时间
-    pub a_time: u32,
-    //最后一次修改索引节点时间
-    pub c_time: u32,
-    // 最后一次修改文件时间
-    pub m_time: u32,
-    //硬链接计数器
-    pub links_count: u32,
+    // //最后一次访问文件时间
+    // pub a_time: u32,
+    // //最后一次修改索引节点时间
+    // pub c_time: u32,
+    // // 最后一次修改文件时间
+    // pub m_time: u32,
+    // //硬链接计数器
+    // pub links_count: u32,
 }
 
 impl DevInode {
 
-    pub fn init(&self, dtype: DiscInodeType) {
-        self.dtype = dtype,
-        self.block = block,
-        self.offset = offset,
-        self.size = 0,
-        self.contentD.iter_mut().for_each(|v| *v = 0);
-        self.contentI1 = 0;
-        self.contentI2 = 0;
+    pub fn initialize(&mut self, type_: DiskInodeType) {
+        
     }
-
-    pub fn isDirectory(&self) -> bool {
-        self.dtype == DiscInodeType::Directory
+    pub fn is_dir(&self) -> bool {
+        
     }
-
-    pub fn dataBlockNum(size: u32) -> usize {
-        (size + BLOCK_SIZE as u32 - 1) / BLOCK_SIZE as u32
+    #[allow(unused)]
+    pub fn is_file(&self) -> bool {
+        
     }
-
-    pub fn allBlocksNeed(size: u32) -> u32 {
-
-        let blockNum = Self::dataBlockNum(size) as usize;
-        let mut total = blockNum as usize;
-        if blockNum > DIRECT_COUNT {
+    /// Return block number correspond to size.
+    pub fn data_blocks(&self) -> u32 {
+        Self::_data_blocks(self.size)
+    }
+    fn _data_blocks(size: u32) -> u32 {
+        (size + BLOCK_SZ as u32 - 1) / BLOCK_SZ as u32
+    }
+    /// Return number of blocks needed include indirect1/2.
+    pub fn total_blocks(size: u32) -> u32 {
+        let data_blocks = Self::_data_blocks(size) as usize;
+        let mut total = data_blocks as usize;
+        // indirect1
+        if data_blocks > INODE_DIRECT_COUNT {
             total += 1;
         }
-        if blockNum > INDIRECT1_COUNT + DIRECT_COUNT{
-            
-            total += (blockNum - INDIRECT1_COUNT - DIRECT_COUNT + INDIRECT1_COUNT - 1) / INDIRECT1_COUNT;
+        // indirect2
+        if data_blocks > INDIRECT1_BOUND {
             total += 1;
+            // sub indirect1
+            total +=
+                (data_blocks - INDIRECT1_BOUND + INODE_INDIRECT1_COUNT - 1) / INODE_INDIRECT1_COUNT;
         }
         total as u32
     }
-
-    pub fn increase() {
-        //TODO
+    pub fn blocks_num_needed(&self, new_size: u32) -> u32 {
+        assert!(new_size >= self.size);
+        Self::total_blocks(new_size) - Self::total_blocks(self.size)
     }
-
-    pub fn delete() {
-        //TODO
+    pub fn get_block_id(&self, inner_id: u32, block_device: &Arc<dyn BlockDevice>) -> u32 {
+        
     }
-
-    pub fn read(
-        &self
-        off: usize,
-        buf: &mut [u8],
+    pub fn increase_size(
+        &mut self,
+        new_size: u32,
+        new_blocks: Vec<u32>,
+        block_device: &Arc<dyn BlockDevice>,
     ) {
-        //TODO
-
+        
     }
 
-    pub fn write(
-        &self
-        off: usize,
+    /// Clear size to zero and return blocks that should be deallocated.
+    ///
+    /// We will clear the block contents to zero later.
+    pub fn clear_size(&mut self, block_device: &Arc<dyn BlockDevice>) -> Vec<u32> {
+        
+    }
+    pub fn read_at(
+        &self,
+        offset: usize,
         buf: &mut [u8],
-    ) {
-        //TODO
+        block_device: &Arc<dyn BlockDevice>,
+    ) -> usize {
+        
+    }
+    /// File size must be adjusted before.
+    pub fn write_at(
+        &mut self,
+        offset: usize,
+        buf: &[u8],
+        block_device: &Arc<dyn BlockDevice>,
+    ) -> usize {
     }
 
-    
 }
 
-impl InodeOp for DevInode {
 
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const AUT_FLAG_R: usize = 0;
 const AUT_FLAG_W: usize = 1;

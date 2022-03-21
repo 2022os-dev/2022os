@@ -1,6 +1,8 @@
 use alloc::sync::Arc;
-
-const BLOCK_BITS: usize = 64 * 64;
+//磁盘块大小，单位字节
+const BLOCK_SIZE: u32 = 512;
+//每个磁盘块比特位数
+const BLOCK_BITS: usize = BLOCK_SIZE * 8;
 
 pub struct Bitmap{
     pub start: usize,
@@ -16,14 +18,14 @@ impl Bitmap{
         }
     }
 
-    pub fn allocBlock(&self) -> Option<usize> {
+    pub fn alloc(&self) -> Option<usize> {
         //TODO
         for allocB in 0..self.block_num {
             
         } 
     }
 
-    pub fn deallocBlock(&self) -> Option<usize> {
+    pub fn dealloc(&self) -> Option<usize> {
         //TODO
     }
 

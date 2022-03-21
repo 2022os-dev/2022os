@@ -16,6 +16,12 @@ pub trait SuperBlockOp: Send + Sync {
     //在内存与磁盘同时删除Inode节点，需要检查引用数是否归0
     fn delete_inode(&self, inode: &mut Inode)
                     -> Result<(), SuperOpErr>;
+    //分配一个与文件系统关联的Inode对象
+    fn alloc_block(&self, sb: &mut SuperBlock) 
+                    -> Result<*mut Inode, SuperOpErr>;
+    //在内存与磁盘同时删除Inode节点，需要检查引用数是否归0
+    fn dealloc_block(&self, inode: &mut Inode)
+                    -> Result<(), SuperOpErr>;
     //从磁盘读取inode数据，必须保证inode的i_ino被正确填写，通过i_ino读取inode
     fn read_inode(&self, inode: &mut Inode)
                     -> Result<(), SuperOpErr>;
@@ -25,9 +31,9 @@ pub trait SuperBlockOp: Send + Sync {
     // 将Inode引用数减1
     fn put_inode(&self , inode: &mut Inode)
                     -> Result<(), SuperOpErr>;
-    //文件系统被取消挂载，可以暂时不做实现，因为目前只有根文件系统，不会取消
-    fn put_super(&self, sb: &mut SuperBlock)
-                    -> Result<(), SuperOpErr>;
+    // //文件系统被取消挂载，可以暂时不做实现，因为目前只有根文件系统，不会取消
+    // fn put_super(&self, sb: &mut SuperBlock)
+    //                 -> Result<(), SuperOpErr>;
     // 与磁盘同步SuperBlock
     fn write_super(&self, sb: &mut SuperBlock)
                     -> Result<(), SuperOpErr>;
