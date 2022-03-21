@@ -73,3 +73,7 @@ impl DevFileSystem {
         //TODO
     }
 }
+
+impl SuperBlockOp for DevFileSystem{
+    
+}
