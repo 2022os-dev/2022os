@@ -4,6 +4,8 @@ const BLOCK_SIZE: u32 = 512;
 //每个磁盘块比特位数
 const BLOCK_BITS: usize = BLOCK_SIZE * 8;
 
+type BitmapBlock = [u64; 64];
+
 pub struct Bitmap{
     pub start: usize,
     pub block_num: usize,
@@ -18,15 +20,36 @@ impl Bitmap{
         }
     }
 
-    pub fn alloc(&self) -> Option<usize> {
+    pub fn alloc(&self, dev: usize) -> Option<usize> {
         //TODO
-        for allocB in 0..self.block_num {
-            
-        } 
+        for id in 0..self.block_num {
+            //获取相应缓冲区块
+            let buffer = get_buffer(id + self.start as usize, dev);
+            let bitmap_block = buffer.get_mut<BitmapBlock>(0);
+            let pos = if let Some((bits64_pos, inner_pos)) = bitmap_block.iter().enumerate()
+            .find(|(_, bits64)| **bits64 != u64::MAX)
+            .map(|(bits64_pos, bits64)| (bits64_pos, bits64.trailing_ones() as usize))
+            {
+                // modify cache
+                bitmap_block[bits64_pos] |= 1u64 << inner_pos;
+                Some(id * BLOCK_BITS + bits64_pos * 64 + inner_pos as usize)
+            } else {
+                None
+            }
+            if pos.is_some() {
+                return pos;
+            }
+        }
+        None
     }
 
-    pub fn dealloc(&self) -> Option<usize> {
+    pub fn dealloc(&self, dev: usize, bit: usize) -> Option<usize> {
         //TODO
+        let (block_pos, bits64_pos, inner_pos) = decomposition(bit);
+        let buffer = get_buffer(block_pos + self.start_block_id, dev));
+        let bitmap_block = buffer.get_mut<BitmapBlock>(0);
+        assert!(buffer[bits64_pos] & (1u64 << inner_pos) > 0);
+        buffer[bits64_pos] -= 1u64 << inner_pos;
     }
 
     pub fn getPosition(mut bit: usize) -> (usize, usize, usize) {
