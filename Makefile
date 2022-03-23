@@ -9,7 +9,16 @@ kernel.bin:
 	cd userenv && cargo build
 	cp userenv/target/riscv64gc-unknown-none-elf/debug/user_app src/user/user_app
 	@cargo build
-	rust-objcopy target/riscv64gc-unknown-none-elf/debug/os -O binary kernel.bin
+	@if which rust-objcopy ; then \
+		rust-objcopy target/riscv64gc-unknown-none-elf/debug/os -O binary kernel.bin; \
+	elif which riscv-objcopy; then \
+		riscv-objcopy target/riscv64gc-unknown-none-elf/debug/os -O binary kernel.bin; \
+	elif which objcopy ; then \
+		objcopy target/riscv64gc-unknown-none-elf/debug/os -O binary kernel.bin; \
+	else \
+	  @echo objcopy not found; \
+	fi
+
 
 sdcard.raw:
 		dd if=/dev/zero of=sdcard.img bs=1048576 count=$(SDCARD_SIZE_KB)
