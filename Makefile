@@ -6,8 +6,10 @@ endif
 qemu: qemu-unleashed-jump
 
 kernel.bin: 
+	cd userenv && cargo build
+	cp userenv/target/riscv64gc-unknown-none-elf/debug/user_app src/user/user_app
 	@cargo build
-	riscv64-linux-gnu-objcopy target/riscv64gc-unknown-none-elf/debug/os -O binary kernel.bin
+	rust-objcopy target/riscv64gc-unknown-none-elf/debug/os -O binary kernel.bin
 
 sdcard.raw:
 		dd if=/dev/zero of=sdcard.img bs=1048576 count=$(SDCARD_SIZE_KB)

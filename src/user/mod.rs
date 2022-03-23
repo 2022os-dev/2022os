@@ -1,7 +1,7 @@
 pub const APP_NUM: usize = 1;
 
-static HELLO_BIN: &'static [u8] = include_bytes!("00hello_world");
+static USER_BIN: &'static [u8] = include_bytes!("user_app");
 
 lazy_static! {
-    pub static ref APP: [&'static [u8]; APP_NUM] = [HELLO_BIN];
+    pub static ref APP: [&'static [u8]; APP_NUM] = [USER_BIN];
 }
