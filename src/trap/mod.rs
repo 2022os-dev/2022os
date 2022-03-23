@@ -10,6 +10,7 @@ use riscv::register::{
 use crate::mm::memory_space::MemorySpace;
 use crate::process::TrapFrame;
 use crate::task::{schedule_pcb, TASKMANAGER};
+use crate::process::PcbState;
 
 extern "C" {
     pub fn __alltraps();
@@ -108,5 +109,6 @@ pub extern "C" fn trap_handler() -> ! {
             );
         }
     }
+    TASKMANAGER.lock().current_pcb().set_state(PcbState::Ready);
     schedule_pcb();
 }
