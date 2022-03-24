@@ -61,7 +61,6 @@ pub fn init() {
     }
     println!("[kernel] Try to activate VM");
     kernel_memory_space.pgtbl.activate();
-    println!("[kernel] Success activate VM");
     // 测试开启虚拟内存后的内存分配功能
     let page = KALLOCATOR.lock().kalloc();
     println!("test alloc 0x{:x}", page.page());

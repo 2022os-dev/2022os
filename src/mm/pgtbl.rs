@@ -13,9 +13,7 @@ pub struct Pgtbl {
 
 impl Pgtbl {
     pub fn new() -> Self {
-        println!("Allocate pgtbl");
         let page = KALLOCATOR.lock().kalloc();
-        println!("Allocated pgtbl");
         Self { root: page }
     }
 
@@ -84,7 +82,6 @@ impl Pgtbl {
     }
 
     pub fn activate(&self) {
-        println!("Activating 0x{:x}", self.root.page());
         unsafe {
             satp::set(satp::Mode::Sv39, 0, self.root.page());
             asm!("sfence.vma");

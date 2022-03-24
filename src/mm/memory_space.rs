@@ -94,7 +94,6 @@ impl MemorySpace {
     }
 
     pub fn map_trampoline(&mut self) {
-        println!("[kernel] Maping trampoline");
         let page = MemorySpace::trampoline_page();
         let pn = KALLOCATOR.lock().kalloc();
         self.pgtbl
@@ -110,7 +109,6 @@ impl MemorySpace {
         0x80000000
     }
     pub fn from_elf(data: &[u8]) -> Self {
-        println!("[kernel] Load from elf");
         let mut space = Self {
             pgtbl: Pgtbl::new(),
             entry: 0,
