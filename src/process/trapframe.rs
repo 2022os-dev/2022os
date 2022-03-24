@@ -108,24 +108,10 @@ impl core::ops::IndexMut<&str> for TrapFrame {
 }
 
 impl TrapFrame {
-    pub fn default() -> Self {
-        Self {
-            general_reg: [0; 32],
-            sstatus: 0,
-            sepc: 0,
-            satp: 0,
-
-            // Set by pcb struct
-            kernel_satp: 0,
-            kernel_sp: 0,
-            trap_handler: crate::trap::trap_handler as usize,
-        }
-    }
-
     pub fn from_memory_space(&mut self, memory_space: MemorySpace) -> &mut Self {
         self["sp"] = memory_space.get_stack();
         // Fixme: set mode
-        self["satp"] = memory_space.page_table.root.0 | 0x8000000000000000;
+        self["satp"] = memory_space.pgtbl.root.page() | 0x8000000000000000;
         self["sepc"] = memory_space.entry();
         let mut sstatus_reg = sstatus::read();
         sstatus_reg.set_spp(sstatus::SPP::User);

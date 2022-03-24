@@ -4,13 +4,13 @@ use core::arch::global_asm;
 use riscv::register::{
     mtvec::TrapMode,
     scause::{self, Exception, Interrupt, Trap},
-    sie, stval, stvec
+    sie, stval, stvec,
 };
 
 use crate::mm::memory_space::MemorySpace;
+use crate::process::PcbState;
 use crate::process::TrapFrame;
 use crate::task::{schedule_pcb, TASKMANAGER};
-use crate::process::PcbState;
 
 extern "C" {
     pub fn __alltraps();
@@ -70,8 +70,11 @@ pub extern "C" fn trap_handler() -> ! {
             cx["a0"] = crate::syscall::syscall(cx["a7"], [p, cx["a1"], cx["a2"]]) as usize;
         }
         Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
-            panic!("store fault sepc: 0x{:x}; stval 0x{:x}",
-                cx["sepc"], riscv::register::stval::read());
+            panic!(
+                "store fault sepc: 0x{:x}; stval 0x{:x}",
+                cx["sepc"],
+                riscv::register::stval::read()
+            );
             /*
             if let riscv::register::sstatus::SPP::Supervisor = cx.sstatus.spp() {
                 panic!("PageFault in application, core dumped. sepc:0x{:x}", cx.sepc);

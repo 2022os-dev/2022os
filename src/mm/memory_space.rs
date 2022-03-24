@@ -11,17 +11,8 @@ use xmas_elf::ElfFile;
 
 #[derive(Copy, Clone)]
 pub struct MemorySpace {
-    pub page_table: Pgtbl,
+    pub pgtbl: Pgtbl,
     pub entry: usize,
-}
-
-impl const Default for MemorySpace {
-    fn default() -> Self {
-        Self {
-            page_table: Pgtbl::default(),
-            entry: 0,
-        }
-    }
 }
 
 impl MemorySpace {
@@ -66,7 +57,7 @@ impl MemorySpace {
     fn map_user_stack(&mut self) {
         // User stack start from 0
         self.map_area_zero(
-            VirtualAddr(0x80000000 - PAGE_SIZE)..VirtualAddr(0x80000000),
+            VirtualAddr(0x80000000 - USER_STACK_SIZE)..VirtualAddr(0x80000000),
             PTEFlag::U | PTEFlag::R | PTEFlag::W,
         );
     }
@@ -74,47 +65,41 @@ impl MemorySpace {
         PageNum::highest_page()
     }
 
+    pub fn trapframe_page() -> PageNum {
+        PageNum::highest_page() - 1
+    }
+
     // Return (alltraps, restore)
     pub fn trampoline_entry() -> (usize, usize) {
-        let alltraps = Into::<VirtualAddr>::into(Self::trampoline_page());
-        let restore = alltraps.offset((__restore as usize - __alltraps as usize) as isize);
+        let alltraps = Self::trampoline_page().offset(0);
+        let restore = alltraps + (__restore as usize - __alltraps as usize);
         (alltraps.0, restore.0)
     }
-
-    pub fn context_page() -> PageNum {
-        PageNum(PageNum::highest_page().0 - 1)
-    }
-
-    pub fn context_addr() -> VirtualAddr {
-        Into::<VirtualAddr>::into(Self::context_page())
+    // FIXME: len should be indicated by dst
+    pub fn copy_virtual_address(&mut self, src: VirtualAddr, len: usize, dst: &mut [u8]) {
+        let pa = self
+            .pgtbl
+            .walk(src, false)
+            .ppn()
+            .offset_phys(src.page_offset());
+        pa.read(unsafe { core::slice::from_raw_parts_mut(dst.as_mut_ptr(), len) });
     }
 
     pub fn map_trapframe(&mut self, trapframe: *const TrapFrame) {
-        self.page_table.map(
-            Self::context_page().into(),
-            PhysAddr(trapframe as usize).into(),
+        self.pgtbl.map(
+            Self::trapframe_page(),
+            PhysAddr(trapframe as usize).floor(),
             PTEFlag::R | PTEFlag::W | PTEFlag::V,
         );
-    }
-
-    // FIXME: len should be indicated by dst
-    pub fn copy_virtual_address(&mut self, src: VirtualAddr, len: usize, dst: &mut [u8]) {
-        let pa: PhysAddr = self
-            .page_table
-            .walk(src, false)
-            .ppn()
-            .offset(src.page_offset())
-            .into();
-        pa.read(unsafe { core::slice::from_raw_parts_mut(dst.as_mut_ptr(), len) });
     }
 
     pub fn map_trampoline(&mut self) {
         println!("[kernel] Maping trampoline");
         let page = MemorySpace::trampoline_page();
         let pn = KALLOCATOR.lock().kalloc();
-        self.page_table
-            .map(page.into(), pn, PTEFlag::R | PTEFlag::X | PTEFlag::V);
-        Into::<PhysAddr>::into(pn).write(unsafe {
+        self.pgtbl
+            .map(page, pn, PTEFlag::R | PTEFlag::X | PTEFlag::V);
+        pn.offset_phys(0).write(unsafe {
             core::slice::from_raw_parts(
                 crate::trap::__alltraps as *const u8,
                 crate::trap::trampoline as usize - crate::trap::__alltraps as usize,
@@ -127,7 +112,7 @@ impl MemorySpace {
     pub fn from_elf(data: &[u8]) -> Self {
         println!("[kernel] Load from elf");
         let mut space = Self {
-            page_table: Pgtbl::new(),
+            pgtbl: Pgtbl::new(),
             entry: 0,
         };
         let elf = ElfFile::new(data).unwrap();
@@ -143,11 +128,12 @@ impl MemorySpace {
         // Fixme: enhance performance
         let (start, end) = (area.start, area.end);
         log!(debug "[kernel] Maping zero page 0x{:x} - 0x{:x}", start.0, end.0);
-        let start = PageNum::from(start);
-        let end = PageNum::from(end);
-        for va in start.0..end.0 {
-            let pte = self.page_table.walk(PageNum(va).into(), true);
-            log!(debug "map zero: 0x{:x}", va);
+        let start = start.floor();
+        let end = end.floor();
+        for page in start.page()..end.page() {
+            let page: PageNum = page.into();
+            let pte = self.pgtbl.walk(page.offset(0), true);
+            log!(debug "map zero page: 0x{:x}", page.page());
             if !pte.is_valid() {
                 let page = KALLOCATOR.lock().kalloc();
                 pte.set_ppn(page);
@@ -167,7 +153,7 @@ impl MemorySpace {
         let end = area.end;
         log!(debug "[kernel] Maping data page 0x{:x} - 0x{:x}, {:?}", start.0, end.0, flags);
         for va in start.0..end.0 {
-            let pte = self.page_table.walk(va.into(), true);
+            let pte = self.pgtbl.walk(va.into(), true);
             if !pte.is_valid() {
                 let page = KALLOCATOR.lock().kalloc();
                 pte.set_ppn(page);
@@ -175,10 +161,6 @@ impl MemorySpace {
             }
             PhysAddr::from(pte.ppn().offset(va % PAGE_SIZE)).write_bytes(data[va - start.0], 1);
         }
-    }
-
-    pub fn get_root_ppn(&self) -> PageNum {
-        self.page_table.root
     }
 
     pub fn entry(&self) -> usize {

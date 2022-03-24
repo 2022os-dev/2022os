@@ -3,10 +3,6 @@ use crate::config::PAGE_SIZE;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
-struct MemRun {
-    next: usize,
-}
-
 lazy_static! {
     pub static ref KALLOCATOR: Mutex<Kallocator> = Mutex::new(Kallocator::default());
 }
@@ -22,13 +18,13 @@ impl Default for Kallocator {
 use core::ops::Range;
 impl Kallocator {
     pub fn init(&mut self, pages: Range<PageNum>) {
-        self.0 = pages.start.into();
-        for i in (pages.start.0)..pages.end.0 {
+        self.0 = pages.start.page();
+        for i in pages.start.page()..pages.end.page() {
             let mut pa: PhysAddr = Into::<PageNum>::into(i).into();
             let pa: &mut usize = pa.as_mut();
             *pa = i + 1;
         }
-        let mut pa: PhysAddr = (pages.end - 1.into()).into();
+        let mut pa: PhysAddr = (pages.end - 1).into();
         let pa: &mut usize = pa.as_mut();
         *pa = 0;
     }
@@ -43,7 +39,7 @@ impl Kallocator {
         self.0 = *pa;
         // REMOVE
         if self.0 == 0 {
-            println!("warn: kalloc all memory, 0x{:x}", ret.0);
+            println!("warn: kalloc all memory, 0x{:x}", ret.page());
         }
         // clear page
         Into::<PhysAddr>::into(ret).write_bytes(0, PAGE_SIZE);
@@ -54,6 +50,6 @@ impl Kallocator {
         let next = self.0;
         let mut pa: PhysAddr = page.into();
         *pa.as_mut() = next;
-        self.0 = page.0;
+        self.0 = page.page();
     }
 }

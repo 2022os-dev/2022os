@@ -5,11 +5,7 @@
 #![feature(naked_functions)]
 // [global_asm] allow include an assemble file
 #![feature(panic_info_message)]
-#![feature(fn_align)]
 #![feature(alloc_error_handler)]
-#![feature(trace_macros)]
-#![allow(incomplete_features)]
-#![feature(const_trait_impl)]
 
 use crate::process::cpu::init_hart;
 use core::arch::asm;
@@ -83,5 +79,6 @@ extern "C" fn kernel_start() {
     TASKMANAGER.lock().load_pcb(virtual_space);
 
     trap::enable_timer_interupt();
+    log!(debug "Start schedule");
     schedule_pcb();
 }

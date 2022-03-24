@@ -75,6 +75,6 @@ impl<'a> Pcb<'a> {
 pub fn restore_trapframe(satp: usize) -> ! {
     let (_, restore) = crate::mm::memory_space::MemorySpace::trampoline_entry();
     let restore = unsafe { core::mem::transmute::<usize, fn(usize, usize) -> !>(restore) };
-    let tf = Into::<PhysAddr>::into(MemorySpace::context_page()).0;
+    let tf = Into::<PhysAddr>::into(MemorySpace::trapframe_page()).0;
     restore(tf, satp);
 }

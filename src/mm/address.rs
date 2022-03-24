@@ -1,7 +1,37 @@
 use crate::config::*;
+use core::ops::{Add, Sub};
 
+/**
+ * VirtualAddr: 虚拟地址
+ */
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct VirtualAddr(pub usize);
+
+impl VirtualAddr {
+    pub fn floor(&self) -> PageNum {
+        PageNum(self.0 / PAGE_SIZE)
+    }
+    pub fn ceil(&self) -> PageNum {
+        PageNum((self.0 + PAGE_SIZE - 1) / PAGE_SIZE)
+    }
+    pub fn page_offset(&self) -> usize {
+        self.0 % PAGE_SIZE
+    }
+}
+
+impl Add<usize> for VirtualAddr {
+    type Output = Self;
+    fn add(self, rhs: usize) -> Self::Output {
+        Self(self.0 + rhs)
+    }
+}
+
+impl Sub<usize> for VirtualAddr {
+    type Output = Self;
+    fn sub(self, rhs: usize) -> Self::Output {
+        Self(self.0 - rhs)
+    }
+}
 
 impl From<PageNum> for VirtualAddr {
     fn from(page_num: PageNum) -> Self {
@@ -15,53 +45,17 @@ impl From<PageNum> for VirtualAddr {
     }
 }
 
-impl core::ops::Sub for VirtualAddr {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self::Output {
-        (self.0 - rhs.0).into()
-    }
-}
-
 impl From<usize> for VirtualAddr {
     fn from(addr: usize) -> Self {
         VirtualAddr(addr)
     }
 }
-impl core::ops::Add for VirtualAddr {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        (self.0 + rhs.0).into()
-    }
-}
 
-impl VirtualAddr {
-    pub fn floor(&self) -> PageNum {
-        PageNum(self.0 / PAGE_SIZE)
-    }
-    pub fn ceil(&self) -> PageNum {
-        PageNum((self.0 + PAGE_SIZE - 1) / PAGE_SIZE)
-    }
-    pub fn page_offset(&self) -> usize {
-        self.0 % PAGE_SIZE
-    }
-    pub fn offset(&self, off: isize) -> Self {
-        Self((self.0 as isize + off) as usize)
-    }
-}
-
+/**
+ * PhysAddr: 物理地址
+ */
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct PhysAddr(pub usize);
-
-impl From<usize> for PhysAddr {
-    fn from(addr: usize) -> Self {
-        PhysAddr(addr)
-    }
-}
-impl From<VirtualAddr> for PhysAddr {
-    fn from(addr: VirtualAddr) -> Self {
-        Self(addr.0)
-    }
-}
 
 impl PhysAddr {
     pub fn floor(&self) -> PageNum {
@@ -72,9 +66,6 @@ impl PhysAddr {
     }
     pub fn page_offset(&self) -> usize {
         self.0 % PAGE_SIZE
-    }
-    pub fn offset(&self, off: isize) -> Self {
-        Self((self.0 as isize + off) as usize)
     }
     pub fn write(&mut self, buf: &[u8]) {
         unsafe {
@@ -91,17 +82,30 @@ impl PhysAddr {
     }
 }
 
-impl From<PageNum> for PhysAddr {
-    fn from(page_num: PageNum) -> Self {
-        if page_num.0 >= (1 << PAGE_TABLE_LEVEL * SV39_VPN_BIT - 1) {
-            return PhysAddr(
-                (page_num.0 | (usize::max_value()) << (PAGE_TABLE_LEVEL * SV39_VPN_BIT))
-                    << PAGE_OFFSET_BIT,
-            );
-        }
-        PhysAddr(page_num.0 << PAGE_OFFSET_BIT)
+impl From<usize> for PhysAddr {
+    fn from(addr: usize) -> Self {
+        PhysAddr(addr)
     }
 }
+impl From<VirtualAddr> for PhysAddr {
+    fn from(addr: VirtualAddr) -> Self {
+        Self(addr.0)
+    }
+}
+
+impl Add<usize> for PhysAddr {
+    type Output = Self;
+    fn add(self, rhs: usize) -> Self::Output {
+        Self(self.0 + rhs)
+    }
+}
+
+impl From<PageNum> for PhysAddr {
+    fn from(page_num: PageNum) -> Self {
+        Self(page_num.offset(0).0)
+    }
+}
+
 use core::convert::AsMut;
 impl<T> AsMut<T> for PhysAddr {
     fn as_mut(&mut self) -> &mut T {
@@ -120,30 +124,16 @@ impl<T> AsRef<T> for PhysAddr {
     }
 }
 
+/**
+ * PageNum: 页号
+ */
+
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-pub struct PageNum(pub usize);
-
-impl From<PhysAddr> for PageNum {
-    fn from(physaddr: PhysAddr) -> Self {
-        physaddr.floor()
-    }
-}
-
-impl From<VirtualAddr> for PageNum {
-    fn from(vaddr: VirtualAddr) -> Self {
-        vaddr.floor()
-    }
-}
+pub struct PageNum(usize);
 
 impl From<usize> for PageNum {
     fn from(u: usize) -> Self {
         PageNum(u)
-    }
-}
-
-impl From<PageNum> for usize {
-    fn from(p: PageNum) -> Self {
-        p.0
     }
 }
 
@@ -160,23 +150,30 @@ impl PageNum {
         vpn & ((1 << SV39_VPN_BIT) - 1)
     }
     pub fn offset(&self, off: usize) -> VirtualAddr {
-        let addr: VirtualAddr = VirtualAddr::from(self.clone());
-        addr.offset(off as isize)
+        VirtualAddr::from(self.clone()) + off
+    }
+
+    pub fn offset_phys(&self, off: usize) -> PhysAddr {
+        PhysAddr::from(self.clone()) + off
+    }
+
+    pub fn page(&self) -> usize {
+        self.0
     }
     pub const fn highest_page() -> Self {
         PageNum((1 << (PAGE_TABLE_LEVEL * SV39_VPN_BIT)) - 1)
     }
 }
 
-impl core::ops::Add for PageNum {
+impl Add<usize> for PageNum {
     type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        (self.0 + rhs.0).into()
+    fn add(self, rhs: usize) -> Self::Output {
+        (self.0 + rhs).into()
     }
 }
-impl core::ops::Sub for PageNum {
+impl Sub<usize> for PageNum {
     type Output = Self;
-    fn sub(self, rhs: Self) -> Self::Output {
-        (self.0 - rhs.0).into()
+    fn sub(self, rhs: usize) -> Self::Output {
+        (self.0 - rhs).into()
     }
 }

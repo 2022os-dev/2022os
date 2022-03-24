@@ -15,11 +15,11 @@ pub struct PTE(usize);
 
 impl PTE {
     pub fn new(ppn: PageNum, flag: PTEFlag) -> Self {
-        PTE(ppn.0 << PTE_PPN_OFFSET | flag.bits() as usize)
+        PTE(ppn.page() << PTE_PPN_OFFSET | flag.bits() as usize)
     }
 
     pub fn ppn(&self) -> PageNum {
-        PageNum((self.0 >> PTE_PPN_OFFSET) & ((1 << 27) - 1))
+        ((self.0 >> PTE_PPN_OFFSET) & ((1 << 27) - 1)).into()
     }
 
     pub fn is_valid(&self) -> bool {
@@ -39,7 +39,7 @@ impl PTE {
     }
 
     pub fn set_ppn(&mut self, page_num: PageNum) {
-        self.0 = (page_num.0 << PTE_PPN_OFFSET) | (self.0 % (1 << PTE_PPN_OFFSET));
+        self.0 = (page_num.page() << PTE_PPN_OFFSET) | (self.0 % (1 << PTE_PPN_OFFSET));
     }
 
     pub fn flags(&self) -> PTEFlag {

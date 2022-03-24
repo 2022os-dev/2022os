@@ -11,23 +11,16 @@ pub struct Pgtbl {
     pub root: PageNum,
 }
 
-impl const Default for Pgtbl {
-    fn default() -> Self {
-        Self { root: PageNum(0) }
-    }
-}
-
 impl Pgtbl {
     pub fn new() -> Self {
+        println!("Allocate pgtbl");
         let page = KALLOCATOR.lock().kalloc();
+        println!("Allocated pgtbl");
         Self { root: page }
-    }
-    pub fn init(&mut self, page: PageNum) {
-        self.root = page;
     }
 
     pub fn walk(&mut self, va: VirtualAddr, do_alloc: bool) -> &mut PTE {
-        let page: PageNum = va.into();
+        let page: PageNum = va.floor();
         let mut ppn = self.root;
         let mut pte;
         for level in (1..PAGE_TABLE_LEVEL).rev() {
@@ -59,35 +52,41 @@ impl Pgtbl {
         }
     }
 
-    pub fn mappages(
+    pub fn map_pages(
         &mut self,
-        pages: core::ops::Range<VirtualAddr>,
+        pages: core::ops::Range<PageNum>,
         mut start: PageNum,
         flags: PTEFlag,
     ) {
-        let start_num = pages.start.floor();
-        let end_num = pages.end.floor();
-        (start_num.0..end_num.0)
+        println!(
+            "Mapping pages 0x{:x} - 0x{:x}",
+            pages.start.page(),
+            pages.end.page()
+        );
+        let start_num = pages.start;
+        let end_num = pages.end;
+        (start_num.page()..end_num.page())
             .map(|page| {
                 self.map(Into::<PageNum>::into(page).into(), start, flags);
-                start = start + 1.into();
+                start = start + 1;
                 0
             })
             .count();
     }
 
-    pub fn map(&mut self, va: VirtualAddr, page: PageNum, flags: PTEFlag) {
-        let pte = self.walk(va, true);
+    pub fn map(&mut self, vpage: PageNum, page: PageNum, flags: PTEFlag) {
+        let pte = self.walk(vpage.offset(0), true);
         if pte.is_valid() {
-            panic!("remap 0x{:x}", va.0)
+            panic!("remap page 0x{:x}", vpage.page())
         }
         pte.set_ppn(page);
-        pte.set_flags(flags);
+        pte.set_flags(flags | PTEFlag::V);
     }
 
     pub fn activate(&self) {
+        println!("Activating 0x{:x}", self.root.page());
         unsafe {
-            satp::set(satp::Mode::Sv39, 0, self.root.0);
+            satp::set(satp::Mode::Sv39, 0, self.root.page());
             asm!("sfence.vma");
         }
     }
