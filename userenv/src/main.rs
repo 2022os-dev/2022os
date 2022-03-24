@@ -6,15 +6,17 @@ use core::panic::PanicInfo;
 mod syscall;
 
 fn main() {
-    let str = "Good morning\n";
-    syscall::syscall_write(1, str.as_bytes());
+    let str = "Good afternoon\n";
+    loop {
+        syscall::syscall_write(1, str.as_bytes());
+    }
 }
 
 
 #[no_mangle]
 fn _start() {
     main();
-    syscall::syscall_exit(0);
+    // syscall::syscall_exit(0);
 }
 
 #[panic_handler]

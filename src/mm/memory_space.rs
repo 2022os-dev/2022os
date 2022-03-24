@@ -66,7 +66,7 @@ impl MemorySpace {
     fn map_user_stack(&mut self) {
         // User stack start from 0
         self.map_area_zero(
-            VirtualAddr(0)..VirtualAddr(USER_STACK_SIZE),
+            VirtualAddr(0x80000000 - PAGE_SIZE)..VirtualAddr(0x80000000),
             PTEFlag::U | PTEFlag::R | PTEFlag::W,
         );
     }
@@ -84,6 +84,7 @@ impl MemorySpace {
     pub fn context_page() -> PageNum {
         PageNum(PageNum::highest_page().0 - 1)
     }
+
     pub fn context_addr() -> VirtualAddr {
         Into::<VirtualAddr>::into(Self::context_page())
     }
@@ -121,7 +122,7 @@ impl MemorySpace {
         });
     }
     pub fn get_stack(&self) -> usize {
-        1024
+        0x80000000
     }
     pub fn from_elf(data: &[u8]) -> Self {
         println!("[kernel] Load from elf");
@@ -139,18 +140,20 @@ impl MemorySpace {
     }
 
     pub fn map_area_zero(&mut self, area: Range<VirtualAddr>, flags: PTEFlag) {
+        // Fixme: enhance performance
         let (start, end) = (area.start, area.end);
         log!(debug "[kernel] Maping zero page 0x{:x} - 0x{:x}", start.0, end.0);
         let start = PageNum::from(start);
         let end = PageNum::from(end);
         for va in start.0..end.0 {
-            let pte = self.page_table.walk(va.into(), true);
+            let pte = self.page_table.walk(PageNum(va).into(), true);
+            log!(debug "map zero: 0x{:x}", va);
             if !pte.is_valid() {
                 let page = KALLOCATOR.lock().kalloc();
                 pte.set_ppn(page);
                 pte.set_flags(flags | PTEFlag::V);
             }
-            PhysAddr::from(pte.ppn().offset(va % PAGE_SIZE)).write_bytes(0, 1);
+            PhysAddr::from(pte.ppn().offset(0)).write_bytes(0, PAGE_SIZE);
         }
     }
 
