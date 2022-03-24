@@ -56,11 +56,6 @@ impl Pgtbl {
         mut start: PageNum,
         flags: PTEFlag,
     ) {
-        println!(
-            "Mapping pages 0x{:x} - 0x{:x}",
-            pages.start.page(),
-            pages.end.page()
-        );
         let start_num = pages.start;
         let end_num = pages.end;
         (start_num.page()..end_num.page())

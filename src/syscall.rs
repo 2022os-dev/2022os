@@ -28,11 +28,11 @@ fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     if TASKMANAGER.is_locked() {
         panic!("sys_write still locking");
     }
-    TASKMANAGER
-        .lock()
-        .current_pcb()
-        .memory_space
-        .copy_virtual_address(VirtualAddr(buf as usize), len, buffer.as_mut_slice());
+    TASKMANAGER.lock().current_pcb().memory_space.copy_to_user(
+        VirtualAddr(buf as usize),
+        len,
+        buffer.as_mut_slice(),
+    );
     const FD_STDOUT: usize = 1;
     match fd {
         FD_STDOUT => {
