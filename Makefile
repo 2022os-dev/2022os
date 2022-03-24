@@ -5,9 +5,12 @@ endif
 
 qemu: qemu-unleashed-jump
 
-kernel.bin: 
+user_apps:
 	cd userenv && cargo build
-	cp userenv/target/riscv64gc-unknown-none-elf/debug/user_app src/user/user_app
+	mv userenv/target/riscv64gc-unknown-none-elf/debug/loop10 src/user/loop10
+	mv userenv/target/riscv64gc-unknown-none-elf/debug/hello_world src/user/hello_world
+
+kernel.bin: user_apps
 	@cargo build
 	@if which rust-objcopy ; then \
 		rust-objcopy target/riscv64gc-unknown-none-elf/debug/os -O binary kernel.bin; \

@@ -49,7 +49,6 @@ pub fn enable_timer_interupt() {
 
 #[no_mangle]
 pub extern "C" fn trap_handler() -> ! {
-    println!("[kernel] In trap handler");
     // Fixme: Don't skip the reference lifetime checker;
     let cx = unsafe {
         TASKMANAGER

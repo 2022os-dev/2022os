@@ -77,6 +77,11 @@ extern "C" fn kernel_start() {
     virtual_space.map_trampoline();
     TASKMANAGER.lock().load_pcb(virtual_space);
 
+    // Load task #1
+    let mut virtual_space = MemorySpace::from_elf(user::APP[1]);
+    virtual_space.map_trampoline();
+    TASKMANAGER.lock().load_pcb(virtual_space);
+
     trap::enable_timer_interupt();
     schedule_pcb();
 }
