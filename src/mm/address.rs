@@ -5,7 +5,7 @@ pub struct VirtualAddr(pub usize);
 
 impl From<PageNum> for VirtualAddr {
     fn from(page_num: PageNum) -> Self {
-        if page_num.0 >= (1 << PAGE_TABLE_LEVEL * SV39_VPN_BIT - 1) {
+        if page_num.0 > (1 << PAGE_TABLE_LEVEL * SV39_VPN_BIT - 1) {
             return VirtualAddr(
                 (page_num.0 | (usize::max_value()) << (PAGE_TABLE_LEVEL * SV39_VPN_BIT))
                     << PAGE_OFFSET_BIT,
