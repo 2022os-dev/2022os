@@ -4,6 +4,7 @@ use spin::Mutex;
 use crate::mm::MemorySpace;
 use crate::mm::kalloc::*;
 use crate::config::*;
+use crate::mm::address::*;
 use super::TrapFrame;
 
 pub type Pid = usize;
@@ -64,9 +65,14 @@ impl Pcb {
         }
     }
 
+    pub fn kernel_stack(&mut self) -> PageNum {
+        VirtualAddr(self.trapframe().kernel_sp - PAGE_SIZE).floor()
+    }
+
     pub fn exit(&mut self) {
         // Fixme: 记录进程的段地址，直接释放特定的段而不用搜索整个地址空间
         self.memory_space.pgtbl.unmap_pages(0.into()..0x8000.into(), true);
+        KALLOCATOR.lock().kfree(self.kernel_stack());
         self.memory_space.pgtbl.unmap(MemorySpace::trapframe_page(), true);
         self.memory_space.pgtbl.unmap(MemorySpace::trampoline_page(), true);
         self.state = PcbState::Exit;
