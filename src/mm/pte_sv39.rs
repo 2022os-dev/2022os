@@ -10,6 +10,7 @@ use super::PageNum;
 /// use super::address::PageNum;
 use crate::config::*;
 
+#[repr(C)]
 #[derive(Clone, Copy)]
 pub struct PTE(usize);
 

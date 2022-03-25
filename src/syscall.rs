@@ -1,7 +1,6 @@
 use spin::MutexGuard;
 use crate::process::Pcb;
 use crate::mm::*;
-use crate::task::*;
 
 pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;
@@ -12,6 +11,7 @@ pub fn syscall(pcb: &mut MutexGuard<Pcb>, id: usize, param: [usize; 3]) -> isize
         SYS_WRITE => sys_write(pcb, param[0], param[1] as *const u8, param[2]),
         SYS_EXIT => {
             sys_exit(pcb, param[0]);
+            0
         }
         SYS_YIELD => sys_yield(pcb, param[0]),
         _ => {
@@ -43,13 +43,12 @@ fn sys_write(pcb: &mut MutexGuard<Pcb>, fd: usize, buf: *const u8, len: usize) -
     }
 }
 
-fn sys_exit(pcb: &mut MutexGuard<Pcb>, xstate: usize) -> ! {
+fn sys_exit(pcb: &mut MutexGuard<Pcb>, xstate: usize) {
     crate::println!("[kernel] Application exit with code {}", xstate);
     pcb.exit();
-    schedule_pcb();
 }
 
-fn sys_yield(pcb: &mut MutexGuard<Pcb>, _: usize) -> isize {
+fn sys_yield(_: &mut MutexGuard<Pcb>, _: usize) -> isize {
     println!("[kernel] syscall Yield");
     0
 }

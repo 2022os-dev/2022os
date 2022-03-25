@@ -1,5 +1,7 @@
 use crate::config::*;
 use core::ops::{Add, Sub};
+use core::convert::{AsMut, AsRef};
+use core::panic;
 
 /**
  * VirtualAddr: 虚拟地址
@@ -82,6 +84,26 @@ impl PhysAddr {
     }
 }
 
+impl<T> AsRef<T> for PhysAddr {
+    fn as_ref(&self) -> &T {
+        unsafe {
+            <*const T>::from_bits(self.0).as_ref().unwrap_or_else(|| {
+                panic!("PhysAddr as ref invalid: 0x{:x}", self.0)
+            })
+        }
+    }
+}
+
+impl<T> AsMut<T> for PhysAddr {
+    fn as_mut(&mut self) -> &mut T {
+        unsafe {
+            <*mut T>::from_bits(self.0).as_mut().unwrap_or_else(|| {
+                panic!("PhysAddr as mut invalid: 0x{:x}", self.0)
+            })
+        }
+    }
+}
+
 impl From<usize> for PhysAddr {
     fn from(addr: usize) -> Self {
         PhysAddr(addr)
@@ -103,24 +125,6 @@ impl Add<usize> for PhysAddr {
 impl From<PageNum> for PhysAddr {
     fn from(page_num: PageNum) -> Self {
         Self(page_num.offset(0).0)
-    }
-}
-
-use core::convert::AsMut;
-impl<T> AsMut<T> for PhysAddr {
-    fn as_mut(&mut self) -> &mut T {
-        unsafe { (self.0 as *const T as *mut T).as_mut().unwrap() }
-    }
-}
-
-use core::convert::AsRef;
-impl<T> AsRef<T> for PhysAddr {
-    fn as_ref(&self) -> &T {
-        unsafe {
-            (self.0 as *const T).as_ref().unwrap_or_else(|| {
-                panic!("PhysAddr::as_ref error, got 0x{:x}", self.0);
-            })
-        }
     }
 }
 

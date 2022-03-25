@@ -93,7 +93,9 @@ pub extern "C" fn trap_handler() -> ! {
             );
         }
     }
-    pcblock.set_state(PcbState::Ready);
+    if let PcbState::Running = pcblock.state() {
+        pcblock.set_state(PcbState::Ready);
+    }
     drop(pcblock);
     schedule_pcb();
 }

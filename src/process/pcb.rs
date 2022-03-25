@@ -61,6 +61,13 @@ impl Pcb {
 
     pub fn exit(&mut self) {
         // Fixme: Release memory
+        // self.memory_space.pgtbl.unmap_pages(0.into()..MemorySpace::trampoline_page(), true);
         self.state = PcbState::Exit;
+    }
+}
+
+impl Drop for Pcb {
+    fn drop(&mut self) {
+
     }
 }

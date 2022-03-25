@@ -1,10 +1,12 @@
+use core::mem::size_of;
+use core::ops::Range;
+use riscv::register::satp;
+use crate::config::*;
+use crate::asm;
 use super::address::*;
 use super::pte_sv39::{PTEFlag, PTE};
-use crate::asm;
 
 use super::kalloc::KALLOCATOR;
-use crate::config::*;
-use riscv::register::satp;
 
 #[derive(Copy, Clone)]
 pub struct Pgtbl {
@@ -20,12 +22,11 @@ impl Pgtbl {
     pub fn walk(&mut self, va: VirtualAddr, do_alloc: bool) -> &mut PTE {
         let page: PageNum = va.floor();
         let mut ppn = self.root;
-        let mut pte;
+        let mut pte: &mut PTE = ppn.offset_phys(0).as_mut();
+        // 固定解析三级页表，不支持巨页
         for level in (1..PAGE_TABLE_LEVEL).rev() {
-            let pte_ptr = ppn
-                .offset(page.vpn_block_sv39(level) * core::mem::size_of::<usize>())
-                .0 as *mut PTE;
-            pte = unsafe { pte_ptr.as_mut().unwrap() };
+            let mut physpte = ppn.offset_phys(page.vpn_block_sv39(level) * size_of::<usize>());
+            pte = physpte.as_mut();
             if pte.is_valid() {
                 if pte.is_leaf() {
                     panic!("too short page table")
@@ -43,8 +44,7 @@ impl Pgtbl {
             }
         }
         unsafe {
-            (ppn.offset(page.vpn_block_sv39(0) * core::mem::size_of::<usize>())
-                .0 as *mut PTE)
+            (ppn.offset(page.vpn_block_sv39(0) * size_of::<usize>()).0 as *mut PTE)
                 .as_mut()
                 .unwrap()
         }
@@ -52,7 +52,7 @@ impl Pgtbl {
 
     pub fn map_pages(
         &mut self,
-        pages: core::ops::Range<PageNum>,
+        pages: Range<PageNum>,
         mut start: PageNum,
         flags: PTEFlag,
     ) {
@@ -74,6 +74,21 @@ impl Pgtbl {
         }
         pte.set_ppn(page);
         pte.set_flags(flags | PTEFlag::V);
+    }
+
+    pub fn unmap_pages(&mut self, vpages: Range<PageNum>, do_free: bool) {
+        for page in vpages.start.page()..vpages.end.page() {
+            self.unmap(page.into(), do_free);
+        }
+    }
+
+    pub fn unmap(&mut self, vpage: PageNum, do_free: bool) {
+        // Fixme: when unmap an invalid page
+        let pte = self.walk(vpage.offset(0), false);
+        if(do_free) {
+            KALLOCATOR.lock().kfree(pte.ppn());
+        }
+        pte.set_flags(!PTEFlag::V);
     }
 
     pub fn activate(&self) {
