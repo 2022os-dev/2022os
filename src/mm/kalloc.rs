@@ -1,3 +1,6 @@
+/**
+ * Feature: 为分配的页面使用引用计数指针，避免内存泄漏
+ */
 use super::address::*;
 use crate::config::PAGE_SIZE;
 use lazy_static::lazy_static;
