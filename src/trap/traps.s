@@ -51,9 +51,7 @@ __alltraps:
 .macro LOAD_GP reg
     ld x\reg, \reg*8(sp)
 .endm
-
 .globl __restore
-.globl __restore_end
 __restore:
     # a0: *TrapContext in user space(Constant); a1: user space token
     # switch to user space

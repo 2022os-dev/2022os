@@ -1,13 +1,12 @@
-//use super::page_table::PageTable;
-use super::address::*;
-use super::kalloc::KALLOCATOR;
-use super::pgtbl::Pgtbl;
-use super::pte_sv39::PTEFlag;
+use core::ops::Range;
+use xmas_elf::ElfFile;
 use crate::config::*;
 use crate::process::TrapFrame;
 use crate::trap::{__alltraps, __restore};
-use core::ops::Range;
-use xmas_elf::ElfFile;
+use super::address::*;
+use super::KALLOCATOR;
+use super::Pgtbl;
+use super::PTEFlag;
 
 #[derive(Copy, Clone)]
 pub struct MemorySpace {
@@ -96,7 +95,6 @@ impl MemorySpace {
         for page in start.page()..end.page() {
             let page: PageNum = page.into();
             let pte = self.pgtbl.walk(page.offset(0), true);
-            log!(debug "map zero page: 0x{:x}", page.page());
             if !pte.is_valid() {
                 let page = KALLOCATOR.lock().kalloc();
                 pte.set_ppn(page);

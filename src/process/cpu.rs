@@ -1,14 +1,16 @@
-use super::Pid;
-use crate::asm;
 use alloc::vec::Vec;
+use alloc::sync::Arc;
 use lazy_static::lazy_static;
 use riscv::register::mhartid;
 use spin::Mutex;
 
-#[derive(Clone, Copy)]
+use crate::asm;
+use super::Pcb;
+
+#[derive(Clone)]
 pub struct Cpu {
     pub hartid: usize,
-    pub pid: Option<Pid>,
+    pub pcb: Option<Arc<Mutex<Pcb>>>,
 }
 
 lazy_static! {
@@ -18,7 +20,7 @@ lazy_static! {
 pub fn init_hart() {
     HARTS.lock().push(Cpu {
         hartid: hartid(),
-        pid: None,
+        pcb: None,
     });
 }
 
@@ -31,10 +33,11 @@ pub fn current_hart() -> Cpu {
     panic!("uninit hartid {}", mhartid::read());
 }
 
-pub fn current_hart_set_pid(pid: Pid) {
+pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
     for i in HARTS.lock().iter_mut() {
         if i.hartid == hartid() {
-            i.pid = Some(pid);
+            i.pcb = Some(pcb.clone());
+            break;
         }
     }
 }

@@ -6,6 +6,7 @@
 // [global_asm] allow include an assemble file
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
+#![feature(ptr_to_from_bits)]
 
 use crate::process::cpu::init_hart;
 use core::arch::asm;
@@ -38,6 +39,9 @@ extern crate spin;
 #[macro_use]
 extern crate bitflags;
 
+use mm::MemorySpace;
+use task::*;
+
 /// Clear .bss section
 fn clear_bss() {
     (link_syms::sbss as usize..link_syms::ebss as usize)
@@ -47,9 +51,6 @@ fn clear_bss() {
 // [no_mangle] Turn off Rust's name mangling
 #[no_mangle]
 extern "C" fn kernel_start() {
-    use mm::memory_space::MemorySpace;
-    use task::{schedule_pcb, TASKMANAGER};
-
     console::turn_on_log();
     // Use new stack
     unsafe {
@@ -69,14 +70,12 @@ extern "C" fn kernel_start() {
     // Run user space application
     println!("[kernel] Load user address space");
     // Load task #1
-    let mut virtual_space = MemorySpace::from_elf(user::APP[0]);
-    virtual_space.map_trampoline();
-    TASKMANAGER.lock().load_pcb(virtual_space);
+    let virtual_space = MemorySpace::from_elf(user::APP[0]);
+    load_pcb(virtual_space);
 
     // Load task #1
-    let mut virtual_space = MemorySpace::from_elf(user::APP[1]);
-    virtual_space.map_trampoline();
-    TASKMANAGER.lock().load_pcb(virtual_space);
+    let virtual_space = MemorySpace::from_elf(user::APP[1]);
+    load_pcb(virtual_space);
 
     trap::enable_timer_interupt();
     log!(debug "Start schedule");

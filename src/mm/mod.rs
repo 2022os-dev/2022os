@@ -7,12 +7,12 @@ pub mod pte_sv39;
 use crate::{config::PHYS_FRAME_END, link_syms};
 use core::ops::Range;
 
-use kalloc::KALLOCATOR;
-use memory_space::MemorySpace;
+pub use kalloc::KALLOCATOR;
+pub use memory_space::MemorySpace;
 // use page_table::PageTable;
-use address::*;
-use pgtbl::Pgtbl;
-use pte_sv39::PTEFlag;
+pub use address::*;
+pub use pgtbl::Pgtbl;
+pub use pte_sv39::*;
 
 pub fn init() {
     // phys_frame::init();

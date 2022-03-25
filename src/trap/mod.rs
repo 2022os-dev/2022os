@@ -7,10 +7,9 @@ use riscv::register::{
     sie, stval, stvec,
 };
 
-use crate::mm::memory_space::MemorySpace;
+use crate::mm::MemorySpace;
 use crate::process::PcbState;
-use crate::process::TrapFrame;
-use crate::task::{schedule_pcb, TASKMANAGER};
+use crate::task::*;
 
 extern "C" {
     pub fn __alltraps();
@@ -20,16 +19,6 @@ extern "C" {
 }
 extern "C" {
     pub fn trampoline();
-}
-
-pub fn _restore(cx: usize, satp: usize) {
-    println!("[kernel] restore context: 0x{:x}", cx);
-    //unsafe { log!(debug "context: {:?}", *(cx as *const TrapContext)); }
-    unsafe {
-        let (_, restore) = MemorySpace::trampoline_entry();
-        let restore = core::mem::transmute::<*const (), fn(usize, usize)>(restore as *const ());
-        restore(cx, satp);
-    };
 }
 
 global_asm!(include_str!("traps.s"));
@@ -50,24 +39,16 @@ pub fn enable_timer_interupt() {
 #[no_mangle]
 pub extern "C" fn trap_handler() -> ! {
     // Fixme: Don't skip the reference lifetime checker;
-    let cx = unsafe {
-        TASKMANAGER
-            .lock()
-            .current_pcb()
-            .trapframe()
-            .as_mut()
-            .unwrap()
-    };
+    let pcb = current_pcb();
+    let mut pcblock = pcb.lock();
+    let cx = pcblock.trapframe().clone();
+
     let scause = scause::read();
     let stval = stval::read();
     match scause.cause() {
         Trap::Exception(Exception::UserEnvCall) => {
-            cx["sepc"] += 4;
-            let mut p = cx["a0"];
-            if cx["a7"] == crate::syscall::SYS_YIELD {
-                p = cx as *mut TrapFrame as usize;
-            }
-            cx["a0"] = crate::syscall::syscall(cx["a7"], [p, cx["a1"], cx["a2"]]) as usize;
+            pcblock.trapframe()["sepc"] += 4;
+            pcblock.trapframe()["a0"] = crate::syscall::syscall(&mut pcblock, cx["a7"], [cx["a0"], cx["a1"], cx["a2"]]) as usize;
         }
         Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
             panic!(
@@ -98,9 +79,9 @@ pub extern "C" fn trap_handler() -> ! {
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             crate::trap::time::set_next_trigger();
-            crate::syscall::syscall(
+            crate::syscall::syscall(&mut pcblock,
                 crate::syscall::SYS_YIELD,
-                [cx as *const TrapFrame as usize, 0, 0],
+                [0, 0, 0],
             ) as usize;
         }
         _ => {
@@ -112,6 +93,7 @@ pub extern "C" fn trap_handler() -> ! {
             );
         }
     }
-    TASKMANAGER.lock().current_pcb().set_state(PcbState::Ready);
+    pcblock.set_state(PcbState::Ready);
+    drop(pcblock);
     schedule_pcb();
 }
