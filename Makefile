@@ -3,7 +3,14 @@ ifndef SDCARD_SIZE_MB
 	SDCARD_SIZE_KB=8
 endif
 
-qemu: qemu-unleashed-jump
+qemu:
+	@[ -e kernel.bin ] && rm kernel.bin 
+	make kernel.bin
+	qemu-system-riscv64 -M sifive_u -smp 2 \
+		-bios bootloader/fw_jump.bin \
+		-drive file=sdcard.img,if=sd,format=raw \
+		-device loader,file=kernel.bin,addr=0x80200000 \
+		-nographic
 
 user_apps:
 	cd userenv && cargo build
@@ -57,6 +64,17 @@ qemu-unleashed-jump: kernel.bin
 		qemu-system-riscv64 -M sifive_u\
 			-bios bootloader/fw_jump.bin \
 			-drive file=sdcard.img,if=sd,format=raw \
+			-device loader,file=kernel.bin,addr=0x80200000 \
+			-nographic
+gdb: kernel.bin
+		qemu-system-riscv64 -M sifive_u\
+			-bios bootloader/fw_jump.bin \
+			-drive file=sdcard.img,if=sd,format=raw \
+			-kernel target/riscv64gc-unknown-none-elf/debug/os \
+			-S -s -nographic
+qemu-unleashed-rustsbi: kernel.bin
+		qemu-system-riscv64 --machine virt \
+			-bios bootloader/rustsbi-qemu.bin \
 			-device loader,file=kernel.bin,addr=0x80200000 \
 			-nographic
 
