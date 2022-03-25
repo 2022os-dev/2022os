@@ -7,9 +7,9 @@ qemu: qemu-unleashed-jump
 
 user_apps:
 	cd userenv && cargo build
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/loop10 src/user/loop10
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/hello_world src/user/hello_world
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/get_pid src/user/get_pid
+	mv userenv/target/riscv64gc-unknown-none-elf/debug/loop10 src/user/bin/loop10
+	mv userenv/target/riscv64gc-unknown-none-elf/debug/hello_world src/user/bin/hello_world
+	mv userenv/target/riscv64gc-unknown-none-elf/debug/get_pid src/user/bin/get_pid
 
 kernel.bin: user_apps
 	@cargo build
