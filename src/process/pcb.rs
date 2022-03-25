@@ -81,6 +81,7 @@ impl Pcb {
 
     pub fn exit(&mut self) {
         // Fixme: 记录进程的段地址，直接释放特定的段而不用搜索整个地址空间
+        // 这里不用显式管理子进程，因为使用引用计数指针
         self.memory_space.pgtbl.unmap_pages(0.into()..0x8000.into(), true);
         KALLOCATOR.lock().kfree(self.kernel_stack());
         self.memory_space.pgtbl.unmap(MemorySpace::trapframe_page(), true);
