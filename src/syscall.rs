@@ -2,6 +2,7 @@ use spin::MutexGuard;
 use spin::Mutex;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use crate::process::pcb::alloc_pid;
 use crate::process::{Pcb, PcbState};
 use crate::mm::*;
 use crate::task::scheduler_ready_pcb;
@@ -69,8 +70,9 @@ fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
             println!("Valid");
         }
     }
+    let pid = alloc_pid();
     let child = Arc::new(Mutex::new(Pcb {
-        pid: None,
+        pid: pid,
         state: PcbState::Ready,
         memory_space: child_ms,
         children: Vec::new()
@@ -79,6 +81,5 @@ fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
     child.lock().trapframe()["satp"] = child_ms.pgtbl.root.page() | 0x8000000000000000 ;
     pcb.children.push(child.clone());
     scheduler_ready_pcb(child);
-    // Fixme: return pid
-    1
+    pid as isize
 }

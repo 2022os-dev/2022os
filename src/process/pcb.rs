@@ -1,5 +1,8 @@
+use core::sync::atomic::AtomicUsize;
+
 use alloc::vec::Vec;
 use alloc::sync::Arc;
+use core::sync::atomic::Ordering;
 use spin::Mutex;
 use crate::mm::MemorySpace;
 use crate::mm::kalloc::*;
@@ -8,6 +11,14 @@ use crate::mm::address::*;
 use super::TrapFrame;
 
 pub type Pid = usize;
+
+lazy_static!{
+    static ref PIDALLOCATOR: AtomicUsize = AtomicUsize::new(0);
+}
+
+pub fn alloc_pid() -> usize {
+    PIDALLOCATOR.fetch_add(1, Ordering::Relaxed)
+}
 
 #[derive(Clone, Copy)]
 pub enum PcbState {
@@ -18,7 +29,7 @@ pub enum PcbState {
 }
 
 pub struct Pcb {
-    pub pid: Option<Pid>,
+    pub pid: Pid,
     pub state: PcbState,
     pub memory_space: MemorySpace,
     pub children: Vec<Arc<Mutex<Pcb>>>
@@ -28,7 +39,7 @@ impl Pcb {
     // Fixme: Remember to release kernel stack and trapframe when process dead
     pub fn new(memory_space: MemorySpace) -> Self {
         let mut pcb = Self {
-            pid: None,
+            pid: alloc_pid(),
             state: PcbState::Ready,
             memory_space,
             children: Vec::new()
