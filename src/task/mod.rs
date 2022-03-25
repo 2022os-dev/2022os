@@ -6,6 +6,7 @@ use crate::process::cpu::*;
 use crate::process::{restore_trapframe, Pcb, PcbState};
 
 lazy_static! {
+    // 保存所有Ready进程
     pub static ref TASKLIST: Mutex<Vec<Arc<Mutex<Pcb>>>> = Mutex::new(Vec::new());
 }
 
@@ -15,20 +16,20 @@ pub fn load_pcb(memory_space: MemorySpace) {
     TASKLIST.lock().push(pcb);
 }
 
+pub fn push_pcb(pcb: Arc<Mutex<Pcb>>) {
+    TASKLIST.lock().push(pcb);
+}
+
 pub fn schedule_pcb() -> ! {
     // FCFS
-    let mut pcb = None;
-    for i in TASKLIST.lock().iter() {
-        if let PcbState::Ready = i.lock().state() {
-            pcb = Some(i.clone());
-            current_hart_run(i.clone());
-            break;
-        }
-    }
+    let mut tasklist = TASKLIST.lock();
+    let pcb = tasklist.pop();
 
     if let Some(pcb) = pcb {
         pcb.lock().set_state(PcbState::Running);
         let satp = pcb.lock().trapframe()["satp"];        
+        current_hart_run(pcb.clone());
+        drop(tasklist);
         drop(pcb);
         restore_trapframe(satp);
     } else {
@@ -37,7 +38,7 @@ pub fn schedule_pcb() -> ! {
     loop {}
 }
 
-pub fn current_pcb() -> Arc<Mutex<Pcb>> {
+pub fn current_pcb() -> Option<Arc<Mutex<Pcb>>> {
     let cpu = current_hart();
-    cpu.pcb.unwrap()
+    cpu.pcb
 }

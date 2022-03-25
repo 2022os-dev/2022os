@@ -39,7 +39,7 @@ pub fn enable_timer_interupt() {
 #[no_mangle]
 pub extern "C" fn trap_handler() -> ! {
     // Fixme: Don't skip the reference lifetime checker;
-    let pcb = current_pcb();
+    let pcb = current_pcb().unwrap();
     let mut pcblock = pcb.lock();
     let cx = pcblock.trapframe().clone();
 
@@ -95,6 +95,7 @@ pub extern "C" fn trap_handler() -> ! {
     }
     if let PcbState::Running = pcblock.state() {
         pcblock.set_state(PcbState::Ready);
+        push_pcb(current_pcb().unwrap());
     }
     drop(pcblock);
     schedule_pcb();
