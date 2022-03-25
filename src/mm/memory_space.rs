@@ -116,7 +116,7 @@ impl MemorySpace {
         let end = area.end;
         log!(debug "[kernel] Maping data page 0x{:x} - 0x{:x}, {:?}", start.0, end.0, flags);
         for va in start.0..end.0 {
-            let pte = self.pgtbl.walk(va.into(), true);
+            let pte = self.pgtbl.walk(VirtualAddr(va), true);
             if !pte.is_valid() {
                 let page = KALLOCATOR.lock().kalloc();
                 pte.set_ppn(page);

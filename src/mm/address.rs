@@ -48,12 +48,6 @@ impl From<PageNum> for VirtualAddr {
     }
 }
 
-impl From<usize> for VirtualAddr {
-    fn from(addr: usize) -> Self {
-        VirtualAddr(addr)
-    }
-}
-
 /**
  * PhysAddr: 物理地址
  */
@@ -117,11 +111,6 @@ impl<T> AsMut<T> for PhysAddr {
     }
 }
 
-impl From<usize> for PhysAddr {
-    fn from(addr: usize) -> Self {
-        PhysAddr(addr)
-    }
-}
 impl From<VirtualAddr> for PhysAddr {
     fn from(addr: VirtualAddr) -> Self {
         Self(addr.0)

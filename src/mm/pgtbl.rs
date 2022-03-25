@@ -23,6 +23,7 @@ impl Pgtbl {
     pub fn walk(&mut self, va: VirtualAddr, do_alloc: bool) -> &mut PTE {
         let page: PageNum = va.floor();
         let mut ppn = self.root;
+        #[allow(unused_assignments)]
         let mut pte: &mut PTE = ppn.offset_phys(0).as_mut();
         // 固定解析三级页表，不支持巨页
         for level in (1..PAGE_TABLE_LEVEL).rev() {
@@ -87,7 +88,7 @@ impl Pgtbl {
     pub fn unmap(&mut self, vpage: PageNum, do_free: bool) {
         // Fixme: when unmap an invalid page
         let pte = self.walk(vpage.offset(0), false);
-        if(do_free && pte.is_valid()) {
+        if do_free && pte.is_valid() {
             KALLOCATOR.lock().kfree(pte.ppn());
         }
         pte.set_flags(!PTEFlag::V);

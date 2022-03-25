@@ -17,7 +17,7 @@ pub use pte_sv39::*;
 pub fn init() {
     // phys_frame::init();
     let frame_start = kernel_range().end;
-    let frame_end = Into::<PhysAddr>::into(PHYS_FRAME_END).ceil();
+    let frame_end = PhysAddr(PHYS_FRAME_END).ceil();
     KALLOCATOR.lock().init(frame_start..frame_end);
 
     let mut kernel_memory_space = MemorySpace {
@@ -82,13 +82,13 @@ fn set_sstatus_mxr() {
 }
 
 fn kernel_range() -> Range<PageNum> {
-    let start = Into::<VirtualAddr>::into(link_syms::skernel as usize).floor();
-    let end = Into::<VirtualAddr>::into(link_syms::frames as usize).floor();
+    let start = VirtualAddr(link_syms::skernel as usize).floor();
+    let end = VirtualAddr(link_syms::frames as usize).floor();
     start..end
 }
 
 fn frames_range() -> Range<PageNum> {
-    let start = Into::<VirtualAddr>::into(link_syms::frames as usize).floor();
-    let end = Into::<VirtualAddr>::into(PHYS_FRAME_END).ceil();
+    let start = VirtualAddr(link_syms::frames as usize).floor();
+    let end = VirtualAddr(PHYS_FRAME_END).ceil();
     start..end
 }
