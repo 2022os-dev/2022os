@@ -1,5 +1,6 @@
 use crate::config::*;
 use core::ops::{Add, Sub};
+use core::slice;
 use core::convert::{AsMut, AsRef};
 use core::panic;
 
@@ -80,6 +81,18 @@ impl PhysAddr {
     pub fn read(&self, buf: &mut [u8]) {
         unsafe {
             (self.0 as *const u8).copy_to(buf.as_mut_ptr(), buf.len());
+        }
+    }
+
+    pub fn as_slice(&self, len: usize) -> &[u8] {
+        unsafe {
+            slice::from_raw_parts(self.0 as *const u8, len)
+        }
+    }
+
+    pub fn as_slice_mut(&mut self, len: usize) -> &mut [u8] {
+        unsafe {
+            slice::from_raw_parts_mut(self.0 as *mut u8, len)
         }
     }
 }

@@ -40,6 +40,13 @@ impl MemorySpace {
         pa.read(unsafe { core::slice::from_raw_parts_mut(dst.as_mut_ptr(), len) });
     }
 
+    pub fn copy(&self) -> Self {
+        MemorySpace {
+            pgtbl: self.pgtbl.copy(true),
+            entry: self.entry
+        }
+    }
+
     pub fn get_stack(&self) -> usize {
         0x80000000
     }

@@ -62,6 +62,7 @@ const SYSCALL_PRLIMIT: usize = 261;
 const SYSCALL_RENAMEAT2: usize = 276;
 
 // Not standard POSIX sys_call
+const SYSCALL_FORK: usize = 451;
 const SYSCALL_LS: usize = 500;
 const SYSCALL_SHUTDOWN: usize = 501;
 const SYSCALL_CLEAR: usize = 502;
@@ -90,5 +91,13 @@ pub fn syscall_yield() {
     unsafe {
         asm!("ecall",in("x17") SYSCALL_YIELD);
     }
+}
+
+pub fn syscall_fork() -> isize {
+    let mut ret = 0;
+    unsafe {
+        asm!("ecall",inout("x10") ret, in("x17") SYSCALL_FORK);
+    }
+    ret
 }
 

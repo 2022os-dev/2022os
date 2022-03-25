@@ -71,13 +71,13 @@ extern "C" fn kernel_start() {
     println!("[kernel] Load user address space");
     // Load task #1
     let virtual_space = MemorySpace::from_elf(user::APP[0]);
-    load_pcb(virtual_space);
+    scheduler_load_pcb(virtual_space);
 
-    // Load task #1
+    // Load task #2
     let virtual_space = MemorySpace::from_elf(user::APP[1]);
-    load_pcb(virtual_space);
+    scheduler_load_pcb(virtual_space);
 
     trap::enable_timer_interupt();
     log!(debug "Start schedule");
-    schedule_pcb();
+    schedule();
 }

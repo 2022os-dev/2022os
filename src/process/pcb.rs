@@ -1,3 +1,6 @@
+use alloc::vec::Vec;
+use alloc::sync::Arc;
+use spin::Mutex;
 use crate::mm::MemorySpace;
 use crate::mm::kalloc::*;
 use crate::config::*;
@@ -17,6 +20,7 @@ pub struct Pcb {
     pub pid: Option<Pid>,
     pub state: PcbState,
     pub memory_space: MemorySpace,
+    pub children: Vec<Arc<Mutex<Pcb>>>
 }
 
 impl Pcb {
@@ -26,6 +30,7 @@ impl Pcb {
             pid: None,
             state: PcbState::Ready,
             memory_space,
+            children: Vec::new()
         };
         pcb.memory_space.map_trampoline();
         let trapframe = KALLOCATOR.lock().kalloc();

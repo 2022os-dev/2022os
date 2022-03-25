@@ -93,6 +93,37 @@ impl Pgtbl {
         pte.set_flags(!PTEFlag::V);
     }
 
+    fn copy_page(from: PageNum, to: PageNum, alloc_mem: bool) {
+        // Fixme: 不用搜索整个空间，只复制用户空间和trapframe,trampoline
+        for idx in 0..(PAGE_SIZE / size_of::<usize>()) {
+            let mut physpte = from.offset_phys(idx * size_of::<usize>());
+            let pte :&mut PTE = physpte.as_mut();
+            if pte.is_valid() {
+                let mut child_phys = to.offset_phys(idx * size_of::<usize>());
+                let child_pte :&mut PTE = child_phys.as_mut();
+                child_pte.set_flags(pte.flags());
+
+                if pte.is_leaf() {
+                    if alloc_mem {
+                        let child_page = KALLOCATOR.lock().kalloc();
+                        child_pte.set_ppn(child_page);
+                        child_page.offset_phys(0).write(pte.ppn().offset_phys(0).as_slice(PAGE_SIZE));
+                    } else {
+                        child_pte.set_ppn(pte.ppn());
+                    }
+                } else {
+                    child_pte.set_ppn(KALLOCATOR.lock().kalloc());
+                    Self::copy_page(pte.ppn(), child_pte.ppn(), alloc_mem)
+                }
+            }
+        }
+    }
+    pub fn copy(&self, alloc_mem: bool) -> Self {
+        let child = Pgtbl::new();
+        Self::copy_page(self.root, child.root, alloc_mem);
+        child
+    }
+
     pub fn activate(&self) {
         unsafe {
             satp::set(satp::Mode::Sv39, 0, self.root.page());

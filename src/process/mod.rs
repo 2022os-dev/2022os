@@ -18,11 +18,11 @@ pub fn restore_trapframe(satp: usize) -> ! {
     };
     let pte = pgtbl.walk(crate::mm::memory_space::MemorySpace::trampoline_page().offset(0), false);
     if !pte.is_valid() {
-        println!("unmap trampoline");
+        println!("restore_trapframe: unmap trampoline");
     }
     let pte = pgtbl.walk(crate::mm::memory_space::MemorySpace::trapframe_page().offset(0), false);
     if !pte.is_valid() {
-        println!("unmap trapframe");
+        println!("restore_trapframe: unmap trapframe");
     }
     // ###############################################
     restore(tf, satp);
