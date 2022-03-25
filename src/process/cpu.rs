@@ -1,11 +1,11 @@
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use lazy_static::lazy_static;
 use riscv::register::mhartid;
 use spin::Mutex;
 
-use crate::asm;
 use super::Pcb;
+use crate::asm;
 
 #[derive(Clone)]
 pub struct Cpu {

@@ -45,7 +45,8 @@ pub fn init() {
     let range = kernel_range();
     for i in range.start.page()..range.end.page() {
         let pte = kernel_memory_space
-            .pgtbl.walk(Into::<PageNum>::into(i).offset(0), false);
+            .pgtbl
+            .walk(Into::<PageNum>::into(i).offset(0), false);
         if !pte.is_valid() {
             println!("0x{:x} is invalid", i);
         }
@@ -53,7 +54,8 @@ pub fn init() {
     let range = frames_range();
     for i in range.start.page()..range.end.page() {
         let pte = kernel_memory_space
-            .pgtbl.walk(Into::<PageNum>::into(i).offset(0), false);
+            .pgtbl
+            .walk(Into::<PageNum>::into(i).offset(0), false);
         if !pte.is_valid() {
             println!("0x{:x} is invalid", i);
         }

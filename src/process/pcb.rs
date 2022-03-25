@@ -1,18 +1,18 @@
 use core::sync::atomic::AtomicUsize;
 
-use alloc::vec::Vec;
-use alloc::sync::Arc;
-use core::sync::atomic::Ordering;
-use spin::Mutex;
-use crate::mm::MemorySpace;
-use crate::mm::kalloc::*;
+use super::TrapFrame;
 use crate::config::*;
 use crate::mm::address::*;
-use super::TrapFrame;
+use crate::mm::kalloc::*;
+use crate::mm::MemorySpace;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::sync::atomic::Ordering;
+use spin::Mutex;
 
 pub type Pid = usize;
 
-lazy_static!{
+lazy_static! {
     static ref PIDALLOCATOR: AtomicUsize = AtomicUsize::new(0);
 }
 
@@ -31,7 +31,7 @@ pub struct Pcb {
     pub pid: Pid,
     pub state: PcbState,
     pub memory_space: MemorySpace,
-    pub children: Vec<Arc<Mutex<Pcb>>>
+    pub children: Vec<Arc<Mutex<Pcb>>>,
 }
 
 impl Pcb {
@@ -41,7 +41,7 @@ impl Pcb {
             pid: alloc_pid(),
             state: PcbState::Ready,
             memory_space,
-            children: Vec::new()
+            children: Vec::new(),
         };
         pcb.memory_space.map_trampoline();
         let trapframe = KALLOCATOR.lock().kalloc();
@@ -69,9 +69,14 @@ impl Pcb {
     }
 
     pub fn trapframe(&mut self) -> &mut TrapFrame {
-        let pte = self.memory_space.pgtbl.walk(MemorySpace::trapframe_page().offset(0), false);
+        let pte = self
+            .memory_space
+            .pgtbl
+            .walk(MemorySpace::trapframe_page().offset(0), false);
         unsafe {
-            <*mut TrapFrame>::from_bits(pte.ppn().offset(0).0).as_mut().unwrap()
+            <*mut TrapFrame>::from_bits(pte.ppn().offset(0).0)
+                .as_mut()
+                .unwrap()
         }
     }
 
@@ -82,16 +87,20 @@ impl Pcb {
     pub fn exit(&mut self) {
         // Fixme: 记录进程的段地址，直接释放特定的段而不用搜索整个地址空间
         // 这里不用显式管理子进程，因为使用引用计数指针
-        self.memory_space.pgtbl.unmap_pages(0.into()..0x8000.into(), true);
+        self.memory_space
+            .pgtbl
+            .unmap_pages(0.into()..0x8000.into(), true);
         KALLOCATOR.lock().kfree(self.kernel_stack());
-        self.memory_space.pgtbl.unmap(MemorySpace::trapframe_page(), true);
-        self.memory_space.pgtbl.unmap(MemorySpace::trampoline_page(), true);
+        self.memory_space
+            .pgtbl
+            .unmap(MemorySpace::trapframe_page(), true);
+        self.memory_space
+            .pgtbl
+            .unmap(MemorySpace::trampoline_page(), true);
         self.state = PcbState::Exit;
     }
 }
 
 impl Drop for Pcb {
-    fn drop(&mut self) {
-
-    }
+    fn drop(&mut self) {}
 }

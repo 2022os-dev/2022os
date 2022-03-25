@@ -1,12 +1,12 @@
-use core::ops::Range;
-use xmas_elf::ElfFile;
+use super::address::*;
+use super::PTEFlag;
+use super::Pgtbl;
+use super::KALLOCATOR;
 use crate::config::*;
 use crate::process::TrapFrame;
 use crate::trap::{__alltraps, __restore};
-use super::address::*;
-use super::KALLOCATOR;
-use super::Pgtbl;
-use super::PTEFlag;
+use core::ops::Range;
+use xmas_elf::ElfFile;
 
 #[derive(Copy, Clone)]
 pub struct MemorySpace {
@@ -43,7 +43,7 @@ impl MemorySpace {
     pub fn copy(&self) -> Self {
         MemorySpace {
             pgtbl: self.pgtbl.copy(true),
-            entry: self.entry
+            entry: self.entry,
         }
     }
 

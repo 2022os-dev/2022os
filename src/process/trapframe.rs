@@ -1,5 +1,5 @@
-use riscv::register::sstatus;
 use crate::process::MemorySpace;
+use riscv::register::sstatus;
 
 #[repr(C)]
 #[derive(Default, Clone)]

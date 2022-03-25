@@ -1,8 +1,8 @@
 use crate::config::*;
-use core::ops::{Add, Sub};
-use core::slice;
 use core::convert::{AsMut, AsRef};
+use core::ops::{Add, Sub};
 use core::panic;
+use core::slice;
 
 /**
  * VirtualAddr: 虚拟地址
@@ -79,24 +79,20 @@ impl PhysAddr {
     }
 
     pub fn as_slice(&self, len: usize) -> &[u8] {
-        unsafe {
-            slice::from_raw_parts(self.0 as *const u8, len)
-        }
+        unsafe { slice::from_raw_parts(self.0 as *const u8, len) }
     }
 
     pub fn as_slice_mut(&mut self, len: usize) -> &mut [u8] {
-        unsafe {
-            slice::from_raw_parts_mut(self.0 as *mut u8, len)
-        }
+        unsafe { slice::from_raw_parts_mut(self.0 as *mut u8, len) }
     }
 }
 
 impl<T> AsRef<T> for PhysAddr {
     fn as_ref(&self) -> &T {
         unsafe {
-            <*const T>::from_bits(self.0).as_ref().unwrap_or_else(|| {
-                panic!("PhysAddr as ref invalid: 0x{:x}", self.0)
-            })
+            <*const T>::from_bits(self.0)
+                .as_ref()
+                .unwrap_or_else(|| panic!("PhysAddr as ref invalid: 0x{:x}", self.0))
         }
     }
 }
@@ -104,9 +100,9 @@ impl<T> AsRef<T> for PhysAddr {
 impl<T> AsMut<T> for PhysAddr {
     fn as_mut(&mut self) -> &mut T {
         unsafe {
-            <*mut T>::from_bits(self.0).as_mut().unwrap_or_else(|| {
-                panic!("PhysAddr as mut invalid: 0x{:x}", self.0)
-            })
+            <*mut T>::from_bits(self.0)
+                .as_mut()
+                .unwrap_or_else(|| panic!("PhysAddr as mut invalid: 0x{:x}", self.0))
         }
     }
 }

@@ -24,7 +24,6 @@ mod heap;
 mod link_syms;
 mod mm;
 mod process;
-mod syscall;
 mod task;
 mod trap;
 mod user;

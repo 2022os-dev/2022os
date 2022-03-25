@@ -1,3 +1,4 @@
+pub mod syscall;
 pub mod time;
 use core::arch::global_asm;
 
@@ -8,7 +9,6 @@ use riscv::register::{
 };
 
 use crate::mm::MemorySpace;
-use crate::process::PcbState;
 use crate::task::*;
 
 extern "C" {
@@ -39,21 +39,17 @@ pub fn enable_timer_interupt() {
 #[no_mangle]
 pub extern "C" fn trap_handler() -> ! {
     // Fixme: Don't skip the reference lifetime checker;
-    let pcb = current_pcb().unwrap();
-    let mut pcblock = pcb.lock();
-    let cx = pcblock.trapframe().clone();
 
     let scause = scause::read();
     let stval = stval::read();
     match scause.cause() {
         Trap::Exception(Exception::UserEnvCall) => {
-            pcblock.trapframe()["sepc"] += 4;
-            pcblock.trapframe()["a0"] = crate::syscall::syscall(&mut pcblock, cx["a7"], [cx["a0"], cx["a1"], cx["a2"]]) as usize;
+            syscall::syscall_handler();
         }
         Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
             panic!(
                 "store fault sepc: 0x{:x}; stval 0x{:x}",
-                cx["sepc"],
+                current_pcb().unwrap().lock().trapframe()["sepc"],
                 riscv::register::stval::read()
             );
             /*
@@ -66,23 +62,21 @@ pub extern "C" fn trap_handler() -> ! {
         }
         Trap::Exception(Exception::IllegalInstruction) => {
             panic!(
-                " IllegalInstruction in application, core dumped. sepc:0x{:X}",
-                cx.sepc
+                "IllegalInstruction in application, core dumped. sepc:0x{:X}",
+                current_pcb().unwrap().lock().trapframe()["sepc"]
             );
         }
         Trap::Exception(Exception::InstructionPageFault) => {
             panic!(
-                " InstructionPageFault, core dumped, sepc: 0x{:x}, scause:{:?}",
-                cx.sepc,
+                "InstructionPageFault, core dumped, sepc: 0x{:x}, scause:{:?}",
+                current_pcb().unwrap().lock().trapframe()["sepc"],
                 scause.cause()
             );
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             crate::trap::time::set_next_trigger();
-            crate::syscall::syscall(&mut pcblock,
-                crate::syscall::SYS_YIELD,
-                [0, 0, 0],
-            ) as usize;
+            scheduler_ready_pcb(current_pcb().unwrap());
+            schedule();
         }
         _ => {
             panic!(
@@ -93,11 +87,4 @@ pub extern "C" fn trap_handler() -> ! {
             );
         }
     }
-    if let PcbState::Running = pcblock.state() {
-        drop(pcblock);
-        scheduler_ready_pcb(current_pcb().unwrap());
-    } else {
-        drop(pcblock);
-    }
-    schedule();
 }

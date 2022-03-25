@@ -1,9 +1,9 @@
-use spin::Mutex;
-use alloc::sync::Arc;
-use alloc::vec::Vec;
 use crate::mm::MemorySpace;
 use crate::process::cpu::*;
 use crate::process::{restore_trapframe, Pcb, PcbState};
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use spin::Mutex;
 
 lazy_static! {
     // 保存所有Ready进程
@@ -29,7 +29,7 @@ pub fn schedule() -> ! {
 
     if let Some(pcb) = pcb {
         pcb.lock().set_state(PcbState::Running);
-        let satp = pcb.lock().trapframe()["satp"];        
+        let satp = pcb.lock().trapframe()["satp"];
         current_hart_run(pcb.clone());
         drop(tasklist);
         drop(pcb);

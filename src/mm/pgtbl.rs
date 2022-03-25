@@ -1,10 +1,10 @@
+use super::address::*;
+use super::pte_sv39::{PTEFlag, PTE};
+use crate::asm;
+use crate::config::*;
 use core::mem::size_of;
 use core::ops::Range;
 use riscv::register::satp;
-use crate::config::*;
-use crate::asm;
-use super::address::*;
-use super::pte_sv39::{PTEFlag, PTE};
 
 use super::kalloc::KALLOCATOR;
 
@@ -53,12 +53,7 @@ impl Pgtbl {
         }
     }
 
-    pub fn map_pages(
-        &mut self,
-        pages: Range<PageNum>,
-        mut start: PageNum,
-        flags: PTEFlag,
-    ) {
+    pub fn map_pages(&mut self, pages: Range<PageNum>, mut start: PageNum, flags: PTEFlag) {
         let start_num = pages.start;
         let end_num = pages.end;
         (start_num.page()..end_num.page())
@@ -98,17 +93,19 @@ impl Pgtbl {
         // Fixme: 不用搜索整个空间，只复制用户空间和trapframe,trampoline
         for idx in 0..(PAGE_SIZE / size_of::<usize>()) {
             let mut physpte = from.offset_phys(idx * size_of::<usize>());
-            let pte :&mut PTE = physpte.as_mut();
+            let pte: &mut PTE = physpte.as_mut();
             if pte.is_valid() {
                 let mut child_phys = to.offset_phys(idx * size_of::<usize>());
-                let child_pte :&mut PTE = child_phys.as_mut();
+                let child_pte: &mut PTE = child_phys.as_mut();
                 child_pte.set_flags(pte.flags());
 
                 if pte.is_leaf() {
                     if alloc_mem {
                         let child_page = KALLOCATOR.lock().kalloc();
                         child_pte.set_ppn(child_page);
-                        child_page.offset_phys(0).write(pte.ppn().offset_phys(0).as_slice(PAGE_SIZE));
+                        child_page
+                            .offset_phys(0)
+                            .write(pte.ppn().offset_phys(0).as_slice(PAGE_SIZE));
                     } else {
                         child_pte.set_ppn(pte.ppn());
                     }
