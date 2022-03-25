@@ -16,6 +16,7 @@ pub struct Pgtbl {
 impl Pgtbl {
     pub fn new() -> Self {
         let page = KALLOCATOR.lock().kalloc();
+        page.offset_phys(0).write_bytes(0, PAGE_SIZE);
         Self { root: page }
     }
 
@@ -35,11 +36,12 @@ impl Pgtbl {
             } else {
                 if do_alloc {
                     let page = KALLOCATOR.lock().kalloc();
+                    page.offset_phys(0).write_bytes(0, PAGE_SIZE);
                     pte.set_ppn(page);
                     pte.set_flags(PTEFlag::V);
                     ppn = page;
                 } else {
-                    panic!("walk invalid 0x{:x}", va.0)
+                    // panic!("walk invalid 0x{:x}", va.0)
                 }
             }
         }
@@ -85,7 +87,7 @@ impl Pgtbl {
     pub fn unmap(&mut self, vpage: PageNum, do_free: bool) {
         // Fixme: when unmap an invalid page
         let pte = self.walk(vpage.offset(0), false);
-        if(do_free) {
+        if(do_free && pte.is_valid()) {
             KALLOCATOR.lock().kfree(pte.ppn());
         }
         pte.set_flags(!PTEFlag::V);
