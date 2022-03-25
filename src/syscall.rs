@@ -10,6 +10,7 @@ use crate::task::scheduler_ready_pcb;
 pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;
 pub const SYS_YIELD: usize = 124;
+pub const SYSCALL_GETPID: usize = 172;
 pub const SYS_FORK: usize = 451;
 
 pub fn syscall(pcb: &mut MutexGuard<Pcb>, id: usize, param: [usize; 3]) -> isize {
@@ -21,6 +22,7 @@ pub fn syscall(pcb: &mut MutexGuard<Pcb>, id: usize, param: [usize; 3]) -> isize
         },
         SYS_FORK => sys_fork(pcb),
         SYS_YIELD => sys_yield(pcb, param[0]),
+        SYSCALL_GETPID => syscall_getpid(pcb),
         _ => {
             panic!("No Implement syscall: {}", id);
         }
@@ -82,4 +84,8 @@ fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
     pcb.children.push(child.clone());
     scheduler_ready_pcb(child);
     pid as isize
+}
+
+fn syscall_getpid(pcb: &MutexGuard<Pcb>) -> isize {
+    pcb.pid as isize
 }

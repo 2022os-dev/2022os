@@ -101,3 +101,11 @@ pub fn syscall_fork() -> isize {
     ret
 }
 
+pub fn syscall_getpid() -> usize {
+    let mut ret = 0;
+    unsafe {
+        asm!("ecall",inout("x10") ret, in("x17") SYSCALL_GETPID);
+    }
+    ret
+}
+
