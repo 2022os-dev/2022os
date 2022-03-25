@@ -22,7 +22,6 @@ pub fn alloc_pid() -> usize {
 
 #[derive(Clone, Copy)]
 pub enum PcbState {
-    UnInit,
     Ready,
     Running,
     Exit,
