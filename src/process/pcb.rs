@@ -100,6 +100,7 @@ impl Pcb {
 impl Drop for Pcb {
     fn drop(&mut self) {
         println!("Freeing pid {}", self.pid);
+        // TODO: free kernel stack
         self.memory_space
             .pgtbl
             .unmap_pages(0.into()..0x8000.into(), true);
