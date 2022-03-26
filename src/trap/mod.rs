@@ -37,7 +37,7 @@ pub fn enable_timer_interupt() {
 }
 
 #[no_mangle]
-pub extern "C" fn trap_handler() -> ! {
+pub extern "C" fn trap_handler() {
     // Fixme: Don't skip the reference lifetime checker;
 
     let scause = scause::read();
@@ -86,5 +86,5 @@ pub extern "C" fn trap_handler() -> ! {
                 stval
             );
         }
-    }
+    };
 }

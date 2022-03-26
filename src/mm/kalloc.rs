@@ -50,9 +50,7 @@ impl Kallocator {
     }
 
     pub fn kfree(&mut self, page: PageNum) {
-        let next = self.0;
-        let mut pa: PhysAddr = page.into();
-        *pa.as_mut() = next;
+        *(page.offset_phys(0).as_mut()) = self.0;
         self.0 = page.page();
     }
 }

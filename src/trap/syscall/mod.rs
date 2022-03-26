@@ -1,6 +1,7 @@
 #![allow(unused)]
 mod file;
 mod process;
+use alloc::sync::Arc;
 use crate::mm::address::*;
 use crate::process::*;
 use crate::process::pcb::BlockReason;
@@ -74,31 +75,33 @@ const SYSCALL_LS: usize = 500;
 const SYSCALL_SHUTDOWN: usize = 501;
 const SYSCALL_CLEAR: usize = 502;
 
-pub fn syscall_handler() -> ! {
+pub fn syscall_handler() {
+    // println!("syscall_handler: pcb ref {}", Arc::strong_count(&current_pcb().unwrap()));
     let pcb = current_pcb().unwrap();
-    let mut pcb = pcb.lock();
-    let trapframe = pcb.trapframe();
+    let mut pcblock = pcb.lock();
+    let trapframe = pcblock.trapframe();
+    let syscall_id = trapframe["a7"];
 
     // 指向下一条指令
     trapframe["sepc"] += 4;
 
-    match trapframe["a7"] {
+    match syscall_id {
         SYSCALL_WRITE => {
             let fd = trapframe["a0"];
             let buf = VirtualAddr(trapframe["a1"]);
             let len = trapframe["a2"];
-            pcb.trapframe()["a0"] = sys_write(&mut pcb, fd, buf, len) as usize;
+            pcblock.trapframe()["a0"] = sys_write(&mut pcblock, fd, buf, len) as usize;
         }
         SYSCALL_EXIT => {
             let xcode = trapframe["a0"];
             drop(trapframe);
-            sys_exit(&mut pcb, xcode as isize);
+            sys_exit(&mut pcblock, xcode as isize);
         }
         SYSCALL_YIELD => {
             trapframe["a0"] = sys_yield() as usize;
         }
         SYSCALL_GETPID => {
-            pcb.trapframe()["a0"] = sys_getpid(&pcb) as usize;
+            pcblock.trapframe()["a0"] = sys_getpid(&pcblock) as usize;
         }
         SYSCALL_WAIT4 => {
             let pid = trapframe["a0"] as isize;
@@ -106,31 +109,32 @@ pub fn syscall_handler() -> ! {
             let options = trapframe["a2"];
             let rusage = VirtualAddr(trapframe["a3"]);
             drop(trapframe);
-            let ret = sys_wait4(&mut pcb, pid, wstatus, options, rusage);
+            let ret = sys_wait4(&mut pcblock, pid, wstatus, options, rusage);
             if let Ok(child_pid) = ret {
-                pcb.trapframe()["a0"] = child_pid;
+                pcblock.trapframe()["a0"] = child_pid;
             } else {
                 // 回退上一条ecall指给，等待子进程信号
-                pcb.trapframe()["sepc"] -= 4;
-                log!(debug "[sys_handler] block {}", pcb.pid);
+                pcblock.trapframe()["sepc"] -= 4;
+                log!(debug "[sys_handler] block {}", pcblock.pid);
+                drop(pcblock);
                 drop(pcb);
                 scheduler_block_pcb(current_pcb().unwrap(), BlockReason::Wait);
                 schedule();
             }
         }
         SYSCALL_FORK => {
-            pcb.trapframe()["a0"] = sys_fork(&mut pcb) as usize;
+            pcblock.trapframe()["a0"] = sys_fork(&mut pcblock) as usize;
         }
         _ => {
             println!("unsupported syscall {}", trapframe["a7"]);
         }
     }
+    let state = pcblock.state();
+    drop(pcblock);
+    drop(pcb);
     // Note: 这里必须显式调用drop释放进程锁
-    if let PcbState::Running = pcb.state() {
-        drop(pcb);
+    if let PcbState::Running = state {
         scheduler_ready_pcb(current_pcb().unwrap());
-    } else {
-        drop(pcb);
     }
     schedule();
 }

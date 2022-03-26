@@ -99,7 +99,6 @@ impl Pcb {
 
 impl Drop for Pcb {
     fn drop(&mut self) {
-        KALLOCATOR.lock().kfree(VirtualAddr(self.trapframe().kernel_sp).floor() - 1);
         println!("Freeing pid {}", self.pid);
         self.memory_space
             .pgtbl
