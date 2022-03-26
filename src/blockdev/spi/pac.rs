@@ -36,7 +36,6 @@ pub struct RegisterBlock {
   pub sckdiv: SCKDIV,
   #[doc = "0x04: Serial clock mode register"]
   pub sckmode: SCKMODE,
-  // unimplemented below
   #[doc = "0x08: Reserved"]
   _reserved0: RESERVED,
   #[doc = "0x0c: Reserved"]
@@ -166,9 +165,8 @@ mod registers {
     }
   }
 
-  /* TODO: unimplemented below */
   pub struct _CSID;
-  pub type CSID = Reg<u32, _SCKMODE>;
+  pub type CSID = Reg<u32, _CSID>;
   impl Reset for CSID {
     fn reset(&self) {
       self.write(0u32);
@@ -198,18 +196,18 @@ mod registers {
       self.write(0u32);
     }
   }
+  #[derive(Copy, Clone)]
+  pub enum Mode {
+    AUTO,
+    HOLD,
+    OFF,
+  }
   impl CSMODE {
-    #[derive(Copy, Clone)]
-    pub enum Mode {
-      AUTO,
-      HOLD,
-      OFF,
-    }
-    fn switch_csmode(&self, mode: Self::Mode) {
+    fn switch_csmode(&self, mode: Mode) {
       self.write(match mode {
-        Self::Mode::AUTO => 0u32,
-        Self::Mode::HOLD => 2u32,
-        Self::Mode::OFF  => 3u32,
+        Mode::AUTO => 0u32,
+        Mode::HOLD => 2u32,
+        Mode::OFF  => 3u32,
       });
     }
   }
@@ -236,7 +234,7 @@ mod registers {
       let data = self.read();
       (data >> 16) as u8
     }
-    fn set_cssck(&self, value: u8) {
+    fn set_sckcs(&self, value: u8) {
       let mut data = self.read();
       data = (data & 0x0000ffffu32) | ((value as u32) << 16);
       self.write(data);
@@ -274,45 +272,45 @@ mod registers {
 
   pub struct _FMT;
   pub type FMT = Reg<u32, _FMT>;
+  #[derive(Copy, Clone)]
+  pub enum Protocol {
+    Single,
+    Dual,
+    Quad,
+  }
   impl Reset for FMT {
     fn reset(&self) {
       self.write(0x00080000u32);
     }
   }
   impl FMT {
-    #[derive(Copy, Clone)]
-    pub enum Protocol {
-      Single,
-      Dual,
-      Quad,
-    }
-    pub fn switch_protocol(&self, proto: Self::Protocol) {
+    pub fn switch_protocol(&self, proto: Protocol) {
       let p = match proto {
-        Self::Protocol::Single => 0u32,
-        Self::Protocol::Dual   => 1u32,
-        Self::Protocol::Quad   => 3u32,
+        Protocol::Single => 0u32,
+        Protocol::Dual   => 1u32,
+        Protocol::Quad   => 3u32,
       };
       let r = self.read();
-      self.write((r & (~0b011u32)) | p);
+      self.write((r & (!0b011u32)) | p);
     }
 
     pub fn set_endian(&self, msb: bool) {
       let end = if msb { 0u32 } else { 1u32 };
       let r = self.read();
-      self.write((r & (~0b100u32)) | end);
+      self.write((r & (!0b100u32)) | end);
     }
 
     pub fn set_direction(&self, rx: bool) {
       let dir = if rx { 0u32 } else { 1u32 };
       let r = self.read();
-      self.write((r & (~0b1000u32)) | dir);
+      self.write((r & (!0b1000u32)) | dir);
     }
 
     pub fn set_len(&self, frame_size: u8) {
       let fs = (frame_size as u32 & 0x0fu32) << 16;
       let mask = 0xfu32 << 16;
       let r = self.read();
-      self.write((r & ~mask) | fs);
+      self.write((r & !mask) | fs);
     }
   }
 
@@ -353,7 +351,7 @@ mod registers {
   pub struct _FCTRL;
   pub type FCTRL = Reg<u32, _FCTRL>;
   impl Reset for FCTRL {
-    pub fn reset(&self) {
+    fn reset(&self) {
       self.write(1u32);
     }
   }
@@ -376,63 +374,63 @@ mod registers {
       let v = if en { 1u32 } else { 0u32 };
       let mask = 1u32;
       let r = self.read();
-      self.write((r & ~mask) | v);
+      self.write((r & !mask) | v);
     }
 
     fn set_addrlen(&self, len: u8) {
       let v = (len as u32 & 0x7u32) << 1;
       let mask = 0xeu32;
       let r = self.read();
-      self.write((r & ~mask) | v);
+      self.write((r & !mask) | v);
     }
 
     fn set_padcnt(&self, padcnt: u8) {
       let v = (padcnt as u32 & 0xfu32) << 4;
       let mask = 0xf0u32;
       let r = self.read();
-      self.write((r & ~mask) | v);
+      self.write((r & !mask) | v);
     }
 
     fn set_cmdproto(&self, proto: u8) {
       let v = (proto as u32 & 0x3u32) << 8;
       let mask = 0x300u32;
       let r = self.read();
-      self.write((r & ~mask) | v);
+      self.write((r & !mask) | v);
     }
 
     fn set_addrproto(&self, proto: u8) {
       let v = (proto as u32 & 0x3u32) << 10;
       let mask = 0xc00u32;
       let r = self.read();
-      self.write((r & ~mask) | v);
+      self.write((r & !mask) | v);
     }
 
     fn set_dataproto(&self, proto: u8) {
       let v = (proto as u32 & 0x3u32) << 12;
       let mask = 0x3000u32;
       let r = self.read();
-      self.write((r & ~mask) | v);
+      self.write((r & !mask) | v);
     }
 
     fn set_cmdcode(&self, code: u8) {
-      let v = code as u32 << 16;
+      let v = (code as u32) << 16;
       let mask = 0xfu32 << 16;
       let r = self.read();
-      self.write((r & ~mask) | v);
+      self.write((r & !mask) | v);
     }
     
     fn set_padcode(&self, code: u8) {
-      let v = code as u32 << 24;
+      let v = (code as u32) << 24;
       let mask = 0xfu32 << 24;
       let r = self.read();
-      self.write((r & ~mask) | v);
+      self.write((r & !mask) | v);
     }
   }
 
   pub struct _IE;
   pub type IE = Reg<u32, _IE>;
   impl Reset for IE {
-    pub fn reset(&self) {
+    fn reset(&self) {
       self.write(0u32);
     }
   }
@@ -440,13 +438,13 @@ mod registers {
     pub fn set_transmit_watermark(&self, enable: bool) {
       let en = if enable { 1u32 } else { 0u32 };
       let r = self.read();
-      self.write((r & (~1u32)) | en);
+      self.write((r & (!1u32)) | en);
     }
 
     pub fn set_receive_watermark(&self, enable: bool) {
       let en = if enable { 2u32 } else { 0u32 };
       let r = self.read();
-      self.write((r & (~2u32)) | en);
+      self.write((r & (!2u32)) | en);
     }
   }
 
