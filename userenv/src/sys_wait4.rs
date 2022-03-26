@@ -22,6 +22,9 @@ fn main() {
         syscall_write(1, "sys_wait4 waited child exited is ".as_bytes());
         syscall_exit(wstatus as isize);
     } else {
+        for _ in 0..10 {
+            syscall_yield();
+        }
         syscall_write(1, "sys_wait4 child exited with ".as_bytes());
         syscall_exit(121);
     }

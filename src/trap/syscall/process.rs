@@ -26,6 +26,7 @@ pub(super) fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
 }
 
 pub(super) fn sys_getpid(pcb: &MutexGuard<Pcb>) -> isize {
+    log!(debug "[sys_getpid]: {}", pcb.pid);
     pcb.pid as isize
 }
 

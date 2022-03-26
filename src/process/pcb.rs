@@ -92,6 +92,15 @@ impl Pcb {
     pub fn exit(&mut self, xcode: isize) {
         // Fixme: 记录进程的段地址，直接释放特定的段而不用搜索整个地址空间
         // 这里不用显式管理子进程，因为使用引用计数指针
+        self.state = PcbState::Exit(xcode);
+        scheduler_signal(self.parent, BlockReason::Wait);
+    }
+}
+
+impl Drop for Pcb {
+    fn drop(&mut self) {
+        KALLOCATOR.lock().kfree(VirtualAddr(self.trapframe().kernel_sp).floor() - 1);
+        println!("Freeing pid {}", self.pid);
         self.memory_space
             .pgtbl
             .unmap_pages(0.into()..0x8000.into(), true);
@@ -102,13 +111,7 @@ impl Pcb {
         self.memory_space
             .pgtbl
             .unmap(MemorySpace::trampoline_page(), true);
-        self.state = PcbState::Exit(xcode);
-        scheduler_signal(self.parent, BlockReason::Wait);
     }
-}
-
-impl Drop for Pcb {
-    fn drop(&mut self) {}
 }
 
 pub fn pcb_block_slot(pcb: Arc<Mutex<Pcb>>, reason: BlockReason) {

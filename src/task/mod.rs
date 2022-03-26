@@ -21,9 +21,8 @@ pub fn scheduler_load_pcb(memory_space: MemorySpace) -> Arc<Mutex<Pcb>> {
 }
 
 pub fn scheduler_block_pcb(pcb: Arc<Mutex<Pcb>>, reason: BlockReason) {
-    log!(debug "[pid: {}] block {:?}", pcb.lock().pid, reason);
     pcb.lock().set_state(PcbState::Block(reason));
-    READYTASKS.lock().insert(0, pcb);
+    BLOCKTASKS.lock().insert(0, pcb);
 }
 
 pub fn scheduler_ready_pcb(pcb: Arc<Mutex<Pcb>>) {

@@ -112,6 +112,7 @@ pub fn syscall_handler() -> ! {
             } else {
                 // 回退上一条ecall指给，等待子进程信号
                 pcb.trapframe()["sepc"] -= 4;
+                log!(debug "[sys_handler] block {}", pcb.pid);
                 drop(pcb);
                 scheduler_block_pcb(current_pcb().unwrap(), BlockReason::Wait);
                 schedule();
