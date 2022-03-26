@@ -2,12 +2,10 @@ pub mod cpu;
 pub mod pcb;
 mod trapframe;
 
-use crate::mm::memory_space::MemorySpace;
-
 pub use pcb::{Pcb, PcbState, Pid};
 pub use trapframe::TrapFrame;
+use crate::mm::*;
 
-#[no_mangle]
 pub fn restore_trapframe(satp: usize) -> ! {
     let (_, _restore) = crate::mm::memory_space::MemorySpace::trampoline_entry();
     let restore = unsafe { core::mem::transmute::<usize, fn(usize, usize) -> !>(_restore) };
@@ -17,7 +15,7 @@ pub fn restore_trapframe(satp: usize) -> ! {
         root: (satp ^ 0x8000000000000000).into(),
     };
     let pte = pgtbl.walk(
-        crate::mm::memory_space::MemorySpace::trampoline_page().offset(0),
+        VirtualAddr(_restore),
         false,
     );
     if !pte.is_valid() {

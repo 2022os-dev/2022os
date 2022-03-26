@@ -96,7 +96,7 @@ pub fn syscall_yield() {
 pub fn syscall_fork() -> isize {
     let mut ret = 0;
     unsafe {
-        asm!("ecall",inout("x10") ret, in("x17") SYSCALL_FORK);
+        asm!("ecall", out("x10") ret, in("x17") SYSCALL_FORK);
     }
     ret
 }
@@ -109,3 +109,15 @@ pub fn syscall_getpid() -> usize {
     ret
 }
 
+pub fn syscall_wait4(mut pid: isize, wstatus: &mut isize, options: usize, rusage: &mut usize) -> isize {
+    let mut pid = pid as usize;
+    unsafe {
+        asm!("ecall", inout("x10") pid, 
+            in("x11") wstatus as *const _ as usize,
+            in("x12") options, 
+            in("x13") rusage as *const _ as usize, 
+            in("x17") SYSCALL_WAIT4
+        )
+    }
+    pid as isize
+}

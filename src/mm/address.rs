@@ -120,6 +120,12 @@ impl Add<usize> for PhysAddr {
     }
 }
 
+impl<T: Sized> From<&T> for PhysAddr {
+    fn from(reference: &T) -> Self {
+        PhysAddr(<*const T>::to_bits(reference))
+    }
+}
+
 impl From<PageNum> for PhysAddr {
     fn from(page_num: PageNum) -> Self {
         Self(page_num.offset(0).0)

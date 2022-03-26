@@ -30,14 +30,20 @@ impl MemorySpace {
         (alltraps.0, restore.0)
     }
 
-    // FIXME: len should be indicated by dst
-    pub fn copy_to_user(&mut self, src: VirtualAddr, len: usize, dst: &mut [u8]) {
-        let pa = self
-            .pgtbl
-            .walk(src, false)
-            .ppn()
+    pub fn copy_from_user(&mut self, src: VirtualAddr,  dst: &mut [u8]) {
+        let pa = self.pgtbl.walk(src, false).ppn()
             .offset_phys(src.page_offset());
-        pa.read(unsafe { core::slice::from_raw_parts_mut(dst.as_mut_ptr(), len) });
+        pa.read(unsafe { core::slice::from_raw_parts_mut(dst.as_mut_ptr(), dst.len()) });
+    }
+
+    pub fn copy_to_user(&mut self, dst: VirtualAddr, src: &[u8]) {
+        let mut dst = self
+            .pgtbl
+            .walk(dst, false)
+            .ppn()
+            .offset_phys(dst.page_offset());
+        let dst = dst.as_slice_mut(src.len());
+        dst.copy_from_slice(src);
     }
 
     pub fn copy(&self) -> Self {

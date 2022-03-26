@@ -5,12 +5,20 @@ use riscv::register::mhartid;
 use spin::Mutex;
 
 use super::Pcb;
+use crate::mm::{PageNum, KALLOCATOR};
 use crate::asm;
+use crate::config::PAGE_SIZE;
 
 #[derive(Clone)]
 pub struct Cpu {
     pub hartid: usize,
     pub pcb: Option<Arc<Mutex<Pcb>>>,
+}
+
+impl Cpu {
+    pub fn kernel_sp(&self) -> usize {
+        self.kernel_stack.offset(PAGE_SIZE).0
+    }
 }
 
 lazy_static! {

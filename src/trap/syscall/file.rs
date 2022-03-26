@@ -11,7 +11,7 @@ pub(super) fn sys_write(
 ) -> isize {
     let mut buffer = alloc::vec![0_u8; len];
     pcb.memory_space
-        .copy_to_user(buf, len, buffer.as_mut_slice());
+        .copy_from_user(buf, buffer.as_mut_slice());
     const FD_STDOUT: usize = 1;
     match fd {
         FD_STDOUT => {

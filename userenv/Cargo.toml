@@ -18,3 +18,7 @@ path = "src/loop10.rs"
 [[bin]]
 name = "get_pid"
 path = "src/get_pid.rs"
+
+[[bin]]
+name = "sys_wait4"
+path = "src/sys_wait4.rs"

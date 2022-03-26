@@ -1,7 +1,9 @@
+#![allow(unused)]
 mod file;
 mod process;
 use crate::mm::address::*;
 use crate::process::*;
+use crate::process::pcb::BlockReason;
 use crate::task::*;
 use file::*;
 use process::*;
@@ -90,13 +92,30 @@ pub fn syscall_handler() -> ! {
         SYSCALL_EXIT => {
             let xcode = trapframe["a0"];
             drop(trapframe);
-            sys_exit(&mut pcb, xcode);
+            sys_exit(&mut pcb, xcode as isize);
         }
         SYSCALL_YIELD => {
             trapframe["a0"] = sys_yield() as usize;
         }
         SYSCALL_GETPID => {
             pcb.trapframe()["a0"] = sys_getpid(&pcb) as usize;
+        }
+        SYSCALL_WAIT4 => {
+            let pid = trapframe["a0"] as isize;
+            let wstatus = VirtualAddr(trapframe["a1"]);
+            let options = trapframe["a2"];
+            let rusage = VirtualAddr(trapframe["a3"]);
+            drop(trapframe);
+            let ret = sys_wait4(&mut pcb, pid, wstatus, options, rusage);
+            if let Ok(child_pid) = ret {
+                pcb.trapframe()["a0"] = child_pid;
+            } else {
+                // 回退上一条ecall指给，等待子进程信号
+                pcb.trapframe()["sepc"] -= 4;
+                drop(pcb);
+                scheduler_block_pcb(current_pcb().unwrap(), BlockReason::Wait);
+                schedule();
+            }
         }
         SYSCALL_FORK => {
             pcb.trapframe()["a0"] = sys_fork(&mut pcb) as usize;
@@ -105,9 +124,12 @@ pub fn syscall_handler() -> ! {
             println!("unsupported syscall {}", trapframe["a7"]);
         }
     }
+    // Note: 这里必须显式调用drop释放进程锁
     if let PcbState::Running = pcb.state() {
         drop(pcb);
         scheduler_ready_pcb(current_pcb().unwrap());
+    } else {
+        drop(pcb);
     }
     schedule();
 }
