@@ -61,7 +61,6 @@ pub fn schedule() -> ! {
         pcb.lock().set_state(PcbState::Running);
         let satp = pcb.lock().trapframe()["satp"];
         current_hart_run(pcb.clone());
-        log!(debug "schedule pid {}", pcb.lock().pid);
         drop(tasklist);
         drop(pcb);
         restore_trapframe(satp);

@@ -6,12 +6,14 @@ use spin::Mutex;
 
 use super::Pcb;
 use crate::mm::{PageNum, KALLOCATOR};
+use crate::config::PAGE_SIZE;
 use crate::asm;
 
 #[derive(Clone)]
 pub struct Cpu {
     pub hartid: usize,
     pub pcb: Option<Arc<Mutex<Pcb>>>,
+    pub kernel_stack: PageNum,
 }
 
 lazy_static! {
@@ -19,9 +21,12 @@ lazy_static! {
 }
 
 pub fn init_hart() {
+    // Fixme: 这样能为分配两页的栈
+    KALLOCATOR.lock().kalloc();
     HARTS.lock().push(Cpu {
         hartid: hartid(),
         pcb: None,
+        kernel_stack: KALLOCATOR.lock().kalloc()
     });
 }
 
@@ -37,6 +42,7 @@ pub fn current_hart() -> Cpu {
 pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
     for i in HARTS.lock().iter_mut() {
         if i.hartid == hartid() {
+            pcb.lock().trapframe().kernel_sp = i.kernel_stack.offset(PAGE_SIZE).0;
             i.pcb = Some(pcb.clone());
             break;
         }
