@@ -1,7 +1,5 @@
 use super::TrapFrame;
-use super::cpu::current_hart;
 use crate::config::*;
-use crate::mm::address::*;
 use crate::mm::kalloc::*;
 use crate::mm::MemorySpace;
 use crate::task::scheduler_ready_pcb;
@@ -58,9 +56,6 @@ impl Pcb {
         pcb.memory_space.map_trapframe(trapframe);
         pcb.trapframe().from_memory_space(memory_space);
 
-        let stack = KALLOCATOR.lock().kalloc();
-        // Assume that all process's stack in a page
-        pcb.trapframe().kernel_sp = stack.offset(PAGE_SIZE).0;       // Fixme: every process may has a independent page table
         // Fixme: every process may has a independent page table
         pcb.trapframe().kernel_satp = riscv::register::satp::read().bits();
         // Map trapframe
@@ -100,7 +95,6 @@ impl Pcb {
 impl Drop for Pcb {
     fn drop(&mut self) {
         println!("Freeing pid {}", self.pid);
-        // TODO: free kernel stack
         self.memory_space
             .pgtbl
             .unmap_pages(0.into()..0x8000.into(), true);
