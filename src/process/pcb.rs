@@ -105,6 +105,7 @@ impl Drop for Pcb {
         self.memory_space
             .pgtbl
             .unmap(MemorySpace::trampoline_page(), true);
+        // Fixme: free page table
     }
 }
 
