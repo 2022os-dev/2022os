@@ -18,7 +18,6 @@ mod sbi;
 #[macro_use]
 mod console;
 
-mod batch;
 mod entry;
 mod heap;
 mod link_syms;
@@ -51,11 +50,6 @@ fn clear_bss() {
 #[no_mangle]
 extern "C" fn kernel_start() {
     console::turn_on_log();
-    // Use new stack
-    unsafe {
-        asm!("mv sp, {0}",
-         in(reg) batch::KERNEL_STACK.get_top());
-    }
     clear_bss();
     mm::init();
     println!("[kernel] Clear bss");
