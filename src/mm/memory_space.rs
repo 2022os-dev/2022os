@@ -52,9 +52,14 @@ impl MemorySpace {
         }
     }
 
-    pub fn get_stack(&self) -> usize {
-        0x80000000
+    pub fn get_stack_sp() -> VirtualAddr{
+        VirtualAddr(HIGH_MEMORY_SPACE)
     }
+
+    pub fn get_stack_start() -> VirtualAddr {
+        VirtualAddr(HIGH_MEMORY_SPACE - USER_STACK_SIZE)
+    }
+
     pub fn from_elf(data: &[u8]) -> Self {
         let mut space = Self {
             pgtbl: Pgtbl::new(),
@@ -93,7 +98,7 @@ impl MemorySpace {
 
     fn map_user_stack(&mut self) {
         self.map_area_zero(
-            VirtualAddr(0x80000000 - USER_STACK_SIZE)..VirtualAddr(0x80000000),
+            Self::get_stack_start()..Self::get_stack_sp(),
             PTEFlag::U | PTEFlag::R | PTEFlag::W,
         );
     }

@@ -1,4 +1,4 @@
-use crate::{process::MemorySpace, mm::{memory_space, kalloc::KALLOCATOR}};
+use crate::{process::MemorySpace};
 use riscv::register::sstatus;
 
 #[repr(C)]
@@ -109,7 +109,7 @@ impl core::ops::IndexMut<&str> for TrapFrame {
 
 impl TrapFrame {
     pub fn init(&mut self, memory_space: &MemorySpace) {
-        self["sp"] = memory_space.get_stack();
+        self["sp"] = MemorySpace::get_stack_sp().0;
         // Fixme: set mode
         self["satp"] = memory_space.pgtbl.get_satp();
         self["sepc"] = memory_space.entry();

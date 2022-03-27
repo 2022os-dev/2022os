@@ -5,6 +5,7 @@ pub const PAGE_TABLE_LEVEL: usize = 3;
 
 pub const USER_STACK_SIZE: usize = 8192;
 
+pub const HIGH_MEMORY_SPACE: usize = 0x80000000;
 pub const PHYS_FRAME_END: usize = 0x80800000;
 
 pub const PTE_FLAG_SIZE: usize = 8;

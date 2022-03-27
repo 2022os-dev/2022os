@@ -99,7 +99,7 @@ impl Drop for Pcb {
         println!("Freeing pid {}", self.pid);
         self.memory_space
             .pgtbl
-            .unmap_pages(0.into()..0x8000.into(), true);
+            .unmap_pages(0.into()..MemorySpace::get_stack_start().floor(), true);
 
         self.memory_space
             .pgtbl
@@ -107,9 +107,6 @@ impl Drop for Pcb {
         self.memory_space
             .pgtbl
             .unmap(MemorySpace::trampoline_page(), true);
-        self.memory_space
-            .pgtbl
-            .unmap_pages(VirtualAddr(0x80000000 - USER_STACK_SIZE).floor()..0x80000.into(), true);
         //self.memory_space.pgtbl.unmap_page_table();
     }
 }
