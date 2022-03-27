@@ -18,8 +18,10 @@ pub(super) fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
         memory_space: child_ms,
         children: Vec::new(),
     }));
-    child.lock().trapframe()["a0"] = 0;
-    child.lock().trapframe()["satp"] = child_ms.pgtbl.root.page() | 0x8000000000000000;
+    let mut childlock = child.lock();
+    childlock.trapframe()["a0"] = 0;
+    childlock.trapframe()["satp"] = childlock.memory_space.pgtbl.get_satp();
+    drop(childlock);
     pcb.children.push(child.clone());
     scheduler_ready_pcb(child);
     pid as isize

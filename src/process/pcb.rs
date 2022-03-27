@@ -44,6 +44,10 @@ pub struct Pcb {
 
 impl Pcb {
     pub fn new(memory_space: MemorySpace, parent: Pid) -> Self {
+        let mut trapframe = KALLOCATOR.lock().kalloc().offset_phys(0);
+        let trapframe: &mut TrapFrame = trapframe.as_mut();
+        trapframe.init(&memory_space);
+
         let mut pcb = Self {
             parent,
             pid: alloc_pid(),
@@ -52,14 +56,11 @@ impl Pcb {
             children: Vec::new(),
         };
         pcb.memory_space.map_trampoline();
-        let trapframe = KALLOCATOR.lock().kalloc();
-        let trapframe = <*const TrapFrame>::from_bits(trapframe.offset_phys(0).0);
         pcb.memory_space.map_trapframe(trapframe);
-        pcb.trapframe().from_memory_space(memory_space);
 
         // Fixme: every process may has a independent page table
         pcb.trapframe().kernel_satp = riscv::register::satp::read().bits();
-        // Map trapframe
+        // pcb.trapframe().kernel_satp = pcb.memory_space.pgtbl.get_satp();
         pcb
     }
 
@@ -109,7 +110,7 @@ impl Drop for Pcb {
         self.memory_space
             .pgtbl
             .unmap_pages(VirtualAddr(0x80000000 - USER_STACK_SIZE).floor()..0x80000.into(), true);
-        self.memory_space.pgtbl.unmap_page_table();
+        //self.memory_space.pgtbl.unmap_page_table();
     }
 }
 

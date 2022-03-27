@@ -8,7 +8,6 @@ use crate::trap::{__alltraps, __restore};
 use core::ops::Range;
 use xmas_elf::ElfFile;
 
-#[derive(Copy, Clone)]
 pub struct MemorySpace {
     pub pgtbl: Pgtbl,
     pub entry: usize,

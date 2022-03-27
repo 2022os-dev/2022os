@@ -137,7 +137,7 @@ impl From<PageNum> for PhysAddr {
  */
 
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-pub struct PageNum(usize);
+pub struct PageNum(pub usize);
 
 impl From<usize> for PageNum {
     fn from(u: usize) -> Self {

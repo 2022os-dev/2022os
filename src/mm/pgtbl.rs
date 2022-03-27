@@ -8,7 +8,6 @@ use riscv::register::satp;
 
 use super::kalloc::KALLOCATOR;
 
-#[derive(Copy, Clone)]
 pub struct Pgtbl {
     pub root: PageNum,
 }
@@ -149,5 +148,12 @@ impl Pgtbl {
 
     pub fn get_satp(&self) -> usize {
         self.root.page() | 0x8000000000000000
+    }
+}
+
+impl Drop for Pgtbl {
+    fn drop(&mut self) {
+        log!(debug "freeing page table");
+        self.unmap_page_table();
     }
 }

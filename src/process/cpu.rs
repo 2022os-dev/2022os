@@ -5,6 +5,7 @@ use riscv::register::mhartid;
 use spin::Mutex;
 
 use super::Pcb;
+use crate::mm::address::PhysAddr;
 use crate::mm::{PageNum, KALLOCATOR};
 use crate::config::PAGE_SIZE;
 use crate::asm;
@@ -13,7 +14,7 @@ use crate::asm;
 pub struct Cpu {
     pub hartid: usize,
     pub pcb: Option<Arc<Mutex<Pcb>>>,
-    pub kernel_stack: PageNum,
+    pub kernel_sp: usize,
 }
 
 lazy_static! {
@@ -21,12 +22,12 @@ lazy_static! {
 }
 
 pub fn init_hart() {
-    // Fixme: 这样能为分配两页的栈
-    KALLOCATOR.lock().kalloc();
+    let sp: usize;
+    unsafe { asm!("mv a0, sp", out("a0") sp) };
     HARTS.lock().push(Cpu {
         hartid: hartid(),
         pcb: None,
-        kernel_stack: KALLOCATOR.lock().kalloc()
+        kernel_sp: PhysAddr(sp).ceil().0
     });
 }
 
@@ -51,7 +52,7 @@ pub fn current_hart_leak() {
 pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
     for i in HARTS.lock().iter_mut() {
         if i.hartid == hartid() {
-            pcb.lock().trapframe().kernel_sp = i.kernel_stack.offset(PAGE_SIZE).0;
+            pcb.lock().trapframe().kernel_sp = i.kernel_sp;
             i.pcb = Some(pcb.clone());
             break;
         }

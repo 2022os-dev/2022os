@@ -1,8 +1,7 @@
-use crate::process::MemorySpace;
+use crate::{process::MemorySpace, mm::{memory_space, kalloc::KALLOCATOR}};
 use riscv::register::sstatus;
 
 #[repr(C)]
-#[derive(Default, Clone)]
 pub struct TrapFrame {
     pub general_reg: [usize; 32],
 
@@ -109,7 +108,7 @@ impl core::ops::IndexMut<&str> for TrapFrame {
 }
 
 impl TrapFrame {
-    pub fn from_memory_space(&mut self, memory_space: MemorySpace) {
+    pub fn init(&mut self, memory_space: &MemorySpace) {
         self["sp"] = memory_space.get_stack();
         // Fixme: set mode
         self["satp"] = memory_space.pgtbl.get_satp();
