@@ -72,7 +72,7 @@ extern "C" fn kernel_start() {
         println!("[kernel] Load user address space");
 
         // Load tasks
-        for i in *user::APP {
+        for i in user::APP.iter() {
             let virtual_space = MemorySpace::from_elf(i);
             scheduler_load_pcb(virtual_space);
         }
