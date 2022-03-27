@@ -16,7 +16,6 @@ pub struct Pgtbl {
 impl Pgtbl {
     pub fn new() -> Self {
         let page = KALLOCATOR.lock().kalloc();
-        page.offset_phys(0).write_bytes(0, PAGE_SIZE);
         Self { root: page }
     }
 
@@ -74,6 +73,25 @@ impl Pgtbl {
         pte.set_flags(flags | PTEFlag::V);
     }
 
+    fn _unmap_page_table(ppn: PageNum, addr: usize) {
+        for idx in 0..(PAGE_SIZE / size_of::<usize>()) {
+            let mut physpte = ppn.offset_phys(idx * size_of::<usize>());
+            let pte: &mut PTE = physpte.as_mut();
+            if pte.is_valid() {
+                if pte.is_leaf() {
+                    log!(debug "unmapping leaf 0x{:x}", ((addr << SV39_VPN_BIT) + idx) << PAGE_OFFSET_BIT);
+                } else {
+                    Self::_unmap_page_table(pte.ppn(), (addr << SV39_VPN_BIT) + idx);
+                }
+            }
+        }
+        KALLOCATOR.lock().kfree(ppn);
+    }
+
+    pub fn unmap_page_table(&mut self) {
+        Self::_unmap_page_table(self.root, 0);
+    }
+
     pub fn unmap_pages(&mut self, vpages: Range<PageNum>, do_free: bool) {
         for page in vpages.start.page()..vpages.end.page() {
             self.unmap(page.into(), do_free);
@@ -86,7 +104,7 @@ impl Pgtbl {
         if do_free && pte.is_valid() {
             KALLOCATOR.lock().kfree(pte.ppn());
         }
-        pte.set_flags(!PTEFlag::V);
+        pte.set_flags(PTEFlag::empty());
     }
 
     fn copy_page(from: PageNum, to: PageNum, alloc_mem: bool) {
