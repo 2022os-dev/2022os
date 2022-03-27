@@ -20,6 +20,10 @@ pub fn sbi_call(which: usize, args: [usize; 3]) -> usize {
     ret
 }
 
+pub fn sbi_send_ipi(mask: &usize) {
+    sbi_call(SEND_IPI, [mask as *const _ as usize, 0, 0]);
+}
+
 pub fn shutdown() -> usize {
     sbi_call(SHUTDOWN, [0, 0, 0])
 }

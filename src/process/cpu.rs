@@ -52,7 +52,7 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
 pub fn hartid() -> usize {
     let ret: usize;
     unsafe {
-        asm!("mv {}, tp", out(reg) ret);
+        asm!("mv a0, tp", out("a0") ret);
     }
     ret
 }
