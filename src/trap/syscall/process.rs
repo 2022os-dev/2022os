@@ -19,6 +19,7 @@ pub(super) fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
         children: Vec::new(),
     }));
     let mut childlock = child.lock();
+    log!(debug "[sys_fork] pid {} fork {}", pcb.pid, childlock.pid);
     childlock.trapframe()["a0"] = 0;
     childlock.trapframe()["satp"] = childlock.memory_space.pgtbl.get_satp();
     drop(childlock);
@@ -48,6 +49,9 @@ pub(super) fn sys_wait4(pcb: &mut MutexGuard<Pcb>, pid: isize, wstatus: VirtualA
     // 如果找不到退出的子进程，返回Err
     let mut xcode = 0;
     let res = pcb.children.iter().enumerate().find(|(_idx, child)| {
+        if child.is_locked() {
+            log!(debug "wait4 child locked");
+        }
         let child = child.lock();
         if pid == -1 || child.pid == pid.abs() as usize {
             if let PcbState::Exit(_xcode) = child.state() {

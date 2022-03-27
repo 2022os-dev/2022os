@@ -17,9 +17,9 @@ pub struct MemorySpace {
 }
 
 impl MemorySpace {
-    pub fn new() -> Self {
+    pub fn new(pgtbl: Option<Pgtbl>) -> Self {
         Self {
-            pgtbl: Pgtbl::new(),
+            pgtbl: pgtbl.unwrap_or(Pgtbl::new()),
             entry: 0,
             segments: Vec::new()
         }

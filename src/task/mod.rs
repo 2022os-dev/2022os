@@ -5,6 +5,7 @@ use crate::process::{restore_trapframe, Pcb, PcbState};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use spin::Mutex;
+use core::assert;
 
 lazy_static! {
     // 保存所有Ready进程
@@ -54,28 +55,31 @@ pub fn scheduler_signal(pid: Pid, reason: BlockReason) {
 
 pub fn schedule() -> ! {
     // FCFS
+    assert!(current_pcb().is_none());
     loop {
         let mut tasklist = READYTASKS.lock();
         let pcb = tasklist.pop();
+        drop(tasklist);
 
         if let Some(pcb) = pcb {
+            if pcb.is_locked() {
+                panic!("pcb locked");
+            }
             pcb.lock().set_state(PcbState::Running);
             let satp = pcb.lock().trapframe()["satp"];
+            log!(debug "hart {} schedule {}", hartid(), pcb.lock().pid);
             current_hart_run(pcb.clone());
-            drop(tasklist);
             drop(pcb);
             restore_trapframe(satp);
         } else {
-            drop(tasklist);
             drop(pcb);
-            current_hart_leak();
-            log!(debug "No ready pcb");
-            loop{}
+            log!(debug "hart {} No ready pcb", hartid());
+            loop {}
         }
     }
 }
 
 pub fn current_pcb() -> Option<Arc<Mutex<Pcb>>> {
     let cpu = current_hart();
-    cpu.pcb
+    cpu.pcb.clone()
 }

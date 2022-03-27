@@ -10,12 +10,9 @@ pub struct Stdout;
 
 impl Write for Stdout {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        // 暂时锁住输出，防止多线程输出混乱
-        let lock = STDOUTLOCK.lock();
         for c in s.chars() {
             sbi::sbi_legacy_call(sbi::PUT_CHAR, [c as usize, 0, 0]);
         }
-        drop(lock);
         Ok(())
     }
 }
@@ -26,7 +23,10 @@ impl Stdout {
 }
 
 pub fn print(args: fmt::Arguments) {
+    // 暂时锁住输出，防止多线程输出混乱
+    let lock = STDOUTLOCK.lock();
     Stdout.write_fmt(args).unwrap();
+    drop(lock);
 }
 
 pub fn turn_off_log() {

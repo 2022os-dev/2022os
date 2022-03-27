@@ -8,7 +8,7 @@ use riscv::register::{
     sie, stval, stvec,
 };
 
-use crate::mm::MemorySpace;
+use crate::{mm::MemorySpace, process::cpu::current_hart};
 use crate::task::*;
 
 extern "C" {
@@ -75,7 +75,7 @@ pub extern "C" fn trap_handler() {
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             crate::trap::time::set_next_trigger();
-            scheduler_ready_pcb(current_pcb().unwrap());
+            scheduler_ready_pcb(current_hart().pcb.take().unwrap());
             schedule();
         }
         _ => {
