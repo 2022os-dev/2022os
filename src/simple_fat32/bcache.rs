@@ -8,6 +8,7 @@ use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use lazy_static::*;
 use spin::RwLock;
+// use riscv::register::time;
 
 pub struct Buffer {
     block_id: Ino,
@@ -79,15 +80,15 @@ impl Drop for Buffer {
 pub struct BufferManager {
     queue: VecDeque<(usize, Arc<RwLock<Buffer>>)>,
     start_sector: usize,
-    length: usize,
+    volume: usize,
 }
 
 impl BufferManager {
-    pub fn new(length: usize) -> Self {
+    pub fn new(volume: usize) -> Self {
         Self {
             queue: VecDeque::new(),
             start_sector: 0,
-            length,
+            volume,
         }
     }
 
@@ -100,7 +101,7 @@ impl BufferManager {
             Arc::clone(&pair.1)
         } else {
             // substitute
-            if self.queue.len() == self.length {
+            if self.queue.len() == self.volume {
                 // from front to tail
                 if let Some((idx, _)) = self
                     .queue
@@ -114,7 +115,7 @@ impl BufferManager {
                 }
             }
             // load block into mem and push back
-            let buffer = Arc::new(Mutex::new(Buffer::new(
+            let buffer = Arc::new(RwLock::new(Buffer::new(
                 block_id,
                 dev,
             )));
@@ -122,6 +123,18 @@ impl BufferManager {
             buffers
         }
     }
+
+    // pub fn read_buffer(
+    //     &mut self,
+    //     block_id: Ino,
+    //     dev: usize,
+    // ) -> Option<Arc<RwLock<Buffer>>> {
+    //     if let Some(pair) = self.queue.iter().find(|pair| pair.0 == block_id) {
+    //         Option(Arc::clone(&pair.1))
+    //     } else {
+    //         None
+    //     }
+    // }
 
     pub fn set_start_sector(&self , new_start_sector: usize) {
         self.start_sector = new_start_sector;
@@ -135,30 +148,33 @@ impl BufferManager {
 
 lazy_static! {
     pub static ref DATA_BLOCK_BUFFER_MANAGER: RwLock<BufferManager> =
-        Mutex::new(BufferManager::new(DATA_BLOCK_BUFFER_SIZE));
+        RwLock::new(BufferManager::new(DATA_BLOCK_BUFFER_SIZE));
 }
 
 lazy_static! {
     pub static ref INFO_BUFFER_MANAGER: RwLock<BufferManager> =
-        Mutex::new(BufferManager::new(INFO_BUFFER_SIZE));
+        RwLock::new(BufferManager::new(INFO_BUFFER_SIZE));
 }
 
-#[derive(PartialEq,Copy,Clone,Debug)]
-pub enum RwOption {
-    READ,
-    WRITE,
-}
+// #[derive(PartialEq,Copy,Clone,Debug)]
+// pub enum RwOption {
+//     READ,
+//     WRITE,
+// }
 
 pub fn get_data_block_buffer(
     block_id: Ino,
     dev: usize,
     op: RwOption
 ) -> Arc<RwLock<Buffer>> {
-    if op == RwOption::READ {
-        DATA_BLOCK_BUFFER_MANAGER.read().get_buffer(block_id + self.start_sector, dev)
-    }else {
-        DATA_BLOCK_BUFFER_MANAGER.write().get_buffer(block_id + self.start_sector, dev)
-    }
+    let id = block_id + self.start_sector;
+    // if op == RwOption::READ {
+    //     DATA_BLOCK_BUFFER_MANAGER.write().get_buffer(id, dev);
+    //     DATA_BLOCK_BUFFER_MANAGER.read().read_buffer(id, dev).unwrap()
+    // }else {
+    //     DATA_BLOCK_BUFFER_MANAGER.write().get_buffer(id, dev)
+    // }
+    DATA_BLOCK_BUFFER_MANAGER.write().get_buffer(id, dev)
 }
 
 pub fn get_info_buffer(
@@ -166,11 +182,14 @@ pub fn get_info_buffer(
     dev: usize,
     op: RwOption
 ) -> Arc<RwLock<Buffer>> {
-    if op == RwOption::READ {
-        INFO_BUFFER_MANAGER.read().get_buffer(block_id + self.start_sector, dev)
-    }else {
-        INFO_BUFFER_MANAGER.write().get_buffer(block_id + self.start_sector, dev)
-    }
+    let id = block_id + self.start_sector;
+    // if op == RwOption::READ {
+    //     INFO_BUFFER_MANAGER.write().get_buffer(id, dev);
+    //     INFO_BUFFER_MANAGER.read().get_buffer(id, dev).unwrap()
+    // }else {
+    //     INFO_BUFFER_MANAGER.write().get_buffer(id, dev)
+    // }
+    INFO_BUFFER_MANAGER.write().get_buffer(id, dev)
 }
 
 pub fn set_start_sector(new_start_sector: usize) {
