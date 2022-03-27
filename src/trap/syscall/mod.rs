@@ -4,6 +4,7 @@ mod process;
 use alloc::sync::Arc;
 use crate::mm::address::*;
 use crate::process::*;
+use crate::process::cpu::current_hart;
 use crate::process::pcb::BlockReason;
 use crate::task::*;
 use file::*;
@@ -77,8 +78,9 @@ const SYSCALL_CLEAR: usize = 502;
 
 pub fn syscall_handler() {
     // println!("syscall_handler: pcb ref {}", Arc::strong_count(&current_pcb().unwrap()));
-    let pcb = current_pcb().unwrap();
+    let pcb = current_hart().pcb.take().unwrap();
     let mut pcblock = pcb.lock();
+    log!(debug "pid {} in trap", pcblock.pid);
     let trapframe = pcblock.trapframe();
     let syscall_id = trapframe["a7"];
 
@@ -116,10 +118,6 @@ pub fn syscall_handler() {
                 // 回退上一条ecall指给，等待子进程信号
                 pcblock.trapframe()["sepc"] -= 4;
                 log!(debug "[sys_handler] block {}", pcblock.pid);
-                drop(pcblock);
-                drop(pcb);
-                scheduler_block_pcb(current_pcb().unwrap(), BlockReason::Wait);
-                schedule();
             }
         }
         SYSCALL_FORK => {
@@ -130,11 +128,20 @@ pub fn syscall_handler() {
         }
     }
     let state = pcblock.state();
+    log!(debug "pid {} out traping", pcblock.pid);
     drop(pcblock);
-    drop(pcb);
     // Note: 这里必须显式调用drop释放进程锁
-    if let PcbState::Running = state {
-        scheduler_ready_pcb(current_pcb().unwrap());
+    match state {
+        PcbState::Running => {
+            scheduler_ready_pcb(pcb.clone());
+        }
+        PcbState::Block(r) => {
+            scheduler_block_pcb(pcb.clone(), r);
+        }
+        _ => {
+
+        }
     }
+    drop(pcb);
     schedule();
 }

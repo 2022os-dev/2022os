@@ -73,8 +73,7 @@ pub fn schedule() -> ! {
             restore_trapframe(satp);
         } else {
             drop(pcb);
-            log!(debug "hart {} No ready pcb", hartid());
-            loop {}
+            // log!(debug "hart {} No ready pcb", hartid());
         }
     }
 }

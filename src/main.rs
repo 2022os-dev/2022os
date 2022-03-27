@@ -7,6 +7,7 @@
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
 #![feature(ptr_to_from_bits)]
+#![feature(const_trait_impl)]
 
 use crate::{process::cpu::init_hart, sbi::{sbi_hsm_hart_start}};
 use core::arch::asm;
@@ -66,11 +67,8 @@ extern "C" fn kernel_start() {
         heap::init();
         println!("[kernel] Init heap");
 
-        init_hart();
         unsafe {
-            if let Some(ref pgtbl) = KERNEL_PGTBL {
-                mm::activate_vm(pgtbl.root.page());
-            }
+            init_hart(KERNEL_PGTBL.as_ref().unwrap());
         }
 
         // Run user space application
@@ -88,14 +86,11 @@ extern "C" fn kernel_start() {
         }
     } else {
         unsafe {
-            if let Some(ref pgtbl) = KERNEL_PGTBL {
-                mm::activate_vm(pgtbl.root.page());
-            }
+            init_hart(KERNEL_PGTBL.as_ref().unwrap());
         }
-        init_hart();
     }
     trap::init();
-    trap::enable_timer_interupt();
+    // trap::enable_timer_interupt();
     log!(debug "Start schedule");
     schedule();
 }

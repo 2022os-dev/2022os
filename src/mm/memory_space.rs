@@ -11,15 +11,15 @@ use xmas_elf::ElfFile;
 
 pub struct MemorySpace {
     pub pgtbl: Pgtbl,
-    entry: usize,
+    pub entry: usize,
     // 保存elf中可加载的段
-    segments: Vec<(VirtualAddr, VirtualAddr)>
+    pub segments: Vec<(VirtualAddr, VirtualAddr)>
 }
 
 impl MemorySpace {
-    pub fn new(pgtbl: Option<Pgtbl>) -> Self {
+    pub fn new() -> Self {
         Self {
-            pgtbl: pgtbl.unwrap_or(Pgtbl::new()),
+            pgtbl:Pgtbl::new(),
             entry: 0,
             segments: Vec::new()
         }
