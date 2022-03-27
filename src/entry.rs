@@ -5,7 +5,10 @@ use core::arch::global_asm;
 #[link_section = ".text.entry"]
 extern "C" fn _start() {
     unsafe {
-        asm!("mv tp, a0", "la sp, boot_stack", "j kernel_start", options(noreturn));
+        asm!(
+        "mv tp, a0",
+        "la sp, boot_stack",
+        "j kernel_start", options(noreturn));
     }
 }
 global_asm!(

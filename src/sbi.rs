@@ -9,21 +9,32 @@ pub const REMOTE_SFENCE_VMA: usize = 6;
 pub const REMOTE_SFENCE_ASID: usize = 7;
 pub const SHUTDOWN: usize = 8;
 
-pub fn sbi_call(which: usize, args: [usize; 3]) -> usize {
+
+pub fn sbi_call(eid: usize, fid: usize, args: [usize; 3]) -> usize {
     let mut ret;
     unsafe {
         asm!("ecall", inout("x10") args[0] => ret,
             in("x11") args[1],
             in("x12") args[2],
-            in("x17") which);
+            in("x16") fid,
+            in("x17") eid);
     }
     ret
+
+}
+
+pub fn sbi_legacy_call(eid: usize, args: [usize; 3]) -> usize {
+    sbi_call(eid, 0, args)
 }
 
 pub fn sbi_send_ipi(mask: &usize) {
-    sbi_call(SEND_IPI, [mask as *const _ as usize, 0, 0]);
+    sbi_legacy_call(SEND_IPI, [mask as *const _ as usize, 0, 0]);
 }
 
 pub fn shutdown() -> usize {
-    sbi_call(SHUTDOWN, [0, 0, 0])
+    sbi_legacy_call(SHUTDOWN, [0, 0, 0])
+}
+
+pub fn sbi_hsm_hart_start(hartid: usize, start_addr: usize, opaque: usize) {
+    sbi_call(0x48534d, 0, [hartid, start_addr, opaque]);
 }

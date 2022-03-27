@@ -1,6 +1,6 @@
 use crate::mm::*;
 use crate::process::*;
-use crate::sbi::sbi_call;
+use crate::sbi::sbi_legacy_call;
 use spin::MutexGuard;
 
 pub(super) fn sys_write(
@@ -18,7 +18,7 @@ pub(super) fn sys_write(
             let slice = buffer.as_slice();
             let string = core::str::from_utf8(slice).unwrap();
             for c in string.chars() {
-                sbi_call(crate::sbi::PUT_CHAR, [c as usize, 0, 0]);
+                sbi_legacy_call(crate::sbi::PUT_CHAR, [c as usize, 0, 0]);
             }
             0
         }
