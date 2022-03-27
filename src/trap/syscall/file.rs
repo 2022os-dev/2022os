@@ -1,3 +1,5 @@
+use core::fmt::Write;
+
 use crate::mm::*;
 use crate::process::*;
 use crate::sbi::sbi_legacy_call;
@@ -17,9 +19,7 @@ pub(super) fn sys_write(
         FD_STDOUT => {
             let slice = buffer.as_slice();
             let string = core::str::from_utf8(slice).unwrap();
-            for c in string.chars() {
-                sbi_legacy_call(crate::sbi::PUT_CHAR, [c as usize, 0, 0]);
-            }
+            crate::console::Stdout.write_str(string);
             0
         }
         _ => {

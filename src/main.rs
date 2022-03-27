@@ -8,7 +8,7 @@
 #![feature(alloc_error_handler)]
 #![feature(ptr_to_from_bits)]
 
-use crate::process::cpu::init_hart;
+use crate::{process::cpu::init_hart, sbi::{sbi_hsm_hart_start}};
 use core::arch::asm;
 
 #[macro_use]
@@ -39,6 +39,7 @@ extern crate bitflags;
 
 use mm::MemorySpace;
 use task::*;
+use process::cpu::hartid;
 
 /// Clear .bss section
 fn clear_bss() {
@@ -46,29 +47,45 @@ fn clear_bss() {
         .for_each(|a| unsafe { (a as *mut u8).write_volatile(0) });
 }
 
+pub static mut KERNEL_PGTBL_PPN: usize = 0;
+
+// 记录启动核
+static mut BOOTHART: isize = -1 ;
+
 // [no_mangle] Turn off Rust's name mangling
 #[no_mangle]
 extern "C" fn kernel_start() {
-    console::turn_on_log();
-    clear_bss();
-    mm::init();
-    println!("[kernel] Clear bss");
-    heap::init();
-    println!("[kernel] Init heap");
-    trap::init();
-    println!("[kernel] Init trap");
+    log!(debug "Booting hart {}", hartid());
+    if unsafe { BOOTHART } == -1 {
+        unsafe { BOOTHART = hartid() as isize; };
 
-    init_hart();
+        console::turn_on_log();
+        clear_bss();
+        mm::init();
+        println!("[kernel] Clear bss");
+        heap::init();
+        println!("[kernel] Init heap");
 
-    // Run user space application
-    println!("[kernel] Load user address space");
+        init_hart();
 
-    // Load tasks
-    for i in *user::APP {
-        let virtual_space = MemorySpace::from_elf(i);
-        scheduler_load_pcb(virtual_space);
+        // Run user space application
+        println!("[kernel] Load user address space");
+
+        // Load tasks
+        for i in *user::APP {
+            let virtual_space = MemorySpace::from_elf(i);
+            scheduler_load_pcb(virtual_space);
+        }
+        for hart in 1..=4 {
+            if hart != hartid() {
+                sbi_hsm_hart_start(hart, 0x80200000, 0);
+            }
+        }
+    } else {
+        mm::activate_vm(unsafe { KERNEL_PGTBL_PPN });
+        init_hart();
     }
-
+    trap::init();
     trap::enable_timer_interupt();
     log!(debug "Start schedule");
     schedule();

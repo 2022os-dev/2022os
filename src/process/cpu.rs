@@ -39,6 +39,15 @@ pub fn current_hart() -> Cpu {
     panic!("uninit hartid {}", mhartid::read());
 }
 
+pub fn current_hart_leak() {
+    for i in HARTS.lock().iter_mut() {
+        if i.hartid == hartid() {
+            i.pcb = None;
+        }
+    }
+
+}
+
 pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
     for i in HARTS.lock().iter_mut() {
         if i.hartid == hartid() {

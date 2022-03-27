@@ -5,6 +5,7 @@ pub mod pgtbl;
 pub mod pte_sv39;
 
 use crate::{config::PHYS_FRAME_END, link_syms};
+use crate::KERNEL_PGTBL_PPN;
 use core::ops::Range;
 
 pub use kalloc::KALLOCATOR;
@@ -62,11 +63,23 @@ pub fn init() {
     }
     // ###############################################
     println!("[kernel] Try to activate VM");
-    kernel_memory_space.pgtbl.activate();
+    unsafe {
+        KERNEL_PGTBL_PPN = kernel_memory_space.pgtbl.root.page();
+    };
+    activate_vm(kernel_memory_space.pgtbl.root.page());
     // 测试开启虚拟内存后的内存分配功能
     let page = KALLOCATOR.lock().kalloc();
     println!("test alloc 0x{:x}", page.page());
     KALLOCATOR.lock().kfree(page);
+}
+
+pub fn activate_vm(ppn: usize) {
+    use riscv::register::satp;
+    use core::arch::asm;
+    unsafe {
+        satp::set(satp::Mode::Sv39, 0, ppn);
+        asm!("sfence.vma");
+    }
 }
 
 #[allow(unused)]

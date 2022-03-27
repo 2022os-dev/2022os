@@ -54,20 +54,25 @@ pub fn scheduler_signal(pid: Pid, reason: BlockReason) {
 
 pub fn schedule() -> ! {
     // FCFS
-    let mut tasklist = READYTASKS.lock();
-    let pcb = tasklist.pop();
+    loop {
+        let mut tasklist = READYTASKS.lock();
+        let pcb = tasklist.pop();
 
-    if let Some(pcb) = pcb {
-        pcb.lock().set_state(PcbState::Running);
-        let satp = pcb.lock().trapframe()["satp"];
-        current_hart_run(pcb.clone());
-        drop(tasklist);
-        drop(pcb);
-        restore_trapframe(satp);
-    } else {
-        log!(debug "No ready pcb");
+        if let Some(pcb) = pcb {
+            pcb.lock().set_state(PcbState::Running);
+            let satp = pcb.lock().trapframe()["satp"];
+            current_hart_run(pcb.clone());
+            drop(tasklist);
+            drop(pcb);
+            restore_trapframe(satp);
+        } else {
+            drop(tasklist);
+            drop(pcb);
+            current_hart_leak();
+            log!(debug "No ready pcb");
+            loop{}
+        }
     }
-    loop {}
 }
 
 pub fn current_pcb() -> Option<Arc<Mutex<Pcb>>> {

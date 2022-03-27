@@ -112,7 +112,7 @@ impl TrapFrame {
     pub fn from_memory_space(&mut self, memory_space: MemorySpace) {
         self["sp"] = memory_space.get_stack();
         // Fixme: set mode
-        self["satp"] = memory_space.pgtbl.root.page() | 0x8000000000000000;
+        self["satp"] = memory_space.pgtbl.get_satp();
         self["sepc"] = memory_space.entry();
         let mut sstatus_reg = sstatus::read();
         sstatus_reg.set_spp(sstatus::SPP::User);

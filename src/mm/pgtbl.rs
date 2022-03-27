@@ -128,4 +128,8 @@ impl Pgtbl {
             asm!("sfence.vma");
         }
     }
+
+    pub fn get_satp(&self) -> usize {
+        self.root.page() | 0x8000000000000000
+    }
 }

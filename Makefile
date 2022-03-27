@@ -6,7 +6,7 @@ endif
 qemu:
 	@[ -e kernel.bin ] && rm kernel.bin 
 	make kernel.bin
-	qemu-system-riscv64 -M sifive_u -smp 2 \
+	qemu-system-riscv64 -M sifive_u -smp 4 \
 		-bios bootloader/fw_jump.bin \
 		-drive file=sdcard.img,if=sd,format=raw \
 		-device loader,file=kernel.bin,addr=0x80200000 \
