@@ -77,8 +77,7 @@ const SYSCALL_SHUTDOWN: usize = 501;
 const SYSCALL_CLEAR: usize = 502;
 
 pub fn syscall_handler() {
-    // println!("syscall_handler: pcb ref {}", Arc::strong_count(&current_pcb().unwrap()));
-    let pcb = current_hart().pcb.take().unwrap();
+    let pcb = current_pcb().unwrap();
     let mut pcblock = pcb.lock();
     log!(debug "pid {} in trap", pcblock.pid);
     let trapframe = pcblock.trapframe();

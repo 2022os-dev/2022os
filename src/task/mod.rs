@@ -55,7 +55,6 @@ pub fn scheduler_signal(pid: Pid, reason: BlockReason) {
 
 pub fn schedule() -> ! {
     // FCFS
-    assert!(current_pcb().is_none());
     loop {
         let mut tasklist = READYTASKS.lock();
         let pcb = tasklist.pop();
