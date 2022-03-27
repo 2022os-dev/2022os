@@ -66,7 +66,7 @@ pub fn current_hart_leak() {
 pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
     unsafe {
         pcb.lock().trapframe().kernel_sp = _HARTS[hartid()].kernel_sp;
-        // pcb.lock().trapframe().kernel_satp = _HARTS[hartid()].mem_space.as_ref().unwrap().pgtbl.get_satp();
+        pcb.lock().trapframe().kernel_satp = _HARTS[hartid()].mem_space.as_ref().unwrap().pgtbl.get_satp();
         _HARTS[hartid()].pcb = Some(pcb);
     }
 }
