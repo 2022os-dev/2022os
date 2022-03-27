@@ -5,7 +5,7 @@ pub mod pgtbl;
 pub mod pte_sv39;
 
 use crate::{config::PHYS_FRAME_END, link_syms};
-use crate::KERNEL_PGTBL_PPN;
+use crate::KERNEL_PGTBL;
 use core::ops::Range;
 
 pub use kalloc::KALLOCATOR;
@@ -42,7 +42,6 @@ pub fn init() {
     kernel_memory_space.map_trampoline();
 
     // ################### TEST ######################
-    // set_sstatus_sum();
     let range = kernel_range();
     for i in range.start.page()..range.end.page() {
         let pte = kernel_memory_space
@@ -62,15 +61,9 @@ pub fn init() {
         }
     }
     // ###############################################
-    println!("[kernel] Try to activate VM");
     unsafe {
-        KERNEL_PGTBL_PPN = kernel_memory_space.pgtbl.root.page();
+        KERNEL_PGTBL = Some(kernel_memory_space.pgtbl);
     };
-    activate_vm(kernel_memory_space.pgtbl.root.page());
-    // 测试开启虚拟内存后的内存分配功能
-    let page = KALLOCATOR.lock().kalloc();
-    println!("test alloc 0x{:x}", page.page());
-    KALLOCATOR.lock().kfree(page);
 }
 
 pub fn activate_vm(ppn: usize) {

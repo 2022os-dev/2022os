@@ -24,10 +24,11 @@ lazy_static! {
 pub fn init_hart() {
     let sp: usize;
     unsafe { asm!("mv a0, sp", out("a0") sp) };
+    let sp :PhysAddr = PhysAddr(sp).ceil().into();
     HARTS.lock().push(Cpu {
         hartid: hartid(),
         pcb: None,
-        kernel_sp: PhysAddr(sp).ceil().0
+        kernel_sp: sp.0
     });
 }
 

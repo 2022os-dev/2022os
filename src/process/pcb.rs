@@ -1,8 +1,8 @@
 use super::TrapFrame;
 use crate::config::*;
 use crate::mm::kalloc::*;
-use crate::mm::address::*;
 use crate::mm::MemorySpace;
+use crate::mm::address::*;
 use crate::task::scheduler_ready_pcb;
 use crate::task::scheduler_signal;
 use alloc::sync::Arc;

@@ -37,7 +37,7 @@ extern crate spin;
 #[macro_use]
 extern crate bitflags;
 
-use mm::MemorySpace;
+use mm::*;
 use task::*;
 use process::cpu::hartid;
 
@@ -47,7 +47,7 @@ fn clear_bss() {
         .for_each(|a| unsafe { (a as *mut u8).write_volatile(0) });
 }
 
-pub static mut KERNEL_PGTBL_PPN: usize = 0;
+pub static mut KERNEL_PGTBL: Option<Pgtbl> = None; 
 
 // 记录启动核
 static mut BOOTHART: isize = -1 ;
@@ -67,6 +67,11 @@ extern "C" fn kernel_start() {
         println!("[kernel] Init heap");
 
         init_hart();
+        unsafe {
+            if let Some(ref pgtbl) = KERNEL_PGTBL {
+                mm::activate_vm(pgtbl.root.page());
+            }
+        }
 
         // Run user space application
         println!("[kernel] Load user address space");
@@ -82,7 +87,11 @@ extern "C" fn kernel_start() {
             }
         }
     } else {
-        mm::activate_vm(unsafe { KERNEL_PGTBL_PPN });
+        unsafe {
+            if let Some(ref pgtbl) = KERNEL_PGTBL {
+                mm::activate_vm(pgtbl.root.page());
+            }
+        }
         init_hart();
     }
     trap::init();
