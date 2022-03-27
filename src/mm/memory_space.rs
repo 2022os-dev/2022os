@@ -6,14 +6,25 @@ use crate::config::*;
 use crate::process::TrapFrame;
 use crate::trap::{__alltraps, __restore};
 use core::ops::Range;
+use alloc::vec::Vec;
 use xmas_elf::ElfFile;
 
 pub struct MemorySpace {
     pub pgtbl: Pgtbl,
-    pub entry: usize,
+    entry: usize,
+    // 保存elf中可加载的段
+    segments: Vec<(VirtualAddr, VirtualAddr)>
 }
 
 impl MemorySpace {
+    pub fn new() -> Self {
+        Self {
+            pgtbl: Pgtbl::new(),
+            entry: 0,
+            segments: Vec::new()
+        }
+    }
+
     pub fn trampoline_page() -> PageNum {
         PageNum::highest_page()
     }
@@ -49,6 +60,7 @@ impl MemorySpace {
         MemorySpace {
             pgtbl: self.pgtbl.copy(true),
             entry: self.entry,
+            segments: self.segments.clone()
         }
     }
 
@@ -64,6 +76,7 @@ impl MemorySpace {
         let mut space = Self {
             pgtbl: Pgtbl::new(),
             entry: 0,
+            segments: Vec::new()
         };
         let elf = ElfFile::new(data).unwrap();
         let elf_header = elf.header;
@@ -77,6 +90,20 @@ impl MemorySpace {
     pub fn entry(&self) -> usize {
         self.entry
     }
+
+    pub fn segments(&self) -> &Vec<(VirtualAddr, VirtualAddr)> {
+        &self.segments
+    }
+
+    pub fn unmap_segments(&mut self) {
+        for (start, end) in self.segments.iter() {
+            for i in start.floor().page()..end.ceil().page() {
+                self.pgtbl.unmap(i.into(), true);
+            }
+        }
+        self.segments.clear();
+    }
+
     // Mapping api
     fn map_elf_program_table(&mut self, elf: &ElfFile) {
         log!(debug "Maping program section");
@@ -92,6 +119,7 @@ impl MemorySpace {
                     map_perm | PTEFlag::V,
                     &elf.input[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize],
                 );
+                self.segments.push((start_va, end_va));
             }
         }
     }
@@ -101,6 +129,10 @@ impl MemorySpace {
             Self::get_stack_start()..Self::get_stack_sp(),
             PTEFlag::U | PTEFlag::R | PTEFlag::W,
         );
+    }
+
+    pub fn unmap_user_stack(&mut self) {
+        self.pgtbl.unmap_pages( Self::get_stack_start().floor()..Self::get_stack_sp().ceil(), true);
     }
 
     fn map_area_zero(&mut self, area: Range<VirtualAddr>, flags: PTEFlag) {
@@ -136,12 +168,19 @@ impl MemorySpace {
         }
     }
 
-    pub fn map_trapframe(&mut self, trapframe: *const TrapFrame) {
+    pub fn map_trapframe(&mut self) {
+        let mut trapframe = KALLOCATOR.lock().kalloc().offset_phys(0);
+        let tf :&mut TrapFrame = trapframe.as_mut();
+        tf.init(self);
         self.pgtbl.map(
             Self::trapframe_page(),
-            PhysAddr(trapframe as usize).floor(),
+            trapframe.floor(),
             PTEFlag::R | PTEFlag::W | PTEFlag::V,
         );
+    }
+
+    pub fn unmap_trapframe(&mut self) {
+        self.pgtbl.unmap(Self::trapframe_page(), true);
     }
 
     pub fn map_trampoline(&mut self) {
@@ -156,6 +195,12 @@ impl MemorySpace {
             )
         });
     }
+
+    pub fn unmap_trampoline(&mut self, do_free: bool) {
+        self.pgtbl
+            .unmap(Self::trampoline_page(), do_free);;
+    }
+
     // Helper functions
     fn validate_elf_header(header: xmas_elf::header::Header) -> bool {
         let magic = header.pt1.magic;

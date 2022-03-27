@@ -21,10 +21,7 @@ pub fn init() {
     let frame_end = PhysAddr(PHYS_FRAME_END).ceil();
     KALLOCATOR.lock().init(frame_start..frame_end);
 
-    let mut kernel_memory_space = MemorySpace {
-        pgtbl: Pgtbl::new(),
-        entry: 0,
-    };
+    let mut kernel_memory_space = MemorySpace::new();
 
     // 为内核页表映射全部地址空间，页表可能占用过多空间
     kernel_memory_space.pgtbl.map_pages(

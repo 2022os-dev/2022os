@@ -97,6 +97,7 @@ impl Pgtbl {
         }
     }
 
+    // 不会报错当尝试两次unmap同一个页，因为memory_space的unmap_segments需要
     pub fn unmap(&mut self, vpage: PageNum, do_free: bool) {
         // Fixme: when unmap an invalid page
         let pte = self.walk(vpage.offset(0), false);
