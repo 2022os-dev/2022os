@@ -1,7 +1,7 @@
 
 
-pub struct short_dir_entry {
-    // 文件名，若在使用中0x0位置为文件名第一个字符，若未使用则为0x00，若曾经被使用过但是现在已经被删除则为0xe5
+pub struct ShortDirEntry {
+    // 文件名，若在使用中0x0位置为文件名第一个字符，若未使用则为0x00，若曾经被使用过但是现在已经被删除则为0xe5，有多余可以用0x20填充
     file_name: [u8,8],
     // 扩展名
     extension_name: [u8,3],
@@ -36,10 +36,32 @@ pub struct short_dir_entry {
     file_length: u32,
 }
 
+impl ShortDirEntry {
+    pub fn new(file_name: [u8,8], extension_name: [u8,3], flag: u8) {
+        let name:[u8;8] = clone_into_array(&name_[0..8]);
+        let extension_name:[u8;3] = clone_into_array(&extension_name[0..3]);
+        self {
+            file_name,
+            extension_name,
+            flag,
+            reserved: 0,    
+            creation_time_mm: 0,   
+            creation_time: 0,    
+            creation_date: 0,    
+            last_access_time: 0,    
+            start_cluster_high: 0,    
+            last_modified_time: 0, 
+            last_modified_date: 0,    
+            start_cluster_low: 0,   
+            file_length: 0,
+        }
+    }
+}
 
 
 
-pub struct long_dir_entry {
+
+pub struct LongDirEntry {
     // 长文件名目录项序列号,从1开始,若是最后一个长文件名目录项,则将其序号|=0x40,若被删除,则设置为0xe5
     flag: u8,
     // 长文件名的1~5个字符,使用unicode码若结束但还有未使用的字节,则先填充2字节00,再填充0xff

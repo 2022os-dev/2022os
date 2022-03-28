@@ -165,7 +165,6 @@ lazy_static! {
 pub fn get_data_block_buffer(
     block_id: Ino,
     dev: usize,
-    op: RwOption
 ) -> Arc<RwLock<Buffer>> {
     let id = block_id + self.start_sector;
     // if op == RwOption::READ {
@@ -180,7 +179,6 @@ pub fn get_data_block_buffer(
 pub fn get_info_buffer(
     block_id: Ino,
     dev: usize,
-    op: RwOption
 ) -> Arc<RwLock<Buffer>> {
     let id = block_id + self.start_sector;
     // if op == RwOption::READ {
