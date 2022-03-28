@@ -73,7 +73,8 @@ pub fn schedule() -> ! {
         } else {
             drop(pcb);
             current_hart_leak();
-            // log!(debug "hart {} No ready pcb", hartid());
+            log!(debug "hart {} No ready pcb", hartid());
+            loop {}
         }
     }
 }

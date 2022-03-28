@@ -1,8 +1,8 @@
-const KERNEL_HEAP_SIZE: usize = 8192;
+const KERNEL_HEAP_SIZE: usize = PAGE_SIZE * 16;
 
 static mut HEAP_SPACE: [u8; KERNEL_HEAP_SIZE] = [0; KERNEL_HEAP_SIZE];
 
-use crate::buddy_system_allocator::LockedHeap;
+use crate::{buddy_system_allocator::LockedHeap, config::PAGE_SIZE};
 
 #[global_allocator]
 static HEAP_ALLOCATOR: LockedHeap = LockedHeap::empty();
