@@ -55,7 +55,7 @@ impl Pcb {
         pcb.memory_space.map_trapframe();
 
         // Fixme: every process may has a independent page table
-        pcb.trapframe().kernel_satp = riscv::register::satp::read().bits();
+        // pcb.trapframe().kernel_satp = riscv::register::satp::read().bits();
         // pcb.trapframe().kernel_satp = pcb.memory_space.pgtbl.get_satp();
         pcb
     }
