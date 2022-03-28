@@ -11,9 +11,9 @@ use crate::task::*;
 pub(super) fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
     let child_ms = pcb.memory_space.copy();
     let pid = alloc_pid();
-    let child = Arc::new(Mutex::new(Pcb::new(child_ms, pcb.pid)));
+    log!(debug "[sys_fork] pid {} fork {}", pcb.pid, pid);
+    let child = Arc::new(Mutex::new(Pcb::new(child_ms, pcb.pid, false, false)));
     let mut childlock = child.lock();
-    log!(debug "[sys_fork] pid {} fork {}", pcb.pid, childlock.pid);
     childlock.trapframe()["a0"] = 0;
     childlock.trapframe()["satp"] = childlock.memory_space.pgtbl.get_satp();
     drop(childlock);

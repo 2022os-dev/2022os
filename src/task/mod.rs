@@ -16,7 +16,7 @@ lazy_static! {
 
 pub fn scheduler_load_pcb(memory_space: MemorySpace) -> Arc<Mutex<Pcb>> {
     // Fixme: when ran out of pcbs
-    let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 0)));
+    let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 0, true, true)));
     scheduler_ready_pcb(pcb.clone());
     pcb
 }

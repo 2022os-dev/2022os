@@ -43,7 +43,7 @@ pub struct Pcb {
 }
 
 impl Pcb {
-    pub fn new(memory_space: MemorySpace, parent: Pid) -> Self {
+    pub fn new(memory_space: MemorySpace, parent: Pid, map_trampoline: bool, map_trapframe: bool) -> Self {
         let mut pcb = Self {
             parent,
             pid: alloc_pid(),
@@ -51,8 +51,12 @@ impl Pcb {
             memory_space,
             children: Vec::new(),
         };
-        pcb.memory_space.map_trampoline();
-        pcb.memory_space.map_trapframe();
+        if map_trampoline {
+            pcb.memory_space.map_trampoline();
+        } 
+        if map_trapframe {
+            pcb.memory_space.map_trapframe();
+        }
 
         // Fixme: every process may has a independent page table
         // pcb.trapframe().kernel_satp = riscv::register::satp::read().bits();
