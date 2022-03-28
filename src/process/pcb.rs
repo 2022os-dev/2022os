@@ -43,24 +43,14 @@ pub struct Pcb {
 }
 
 impl Pcb {
-    pub fn new(memory_space: MemorySpace, parent: Pid, map_trampoline: bool, map_trapframe: bool) -> Self {
-        let mut pcb = Self {
+    pub fn new(memory_space: MemorySpace, parent: Pid) -> Self {
+        let pcb = Self {
             parent,
             pid: alloc_pid(),
             state: PcbState::Ready,
             memory_space,
             children: Vec::new(),
         };
-        if map_trampoline {
-            pcb.memory_space.map_trampoline();
-        } 
-        if map_trapframe {
-            pcb.memory_space.map_trapframe();
-        }
-
-        // Fixme: every process may has a independent page table
-        // pcb.trapframe().kernel_satp = riscv::register::satp::read().bits();
-        // pcb.trapframe().kernel_satp = pcb.memory_space.pgtbl.get_satp();
         pcb
     }
 
@@ -75,20 +65,10 @@ impl Pcb {
     }
 
     pub fn trapframe(&mut self) -> &mut TrapFrame {
-        let pte = self
-            .memory_space
-            .pgtbl
-            .walk(MemorySpace::trapframe_page().offset(0), false);
-        unsafe {
-            <*mut TrapFrame>::from_bits(pte.ppn().offset(0).0)
-                .as_mut()
-                .unwrap()
-        }
+        self.memory_space.trapframe()
     }
 
     pub fn exit(&mut self, xcode: isize) {
-        // Fixme: 记录进程的段地址，直接释放特定的段而不用搜索整个地址空间
-        // 这里不用显式管理子进程，因为使用引用计数指针
         self.state = PcbState::Exit(xcode);
         scheduler_signal(self.parent, BlockReason::Wait);
     }
@@ -97,10 +77,7 @@ impl Pcb {
 impl Drop for Pcb {
     fn drop(&mut self) {
         println!("Freeing pid {}", self.pid);
-        self.memory_space.unmap_segments();
-        self.memory_space.unmap_trampoline(true);
-        self.memory_space.unmap_trapframe();
-        self.memory_space.unmap_user_stack();
+        // self.memory_space.unmap_segments();
         //self.memory_space.pgtbl.unmap_page_table();
     }
 }

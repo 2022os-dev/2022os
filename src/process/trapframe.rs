@@ -54,7 +54,6 @@ impl core::ops::Index<&str> for TrapFrame {
             "t6" => &self.general_reg[31],
             "sepc" => &self.sepc,
             "sstatus" => &self.sstatus,
-            "satp" => &self.satp,
             _ => {
                 panic!("unspported trapframe index {}", index)
             }
@@ -99,7 +98,6 @@ impl core::ops::IndexMut<&str> for TrapFrame {
             "t6" => &mut self.general_reg[31],
             "sepc" => &mut self.sepc,
             "sstatus" => &mut self.sstatus,
-            "satp" => &mut self.satp,
             _ => {
                 panic!("unspported trapframe index {}", index)
             }
@@ -108,11 +106,9 @@ impl core::ops::IndexMut<&str> for TrapFrame {
 }
 
 impl TrapFrame {
-    pub fn init(&mut self, memory_space: &MemorySpace) {
-        self["sp"] = MemorySpace::get_stack_sp().0;
-        // Fixme: set mode
-        self["satp"] = memory_space.pgtbl.get_satp();
-        self["sepc"] = memory_space.entry();
+    pub fn init(&mut self, sp: usize, sepc: usize) {
+        self["sp"] = sp;
+        self["sepc"] = sepc;
         let mut sstatus_reg = sstatus::read();
         sstatus_reg.set_spp(sstatus::SPP::User);
         self["sstatus"] = sstatus_reg.bits();

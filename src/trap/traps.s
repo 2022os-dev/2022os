@@ -26,6 +26,7 @@ __alltraps:
     # read user stack from sscratch and save it on the kernel stack
     csrr t2, sscratch
     sd t2, 2*8(sp)
+    csrw sscratch, sp
     # load kernel_satp into t0
     ld t0, 35*8(sp)
     # load trap_handler into t1
@@ -43,8 +44,8 @@ __alltraps:
     # move to kernel_sp
     ld sp, 36*8(sp)
     # switch to kernel space
-    csrw satp, t0
-    sfence.vma
+    # csrw satp, t0
+    # sfence.vma
     # jump to trap_handler
     jr t1
 
@@ -55,8 +56,8 @@ __alltraps:
 __restore:
     # a0: *TrapContext in user space(Constant); a1: user space token
     # switch to user space
-    csrw satp, a1
-    sfence.vma
+    # csrw satp, a1
+    # sfence.vma
     csrw sscratch, a0
     mv sp, a0
     # now sp points to TrapContext in user space, start restoring based on it

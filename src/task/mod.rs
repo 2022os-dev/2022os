@@ -16,7 +16,7 @@ lazy_static! {
 
 pub fn scheduler_load_pcb(memory_space: MemorySpace) -> Arc<Mutex<Pcb>> {
     // Fixme: when ran out of pcbs
-    let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 0, true, true)));
+    let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 0)));
     scheduler_ready_pcb(pcb.clone());
     pcb
 }
@@ -61,15 +61,15 @@ pub fn schedule() -> ! {
         drop(tasklist);
 
         if let Some(pcb) = pcb {
-            if pcb.is_locked() {
-                panic!("pcb locked");
-            }
+            assert!(!pcb.is_locked());
+
             pcb.lock().set_state(PcbState::Running);
-            let satp = pcb.lock().trapframe()["satp"];
             log!(debug "hart {} schedule {}", hartid(), pcb.lock().pid);
             current_hart_run(pcb.clone());
             drop(pcb);
-            restore_trapframe(satp);
+            // current_hart_memset().pgtbl().print();
+            let tf = current_pcb().unwrap().lock().memory_space.trapframe.offset(0);
+            restore_trapframe(tf);
         } else {
             drop(pcb);
             current_hart_leak();

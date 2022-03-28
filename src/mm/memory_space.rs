@@ -1,27 +1,35 @@
 use super::address::*;
 use super::PTEFlag;
-use super::Pgtbl;
 use super::KALLOCATOR;
 use crate::config::*;
 use crate::process::TrapFrame;
+use crate::process::cpu::current_hart_pgtbl;
 use crate::trap::{__alltraps, __restore};
+use core::cmp::min;
 use core::ops::Range;
-use alloc::vec::Vec;
+use core::slice;
+use alloc::collections::BTreeMap;
 use xmas_elf::ElfFile;
 
+pub type Segments = BTreeMap<PageNum, (PageNum, PTEFlag)>;
+
 pub struct MemorySpace {
-    pub pgtbl: Pgtbl,
     pub entry: usize,
     // 保存elf中可加载的段
-    pub segments: Vec<(VirtualAddr, VirtualAddr)>
+    pub segments: Segments,
+    pub trapframe: PageNum,
+    pub user_stack: PageNum
 }
 
 impl MemorySpace {
     pub fn new() -> Self {
+        let tf = KALLOCATOR.lock().kalloc();
+        let stack = KALLOCATOR.lock().kalloc();
         Self {
-            pgtbl:Pgtbl::new(),
             entry: 0,
-            segments: Vec::new()
+            segments: BTreeMap::new(),
+            trapframe: tf,
+            user_stack: stack
         }
     }
 
@@ -41,49 +49,65 @@ impl MemorySpace {
     }
 
     pub fn copy_from_user(&mut self, src: VirtualAddr,  dst: &mut [u8]) {
-        let pa = self.pgtbl.walk(src, false).ppn()
-            .offset_phys(src.page_offset());
+        let pte = current_hart_pgtbl().walk(src, false);
+        if !pte.is_valid() {
+            panic!("")
+        }
+        log!(debug "Copy 0x{:x} from user 0x{:x} {:?}", src.0, pte.ppn().offset(src.page_offset()).0, pte.flags());
+        let pa = PhysAddr(src.0);
         pa.read(unsafe { core::slice::from_raw_parts_mut(dst.as_mut_ptr(), dst.len()) });
     }
 
     pub fn copy_to_user(&mut self, dst: VirtualAddr, src: &[u8]) {
-        let mut dst = self
-            .pgtbl
-            .walk(dst, false)
-            .ppn()
-            .offset_phys(dst.page_offset());
+        let pte = current_hart_pgtbl().walk(dst, false);
+        if !pte.is_valid() {
+            panic!("")
+        }
+        log!(debug "Copy 0x{:x} to user 0x{:x} {:?}", dst.0, pte.ppn().offset(dst.page_offset()).0, pte.flags());
+        let mut dst = PhysAddr(dst.0);
         let dst = dst.as_slice_mut(src.len());
         dst.copy_from_slice(src);
     }
 
     pub fn copy(&self) -> Self {
-        MemorySpace {
-            pgtbl: self.pgtbl.copy(true),
-            entry: self.entry,
-            segments: self.segments.clone()
+        let mut mem = MemorySpace::new();
+        mem.entry = self.entry;
+        for (vpage, (page, flags)) in self.segments().iter() {
+            let newpage = KALLOCATOR.lock().kalloc();
+            let mut phys = newpage.offset_phys(0);
+            phys.write(page.offset_phys(0).as_slice(PAGE_SIZE));
+            mem.segments.insert(*vpage, (newpage, *flags));
         }
+        let newpage = KALLOCATOR.lock().kalloc();
+        let mut phys = newpage.offset_phys(0);
+        phys.write(self.user_stack.offset_phys(0).as_slice(PAGE_SIZE));
+        mem.user_stack = newpage;
+
+        let newpage = KALLOCATOR.lock().kalloc();
+        let mut phys = newpage.offset_phys(0);
+        phys.write(self.trapframe.offset_phys(0).as_slice(PAGE_SIZE));
+        mem.trapframe = newpage;
+        mem
     }
 
-    pub fn get_stack_sp() -> VirtualAddr{
-        VirtualAddr(HIGH_MEMORY_SPACE)
+    pub fn get_stack_sp(&self) -> VirtualAddr{
+        VirtualAddr(USER_STACK) + PAGE_SIZE
     }
 
-    pub fn get_stack_start() -> VirtualAddr {
-        VirtualAddr(HIGH_MEMORY_SPACE - USER_STACK_SIZE)
+    pub fn get_stack_start(&self) -> VirtualAddr {
+        VirtualAddr(USER_STACK)
     }
 
     pub fn from_elf(data: &[u8]) -> Self {
-        let mut space = Self {
-            pgtbl: Pgtbl::new(),
-            entry: 0,
-            segments: Vec::new()
-        };
+        let mut space = Self::new();
         let elf = ElfFile::new(data).unwrap();
         let elf_header = elf.header;
         MemorySpace::validate_elf_header(elf_header);
         space.set_entry_point(elf_header.pt2.entry_point() as usize);
-        space.map_elf_program_table(&elf);
-        space.map_user_stack();
+        space.add_elf_program_table(&elf);
+        let sp = space.get_stack_sp().0;
+        let sepc = space.entry;
+        space.trapframe().init(sp, sepc);
         space
     }
 
@@ -91,21 +115,12 @@ impl MemorySpace {
         self.entry
     }
 
-    pub fn segments(&self) -> &Vec<(VirtualAddr, VirtualAddr)> {
+    pub fn segments(&self) -> &Segments {
         &self.segments
     }
 
-    pub fn unmap_segments(&mut self) {
-        for (start, end) in self.segments.iter() {
-            for i in start.floor().page()..end.ceil().page() {
-                self.pgtbl.unmap(i.into(), true);
-            }
-        }
-        self.segments.clear();
-    }
-
     // Mapping api
-    fn map_elf_program_table(&mut self, elf: &ElfFile) {
+    fn add_elf_program_table(&mut self, elf: &ElfFile) {
         log!(debug "Maping program section");
         let ph_count = elf.header.pt2.ph_count();
         for i in 0..ph_count {
@@ -114,91 +129,67 @@ impl MemorySpace {
                 let start_va = VirtualAddr(ph.virtual_addr() as usize);
                 let end_va = VirtualAddr((ph.virtual_addr() + ph.mem_size()) as usize);
                 let map_perm = MemorySpace::get_pte_flags_from_ph_flags(ph.flags(), PTEFlag::U);
-                self.map_area_data_each_byte(
+                self.add_area_data_each_byte(
                     start_va..end_va,
                     map_perm | PTEFlag::V,
                     &elf.input[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize],
                 );
-                self.segments.push((start_va, end_va));
             }
         }
     }
 
-    fn map_user_stack(&mut self) {
-        self.map_area_zero(
-            Self::get_stack_start()..Self::get_stack_sp(),
-            PTEFlag::U | PTEFlag::R | PTEFlag::W,
-        );
-    }
-
-    pub fn unmap_user_stack(&mut self) {
-        self.pgtbl.unmap_pages( Self::get_stack_start().floor()..Self::get_stack_sp().ceil(), true);
-    }
-
-    fn map_area_zero(&mut self, area: Range<VirtualAddr>, flags: PTEFlag) {
+    fn add_area_zero(&mut self, area: Range<VirtualAddr>, flags: PTEFlag) {
         // Fixme: enhance performance
         let (start, end) = (area.start, area.end);
         log!(debug "[kernel] Maping zero page 0x{:x} - 0x{:x}", start.0, end.0);
         let start = start.floor();
         let end = end.floor();
-        for page in start.page()..end.page() {
-            let page: PageNum = page.into();
-            let pte = self.pgtbl.walk(page.offset(0), true);
-            if !pte.is_valid() {
-                let page = KALLOCATOR.lock().kalloc();
-                pte.set_ppn(page);
-                pte.set_flags(flags | PTEFlag::V);
+        for vpage in start.page()..end.page() {
+            let vpage: PageNum = vpage.into();
+            let page ;
+            if self.segments.contains_key(&vpage) {
+                panic!("duplicated segment 0x{:x}", vpage.page());
+            } else {
+                page = KALLOCATOR.lock().kalloc();
+                self.segments.insert(vpage,(page, flags));
             }
-            PhysAddr::from(pte.ppn().offset(0)).write_bytes(0, PAGE_SIZE);
+            page.offset_phys(0).write_bytes(0, PAGE_SIZE);
         }
     }
 
-    fn map_area_data_each_byte(&mut self, area: Range<VirtualAddr>, flags: PTEFlag, data: &[u8]) {
-        let start = area.start;
+    fn add_area_data_each_byte(&mut self, area: Range<VirtualAddr>, flags: PTEFlag, data: &[u8]) {
+        let mut start = area.start;
         let end = area.end;
+        let start_page = start.floor();
+        let end_page = end.ceil();
+        let total = data.len();
+        let mut wroten = 0;
         log!(debug "[kernel] Maping data page 0x{:x} - 0x{:x}, {:?}", start.0, end.0, flags);
-        for va in start.0..end.0 {
-            let pte = self.pgtbl.walk(VirtualAddr(va), true);
-            if !pte.is_valid() {
-                let page = KALLOCATOR.lock().kalloc();
-                pte.set_ppn(page);
-                pte.set_flags(flags | PTEFlag::V);
+        for vpage in start_page.page()..end_page.page() {
+            let vpage :PageNum = vpage.into();
+            let page;
+            if self.segments.contains_key(&vpage) {
+                page = self.segments[&vpage].0;
+                self.segments.get_mut(&vpage).unwrap().1 |= flags;
+            } else {
+                page = KALLOCATOR.lock().kalloc();
+                self.segments.insert(vpage,(page, flags));
             }
-            PhysAddr::from(pte.ppn().offset(va % PAGE_SIZE)).write_bytes(data[va - start.0], 1);
+            let size = min(PAGE_SIZE - start.page_offset(), total - wroten);
+            log!(debug "maping data[{}]: 0x{:x} -> 0x{:x}", wroten, size, start.0);
+            page.offset_phys(start.page_offset()).write(unsafe {
+                slice::from_raw_parts(&data[wroten], size)
+            });
+            wroten += size;
+            start = start + size;
         }
     }
 
-    pub fn map_trapframe(&mut self) {
-        let mut trapframe = KALLOCATOR.lock().kalloc().offset_phys(0);
-        let tf :&mut TrapFrame = trapframe.as_mut();
-        tf.init(self);
-        self.pgtbl.map(
-            Self::trapframe_page(),
-            trapframe.floor(),
-            PTEFlag::R | PTEFlag::W | PTEFlag::V,
-        );
-    }
-
-    pub fn unmap_trapframe(&mut self) {
-        self.pgtbl.unmap(Self::trapframe_page(), true);
-    }
-
-    pub fn map_trampoline(&mut self) {
-        let page = MemorySpace::trampoline_page();
-        let pn = KALLOCATOR.lock().kalloc();
-        self.pgtbl
-            .map(page, pn, PTEFlag::R | PTEFlag::X | PTEFlag::V);
-        pn.offset_phys(0).write(unsafe {
-            core::slice::from_raw_parts(
-                crate::trap::__alltraps as *const u8,
-                crate::trap::trampoline as usize - crate::trap::__alltraps as usize,
-            )
-        });
-    }
-
-    pub fn unmap_trampoline(&mut self, do_free: bool) {
-        self.pgtbl
-            .unmap(Self::trampoline_page(), do_free);;
+    pub fn trapframe(&mut self) -> &mut TrapFrame {
+        let phys = self.trapframe.offset_phys(0).0;
+        unsafe {
+            <*mut TrapFrame>::from_bits(phys).as_mut().unwrap()
+        }
     }
 
     // Helper functions
@@ -222,5 +213,16 @@ impl MemorySpace {
             pte_flags |= PTEFlag::X;
         }
         pte_flags
+    }
+}
+
+impl Drop for MemorySpace {
+    fn drop(&mut self) {
+        log!(debug "Freeing memory space");
+        KALLOCATOR.lock().kfree(self.user_stack);
+        KALLOCATOR.lock().kfree(self.trapframe);
+        for (_, (page, _)) in self.segments.iter() {
+            KALLOCATOR.lock().kfree(*page);
+        }
     }
 }

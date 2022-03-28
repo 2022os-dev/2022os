@@ -2,6 +2,8 @@ use super::address::*;
 use super::pte_sv39::{PTEFlag, PTE};
 use crate::asm;
 use crate::config::*;
+use crate::mm::MemorySpace;
+use crate::mm::memory_space::Segments;
 use core::mem::size_of;
 use core::ops::Range;
 use riscv::register::satp;
@@ -66,7 +68,7 @@ impl Pgtbl {
     pub fn map(&mut self, vpage: PageNum, page: PageNum, flags: PTEFlag) {
         let pte = self.walk(vpage.offset(0), true);
         if pte.is_valid() {
-            panic!("remap page 0x{:x}", vpage.page())
+            log!(debug "[warn: Pgtbl.map] remap page 0x{:x}", vpage.page())
         }
         pte.set_ppn(page);
         pte.set_flags(flags | PTEFlag::V);
@@ -150,11 +152,62 @@ impl Pgtbl {
     pub fn get_satp(&self) -> usize {
         self.root.page() | 0x8000000000000000
     }
+
+    fn _print(&self, ppn: PageNum, addr: usize, level: usize) {
+        for idx in 0..(PAGE_SIZE / size_of::<usize>()) {
+            let mut physpte = ppn.offset_phys(idx * size_of::<usize>());
+            let pte: &mut PTE = physpte.as_mut();
+            if pte.is_valid() {
+                if pte.is_leaf() {
+                    if level == 1 {
+                        log!(debug ". addr 0x{:x}, ppn 0x{:x}", ((addr << SV39_VPN_BIT) + idx) << PAGE_OFFSET_BIT, pte.ppn().page());
+                    } else if level == 2 {
+                        log!(debug ".. addr 0x{:x}, ppn 0x{:x}", ((addr << SV39_VPN_BIT) + idx) << PAGE_OFFSET_BIT, pte.ppn().page());
+                    } else if level == 3 {
+                        log!(debug "... addr 0x{:x}, ppn 0x{:x}", ((addr << SV39_VPN_BIT) + idx) << PAGE_OFFSET_BIT, pte.ppn().page());
+                    }
+                } else {
+                    self._print(pte.ppn(), (addr << SV39_VPN_BIT) + idx, level + 1);
+                }
+            }
+        }
+    }
+
+    pub fn print(&self) {
+        self._print(self.root, 0, 1);
+    }
+
+    pub fn map_trampoline(&mut self) {
+        let page = MemorySpace::trampoline_page();
+        let pn = KALLOCATOR.lock().kalloc();
+        self.map(page, pn, PTEFlag::R | PTEFlag::X | PTEFlag::V);
+        pn.offset_phys(0).write(unsafe {
+            core::slice::from_raw_parts(
+                crate::trap::__alltraps as *const u8,
+                crate::trap::trampoline as usize - crate::trap::__alltraps as usize,
+            )
+        });
+    }
+
+    pub fn unmap_segments(&mut self, segments: &Segments, do_free: bool) {
+        for (virt, (phys, _)) in segments.iter() {
+            log!(debug "unmap seg 0x{:x}", virt.page());
+            self.unmap(*virt, do_free);
+        }
+    }
+
+    pub fn map_segments(&mut self, segments: &Segments) {
+        for (virt, (phys, flags)) in segments.iter() {
+            log!(debug "maping 0x{:x} {:?}", virt.0, flags);
+            self.map(*virt, *phys, *flags);
+        }
+    }
+
 }
 
 impl Drop for Pgtbl {
     fn drop(&mut self) {
-        log!(debug "freeing page table");
+        panic!("freeing page table");
         self.unmap_page_table();
     }
 }

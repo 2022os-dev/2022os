@@ -17,7 +17,7 @@ _start:
     .section .bss.stack
     .globl boot_stack
 boot_stack:
-    .space 16384 * 4
+    .space 16384 * 5
     .globl boot_stack_top
 boot_stack_top:"
 );

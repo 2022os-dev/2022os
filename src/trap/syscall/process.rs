@@ -10,16 +10,15 @@ use crate::task::*;
 
 pub(super) fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
     let child_ms = pcb.memory_space.copy();
-    let pid = alloc_pid();
-    log!(debug "[sys_fork] pid {} fork {}", pcb.pid, pid);
-    let child = Arc::new(Mutex::new(Pcb::new(child_ms, pcb.pid, false, false)));
+    let child = Arc::new(Mutex::new(Pcb::new(child_ms, pcb.pid)));
     let mut childlock = child.lock();
+    let childpid = childlock.pid;
+    log!(debug "[sys_fork] pid {} fork {}", pcb.pid, childlock.pid);
     childlock.trapframe()["a0"] = 0;
-    childlock.trapframe()["satp"] = childlock.memory_space.pgtbl.get_satp();
     drop(childlock);
     pcb.children.push(child.clone());
     scheduler_ready_pcb(child);
-    pid as isize
+    childpid as isize
 }
 
 pub(super) fn sys_getpid(pcb: &MutexGuard<Pcb>) -> isize {

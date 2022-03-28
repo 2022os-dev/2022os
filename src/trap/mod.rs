@@ -8,7 +8,7 @@ use riscv::register::{
     sie, stval, stvec,
 };
 
-use crate::{mm::MemorySpace, process::cpu::current_hart};
+use crate::{mm::{MemorySpace, address::PhysAddr}, process::cpu::current_hart};
 use crate::task::*;
 
 extern "C" {
@@ -40,6 +40,7 @@ pub fn enable_timer_interupt() {
 pub extern "C" fn trap_handler() {
     // Fixme: Don't skip the reference lifetime checker;
 
+    log!(debug "in Trap");
     let scause = scause::read();
     let stval = stval::read();
     match scause.cause() {
@@ -67,6 +68,10 @@ pub extern "C" fn trap_handler() {
             );
         }
         Trap::Exception(Exception::InstructionPageFault) => {
+            use crate::mm::address::*;
+            let mut i = PhysAddr(0xdc);
+            let i:&mut usize = i.as_mut();
+            println!("is {}",i); 
             panic!(
                 "InstructionPageFault, core dumped, sepc: 0x{:x}, scause:{:?}",
                 current_pcb().unwrap().lock().trapframe()["sepc"],

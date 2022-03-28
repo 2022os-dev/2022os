@@ -48,8 +48,6 @@ fn clear_bss() {
         .for_each(|a| unsafe { (a as *mut u8).write_volatile(0) });
 }
 
-pub static mut KERNEL_PGTBL: Option<Pgtbl> = None; 
-
 // 记录启动核
 static mut BOOTHART: isize = -1 ;
 
@@ -62,14 +60,13 @@ extern "C" fn kernel_start() {
 
         console::turn_on_log();
         clear_bss();
+        println!("[kernel] Clear bss");
         heap::init();
         println!("[kernel] Init heap");
         mm::init();
-        println!("[kernel] Clear bss");
+        println!("[kernel] mm::init");
 
-        unsafe {
-            init_hart(KERNEL_PGTBL.as_ref().unwrap());
-        }
+        init_hart();
 
         // Run user space application
         println!("[kernel] Load user address space");
@@ -86,9 +83,7 @@ extern "C" fn kernel_start() {
             }
         }
     } else {
-        unsafe {
-            init_hart(KERNEL_PGTBL.as_ref().unwrap());
-        }
+        init_hart();
     }
     trap::init();
     // trap::enable_timer_interupt();
