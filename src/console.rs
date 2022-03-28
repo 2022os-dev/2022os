@@ -24,16 +24,18 @@ impl Stdout {
 
 pub fn print(args: fmt::Arguments) {
     // 暂时锁住输出，防止多线程输出混乱
-    let lock = STDOUTLOCK.lock();
+    // let lock = STDOUTLOCK.lock();
     Stdout.write_fmt(args).unwrap();
-    drop(lock);
+    // drop(lock);
 }
 
+#[allow(unused)]
 pub fn turn_off_log() {
     unsafe {
         KERNEL_LOG = false;
     };
 }
+#[allow(unused)]
 pub fn turn_on_log() {
     unsafe {
         KERNEL_LOG = true;
@@ -50,20 +52,19 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     ($fmt: literal $(, $($arg: tt)+)?) => {
+        let _lock = $crate::console::STDOUTLOCK.lock();
         $crate::console::print(format_args!(concat!($fmt, "\n") $(, $($arg)+)?));
+        drop(_lock);
     }
 }
 
 #[macro_export]
 macro_rules! log{
-    (@inner_print $fmt: literal, $(, $($arg:tt)+)?) => {
-        if $crate::console::Stdout::is_log() {
-        $crate::console::print(format_args!(concat!($fmt, "\n") $(, $($arg)+)?));
-        }
-    };
     (debug $fmt: literal $(, $($arg: tt)+)?) => {
         if $crate::console::Stdout::is_log() {
-        $crate::console::print(format_args!(concat!("\x1b[0;32m[Debug]:", $fmt, "\n\x1b[0m") $(, $($arg)+)?));
+            let _lock = $crate::console::STDOUTLOCK.lock();
+            $crate::console::print(format_args!(concat!("\x1b[0;32m[Debug]:", $fmt, "\n\x1b[0m") $(, $($arg)+)?));
+            drop(_lock);
         }
     };
 }

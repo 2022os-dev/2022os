@@ -95,7 +95,6 @@ pub fn syscall_handler() {
         }
         SYSCALL_EXIT => {
             let xcode = trapframe["a0"];
-            drop(trapframe);
             sys_exit(&mut pcblock, xcode as isize);
         }
         SYSCALL_YIELD => {

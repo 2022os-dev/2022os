@@ -63,7 +63,6 @@ pub fn schedule() -> ! {
         if let Some(pcb) = pcb {
             // assert!(!pcb.is_locked());
 
-            pcb.lock().set_state(PcbState::Running);
             log!(debug "hart {} schedule {}", hartid(), pcb.lock().pid);
             current_hart_run(pcb.clone());
             drop(pcb);
@@ -73,7 +72,7 @@ pub fn schedule() -> ! {
         } else {
             drop(pcb);
             current_hart_leak();
-            log!(debug "hart {} No ready pcb", hartid());
+            println!("Hart {} No ready pcb", hartid());
             loop {}
         }
     }

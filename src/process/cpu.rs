@@ -10,6 +10,7 @@ use crate::link_syms;
 use crate::mm::address::PhysAddr;
 use crate::mm::pgtbl::Pgtbl;
 use crate::mm::*;
+use crate::process::PcbState;
 use crate::asm;
 
 // 最多支持4核
@@ -81,7 +82,6 @@ pub fn current_hart_leak() {
         unsafe {
             asm!("sfence.vma");
         }
-        let stack = current.lock().memory_space.user_stack;
         // 用户栈
         current_hart_pgtbl().unmap(VirtualAddr(USER_STACK).floor(), false);
         drop(current);
@@ -105,6 +105,7 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
     // 设置内核栈
     pcb.lock().trapframe().kernel_sp = current_hart().kernel_sp;
     log!(debug "Hart segments ready");
+    pcb.lock().set_state(PcbState::Running);
     current_hart().pcb = Some(pcb);
 }
 

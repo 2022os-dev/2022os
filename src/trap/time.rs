@@ -1,7 +1,7 @@
 use crate::sbi::SET_TIMER;
 
 const TICKS_PER_SEC: usize = 100;
-const CLOCK_FREQ: usize = 12500000;
+const CLOCK_FREQ: usize = 1250000;
 
 pub fn get_time() -> usize {
     riscv::register::time::read()

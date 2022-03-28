@@ -54,12 +54,11 @@ static mut BOOTHART: isize = -1 ;
 // [no_mangle] Turn off Rust's name mangling
 #[no_mangle]
 extern "C" fn kernel_start() {
-    let mut sp: usize;
     log!(debug "Booting hart {}", hartid());
     if unsafe { BOOTHART } == -1 {
         unsafe { BOOTHART = hartid() as isize; };
 
-        console::turn_on_log();
+        console::turn_off_log();
         clear_bss();
         println!("[kernel] Clear bss");
         heap::init();
@@ -87,7 +86,7 @@ extern "C" fn kernel_start() {
         init_hart();
     }
     trap::init();
-    // trap::enable_timer_interupt();
+    trap::enable_timer_interupt();
     log!(debug "Start schedule");
     schedule();
 }
