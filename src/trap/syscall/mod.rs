@@ -1,6 +1,7 @@
 #![allow(unused)]
 mod file;
 mod process;
+mod mm;
 use alloc::sync::Arc;
 use crate::mm::address::*;
 use crate::process::*;
@@ -8,6 +9,7 @@ use crate::process::cpu::current_hart;
 use crate::process::pcb::BlockReason;
 use crate::task::*;
 use file::*;
+use mm::*;
 use process::*;
 
 const SYSCALL_GETCWD: usize = 17;
@@ -117,6 +119,16 @@ pub fn syscall_handler() {
                 pcblock.trapframe()["sepc"] -= 4;
                 log!(debug "[sys_handler] block {}", pcblock.pid);
             }
+        }
+        SYSCALL_SBRK => {
+            let inc = trapframe["a0"];
+            log!(debug "sbrk {}", inc);
+            pcblock.trapframe()["a0"] = sys_sbrk(&mut pcblock, inc);
+        }
+        SYSCALL_BRK => {
+            let va = VirtualAddr(trapframe["a0"]);
+            log!(debug "brk 0x{:x}", va.0);
+            pcblock.trapframe()["a0"] = sys_brk(&mut pcblock, va) as usize;
         }
         SYSCALL_FORK => {
             pcblock.trapframe()["a0"] = sys_fork(&mut pcblock) as usize;

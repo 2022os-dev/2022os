@@ -18,7 +18,9 @@ pub struct MemorySpace {
     // 保存elf中可加载的段
     pub segments: Segments,
     pub trapframe: PageNum,
-    pub user_stack: PageNum
+    pub user_stack: PageNum,
+    prog_break: VirtualAddr,
+    prog_high_page: PageNum,
 }
 
 impl MemorySpace {
@@ -29,8 +31,38 @@ impl MemorySpace {
             entry: 0,
             segments: BTreeMap::new(),
             trapframe: tf,
-            user_stack: stack
+            user_stack: stack,
+            prog_break: VirtualAddr(0),
+            prog_high_page: PageNum(0)
         }
+    }
+
+    pub fn prog_sbrk(&mut self, mut inc: usize) -> VirtualAddr {
+        if self.prog_break.0 == 0 {
+            let maxvpage = self.segments.keys().into_iter().max_by(|lvp, rvp| {
+                lvp.0.cmp(&rvp.0)
+            });
+            if let None = maxvpage {
+                panic!("Can't found max vpage in segments");
+            }
+            self.prog_break = (*maxvpage.unwrap() + 1).offset(0);
+            self.prog_high_page = *maxvpage.unwrap();
+        }
+        let retva = self.prog_break;
+        while self.prog_break + inc > self.prog_high_page.offset(PAGE_SIZE) {
+            if self.segments().contains_key(&(self.prog_high_page + 1)) {
+                panic!("duplicated program break page 0x{:x}", self.prog_high_page.offset(0).0);
+            }
+            self.segments.insert(self.prog_high_page + 1, (KALLOCATOR.lock().kalloc(), PTEFlag::R | PTEFlag::W | PTEFlag::U));
+            self.prog_high_page = self.prog_high_page + 1;
+        }
+        self.prog_break = self.prog_break + inc;
+        retva
+    }
+
+    pub fn prog_brk(&mut self, va: VirtualAddr) -> Result<(), ()> {
+        self.prog_break = va;
+        Ok(())
     }
 
     pub fn trampoline_page() -> PageNum {
@@ -88,6 +120,13 @@ impl MemorySpace {
         phys.write(self.trapframe.offset_phys(0).as_slice(PAGE_SIZE));
         mem.trapframe = newpage;
         mem
+    }
+
+    pub fn trapframe(&mut self) -> &mut TrapFrame {
+        let phys = self.trapframe.offset_phys(0).0;
+        unsafe {
+            <*mut TrapFrame>::from_bits(phys).as_mut().unwrap()
+        }
     }
 
     pub fn get_stack_sp(&self) -> VirtualAddr{
@@ -182,13 +221,6 @@ impl MemorySpace {
             });
             wroten += size;
             start = start + size;
-        }
-    }
-
-    pub fn trapframe(&mut self) -> &mut TrapFrame {
-        let phys = self.trapframe.offset_phys(0).0;
-        unsafe {
-            <*mut TrapFrame>::from_bits(phys).as_mut().unwrap()
         }
     }
 

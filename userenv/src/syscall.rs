@@ -109,7 +109,7 @@ pub fn syscall_getpid() -> usize {
     ret
 }
 
-pub fn syscall_wait4(mut pid: isize, wstatus: &mut isize, options: usize, rusage: &mut usize) -> isize {
+pub fn syscall_wait4(pid: isize, wstatus: &mut isize, options: usize, rusage: &mut usize) -> isize {
     let mut pid = pid as usize;
     unsafe {
         asm!("ecall", inout("x10") pid, 
@@ -120,4 +120,23 @@ pub fn syscall_wait4(mut pid: isize, wstatus: &mut isize, options: usize, rusage
         )
     }
     pid as isize
+}
+
+pub fn syscall_sbrk(mut inc: usize) -> *mut u8 {
+    unsafe {
+        asm!("ecall", inout("x10") inc,
+            in("x17") SYSCALL_SBRK
+        )
+    }
+    inc as *mut u8
+}
+
+pub fn syscall_brk(addr: *const u8) -> isize {
+    let mut addr = addr as usize;
+    unsafe {
+        asm!("ecall", inout("x10") addr,
+            in("x17") SYSCALL_BRK
+        )
+    }
+    addr as isize
 }

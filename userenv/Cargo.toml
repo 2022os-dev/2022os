@@ -22,3 +22,7 @@ path = "src/get_pid.rs"
 [[bin]]
 name = "sys_wait4"
 path = "src/sys_wait4.rs"
+
+[[bin]]
+name = "sys_brk"
+path = "src/sys_brk.rs"

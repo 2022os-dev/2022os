@@ -8,5 +8,6 @@ fn panic(_: &PanicInfo) -> ! {
 #[no_mangle]
 fn _start() {
     crate::main();
+    crate::syscall::syscall_exit(0);
 }
 

@@ -3,9 +3,10 @@
 
 mod syscall;
 mod runtime;
+mod console;
+
+use console::*;
 
 fn main() {
-    syscall::syscall_write(1, "get pid ".as_bytes());
-    let pid = syscall::syscall_getpid();
-    syscall::syscall_exit(pid as isize);
+    println!("get pid {}", syscall::syscall_getpid());
 }
