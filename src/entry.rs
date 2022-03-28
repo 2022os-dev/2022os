@@ -4,10 +4,10 @@ global_asm!(
     ".section .text.entry
     .globl _start
 _start:
-    addi a0, a0, 65
+    mv tp, a0
+    addi a0, a0, 48
     li a7, 1
     ecall
-    mv tp, a0
     la sp, boot_stack_top
     li a1, 16384
     mul a0, a0, a1
