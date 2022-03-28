@@ -79,6 +79,12 @@ extern "C" fn kernel_start() {
             let virtual_space = MemorySpace::from_elf(i);
             scheduler_load_pcb(virtual_space);
         }
+
+        for i in 1..4 {
+            if hartid() != i {
+                sbi_hsm_hart_start(i, 0x8020000, 0);
+            }
+        }
     } else {
         unsafe {
             init_hart(KERNEL_PGTBL.as_ref().unwrap());
