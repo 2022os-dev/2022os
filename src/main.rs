@@ -62,10 +62,10 @@ extern "C" fn kernel_start() {
 
         console::turn_on_log();
         clear_bss();
-        mm::init();
-        println!("[kernel] Clear bss");
         heap::init();
         println!("[kernel] Init heap");
+        mm::init();
+        println!("[kernel] Clear bss");
 
         unsafe {
             init_hart(KERNEL_PGTBL.as_ref().unwrap());
@@ -78,11 +78,6 @@ extern "C" fn kernel_start() {
         for i in *user::APP {
             let virtual_space = MemorySpace::from_elf(i);
             scheduler_load_pcb(virtual_space);
-        }
-        for hart in 1..=4 {
-            if hart != hartid() {
-                sbi_hsm_hart_start(hart, 0x80200000, 0);
-            }
         }
     } else {
         unsafe {
