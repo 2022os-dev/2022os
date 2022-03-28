@@ -4,11 +4,12 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 
 use super::Pcb;
+use crate::config::BOOT_STACK_SIZE;
 use crate::config::USER_STACK;
+use crate::link_syms;
 use crate::mm::address::PhysAddr;
 use crate::mm::pgtbl::Pgtbl;
 use crate::mm::*;
-use crate::mm::memory_space::{MemorySpace, Segments};
 use crate::asm;
 
 // 最多支持4核
@@ -38,8 +39,8 @@ lazy_static! {
 
 pub fn init_hart() {
     log!(debug "Init hart {}", hartid());
-    let sp: usize;
-    unsafe { asm!("mv a0, sp", out("a0") sp) };
+    let sp: usize = link_syms::boot_stack_top as usize - BOOT_STACK_SIZE * hartid();
+    // Note: 进入该函数时栈大小不应该超过 1 页
     let sp :PhysAddr = PhysAddr(sp).ceil().into();
     current_hart().hartid = hartid();
     current_hart().kernel_sp = sp.0;

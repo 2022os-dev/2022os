@@ -14,4 +14,6 @@ extern "C" {
     pub fn ebss();
     pub fn skernel();
     pub fn ekernel();
+    pub fn boot_stack();
+    pub fn boot_stack_top();
 }

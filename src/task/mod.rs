@@ -61,7 +61,7 @@ pub fn schedule() -> ! {
         drop(tasklist);
 
         if let Some(pcb) = pcb {
-            assert!(!pcb.is_locked());
+            // assert!(!pcb.is_locked());
 
             pcb.lock().set_state(PcbState::Running);
             log!(debug "hart {} schedule {}", hartid(), pcb.lock().pid);

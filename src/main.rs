@@ -54,6 +54,7 @@ static mut BOOTHART: isize = -1 ;
 // [no_mangle] Turn off Rust's name mangling
 #[no_mangle]
 extern "C" fn kernel_start() {
+    let mut sp: usize;
     log!(debug "Booting hart {}", hartid());
     if unsafe { BOOTHART } == -1 {
         unsafe { BOOTHART = hartid() as isize; };
@@ -77,9 +78,9 @@ extern "C" fn kernel_start() {
             scheduler_load_pcb(virtual_space);
         }
 
-        for i in 1..4 {
+        for i in 1..=4 {
             if hartid() != i {
-                sbi_hsm_hart_start(i, 0x8020000, 0);
+                sbi_hsm_hart_start(i, 0x80200000, 0);
             }
         }
     } else {

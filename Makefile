@@ -20,13 +20,13 @@ user_apps:
 	mv userenv/target/riscv64gc-unknown-none-elf/debug/sys_wait4 src/user/bin/sys_wait4
 
 kernel.bin: user_apps
-	@cargo build
+	@cargo build --release
 	@if which rust-objcopy ; then \
-		rust-objcopy target/riscv64gc-unknown-none-elf/debug/os -O binary kernel.bin; \
+		rust-objcopy target/riscv64gc-unknown-none-elf/release/os -O binary kernel.bin; \
 	elif which riscv-objcopy; then \
-		riscv-objcopy target/riscv64gc-unknown-none-elf/debug/os -O binary kernel.bin; \
+		riscv-objcopy target/riscv64gc-unknown-none-elf/release/os -O binary kernel.bin; \
 	elif which objcopy ; then \
-		objcopy target/riscv64gc-unknown-none-elf/debug/os -O binary kernel.bin; \
+		objcopy target/riscv64gc-unknown-none-elf/release/os -O binary kernel.bin; \
 	else \
 	  @echo objcopy not found; \
 	fi
