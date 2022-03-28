@@ -39,16 +39,14 @@ pub fn init_hart(pgtbl: &Pgtbl) {
     let sp: usize;
     unsafe { asm!("mv a0, sp", out("a0") sp) };
     let sp :PhysAddr = PhysAddr(sp).ceil().into();
-    unsafe {
-        _HARTS[hartid()].hartid = hartid();
-        _HARTS[hartid()].kernel_sp = sp.0;
-        _HARTS[hartid()].mem_space = Some(MemorySpace {
-            pgtbl: pgtbl.copy(false),
-            entry: 0,
-            segments: Vec::new()
-        });
-        activate_vm(_HARTS[hartid()].mem_space.as_ref().unwrap().pgtbl.root.page());
-    };
+    current_hart().hartid = hartid();
+    current_hart().kernel_sp = sp.0;
+    current_hart().mem_space = Some(MemorySpace {
+        pgtbl: pgtbl.copy(false),
+        entry: 0,
+        segments: Vec::new()
+    });
+    activate_vm(current_hart().mem_space.as_ref().unwrap().pgtbl.root.page());
 }
 
 pub fn current_hart() -> &'static mut Hart {
@@ -58,17 +56,13 @@ pub fn current_hart() -> &'static mut Hart {
 }
 
 pub fn current_hart_leak() {
-    unsafe {
-        _HARTS[hartid()].pcb = None;
-    }
+        current_hart().pcb = None;
 }
 
 pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
-    unsafe {
-        pcb.lock().trapframe().kernel_sp = _HARTS[hartid()].kernel_sp;
-        pcb.lock().trapframe().kernel_satp = _HARTS[hartid()].mem_space.as_ref().unwrap().pgtbl.get_satp();
-        _HARTS[hartid()].pcb = Some(pcb);
-    }
+    pcb.lock().trapframe().kernel_sp = current_hart().kernel_sp;
+    pcb.lock().trapframe().kernel_satp = current_hart().mem_space.as_ref().unwrap().pgtbl.get_satp();
+    current_hart().pcb = Some(pcb);
 }
 
 pub fn hartid() -> usize {
