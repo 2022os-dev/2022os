@@ -72,6 +72,7 @@ pub fn schedule() -> ! {
             restore_trapframe(satp);
         } else {
             drop(pcb);
+            current_hart_leak();
             // log!(debug "hart {} No ready pcb", hartid());
         }
     }
