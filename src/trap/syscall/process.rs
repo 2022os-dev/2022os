@@ -13,7 +13,6 @@ pub(super) fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
     let child = Arc::new(Mutex::new(Pcb::new(child_ms, pcb.pid)));
     let mut childlock = child.lock();
     let childpid = childlock.pid;
-    log!(debug "[sys_fork] pid {} fork {}", pcb.pid, childlock.pid);
     childlock.trapframe()["a0"] = 0;
     drop(childlock);
     pcb.children.push(child.clone());
@@ -22,17 +21,15 @@ pub(super) fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
 }
 
 pub(super) fn sys_getpid(pcb: &MutexGuard<Pcb>) -> isize {
-    log!(debug "[sys_getpid]: {}", pcb.pid);
     pcb.pid as isize
 }
 
 pub(super) fn sys_yield() -> isize {
-    log!(debug "[sys_yield]");
     0
 }
 
 pub(super) fn sys_exit(pcb: &mut MutexGuard<Pcb>, xstate: isize) {
-    log!(debug "[sys_exit]: pid {} exit with code {}", pcb.pid, xstate);
+    log!("syscall":"exit"> "pid({})", pcb.pid);
     pcb.exit(xstate);
 }
 
@@ -42,9 +39,6 @@ pub(super) fn sys_wait4(pcb: &mut MutexGuard<Pcb>, pid: isize, wstatus: VirtualA
     // 如果找不到退出的子进程，返回Err
     let mut xcode = 0;
     let res = pcb.children.iter().enumerate().find(|(_idx, child)| {
-        if child.is_locked() {
-            log!(debug "wait4 child locked");
-        }
         let child = child.lock();
         if pid == -1 || child.pid == pid.abs() as usize {
             if let PcbState::Exit(_xcode) = child.state() {
@@ -58,7 +52,6 @@ pub(super) fn sys_wait4(pcb: &mut MutexGuard<Pcb>, pid: isize, wstatus: VirtualA
     });
     if let Some((idx, child)) = res {
         let child_pid = child.lock().pid;
-        log!(debug "[sys_wait4]: child {} exited with {}",child_pid, xcode);
         pcb.memory_space.copy_to_user(wstatus, PhysAddr::from(&xcode).as_slice(size_of::<usize>()));
         pcb.children.remove(idx);
         Ok(child_pid)

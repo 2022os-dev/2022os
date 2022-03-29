@@ -15,25 +15,27 @@ lazy_static! {
 }
 
 pub fn scheduler_load_pcb(memory_space: MemorySpace) -> Arc<Mutex<Pcb>> {
-    // Fixme: when ran out of pcbs
     let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 0)));
     scheduler_ready_pcb(pcb.clone());
     pcb
 }
 
 pub fn scheduler_block_pcb(pcb: Arc<Mutex<Pcb>>, reason: BlockReason) {
+    log!("scheduler":"Block">"pid({})", pcb.lock().pid);
     pcb.lock().set_state(PcbState::Block(reason));
     BLOCKTASKS.lock().insert(0, pcb);
 }
 
 pub fn scheduler_ready_pcb(pcb: Arc<Mutex<Pcb>>) {
+    log!("scheduler":"Ready">"pid({})", pcb.lock().pid);
     pcb.lock().set_state(PcbState::Ready);
     READYTASKS.lock().insert(0, pcb);
 }
 
 pub fn scheduler_signal(pid: Pid, reason: BlockReason) {
+    log!("scheduler":"signal">"(pid({}), {:?})", pid, reason);
     let mut blocktasks = BLOCKTASKS.lock();
-    let findret = blocktasks.iter().enumerate().find(|(idx, pcb)| {
+    let findret = blocktasks.iter().enumerate().find(|(_, pcb)| {
         let pcb = pcb.lock();
         if pcb.pid == pid {
             match pcb.state() {
@@ -55,6 +57,7 @@ pub fn scheduler_signal(pid: Pid, reason: BlockReason) {
 
 pub fn schedule() -> ! {
     // FCFS
+    log!("scheduler":>"Enter");
     loop {
         let mut tasklist = READYTASKS.lock();
         let pcb = tasklist.pop();
@@ -63,7 +66,8 @@ pub fn schedule() -> ! {
         if let Some(pcb) = pcb {
             // assert!(!pcb.is_locked());
 
-            log!(debug "hart {} schedule {}", hartid(), pcb.lock().pid);
+            let pid = pcb.lock().pid;
+            log!("scheduler":>"run pid({})", pid);
             current_hart_run(pcb.clone());
             drop(pcb);
             // current_hart_memset().pgtbl().print();
@@ -72,7 +76,7 @@ pub fn schedule() -> ! {
         } else {
             drop(pcb);
             current_hart_leak();
-            println!("Hart {} No ready pcb", hartid());
+            log!("scheduler":>"No ready Pcb");
             loop {}
         }
     }

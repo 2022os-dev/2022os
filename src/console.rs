@@ -24,9 +24,11 @@ impl Stdout {
 
 pub fn print(args: fmt::Arguments) {
     // 暂时锁住输出，防止多线程输出混乱
-    // let lock = STDOUTLOCK.lock();
+    #[cfg(feature = "print_lock")]
+    let _lock = STDOUTLOCK.lock();
     Stdout.write_fmt(args).unwrap();
-    // drop(lock);
+    #[cfg(feature = "print_lock")]
+    drop(_lock);
 }
 
 #[allow(unused)]
@@ -52,19 +54,17 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     ($fmt: literal $(, $($arg: tt)+)?) => {
-        let _lock = $crate::console::STDOUTLOCK.lock();
         $crate::console::print(format_args!(concat!($fmt, "\n") $(, $($arg)+)?));
-        drop(_lock);
     }
 }
 
 #[macro_export]
 macro_rules! log{
     (debug $fmt: literal $(, $($arg: tt)+)?) => {
-        if $crate::console::Stdout::is_log() {
-            let _lock = $crate::console::STDOUTLOCK.lock();
-            $crate::console::print(format_args!(concat!("\x1b[0;32m[Debug]:", $fmt, "\n\x1b[0m") $(, $($arg)+)?));
-            drop(_lock);
-        }
+        // $crate::console::print(format_args!(concat!("\x1b[0;32m[Debug]:", $fmt, "\n\x1b[0m") $(, $($arg)+)?));
+    };
+    ($config: literal : $($header: literal)* >  $fmt: literal $(, $($arg: tt)+)?) => {
+        #[cfg(feature = $config)]
+        $crate::console::print(format_args!(concat!("{}: [", $config, "]", $("(", $header, ")",)* ": ", $fmt, "\n"), $crate::process::cpu::hartid() $(, $($arg)+)?));
     };
 }

@@ -58,6 +58,7 @@ extern "C" fn kernel_start() {
     if unsafe { BOOTHART } == -1 {
         unsafe { BOOTHART = hartid() as isize; };
 
+        // log!("test":"main"> "for test");
         console::turn_off_log();
         clear_bss();
         println!("[kernel] Clear bss");

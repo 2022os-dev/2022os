@@ -21,6 +21,7 @@ impl Default for Kallocator {
 use core::ops::Range;
 impl Kallocator {
     pub fn init(&mut self, pages: Range<PageNum>) {
+        log!("kalloc":"init">"0x{:x} - 0x{:x}", pages.start.page(), pages.end.page());
         self.0 = pages.start.page();
         for i in pages.start.page()..pages.end.page() {
             let mut pa: PhysAddr = Into::<PageNum>::into(i).into();
@@ -42,7 +43,7 @@ impl Kallocator {
         self.0 = *pa;
         // REMOVE
         if self.0 == 0 {
-            println!("warn: kalloc all memory, 0x{:x}", ret.page());
+            log!("kalloc":"kalloc""warn">"the last page 0x{:x}", ret.page());
         }
         // clear page
         Into::<PhysAddr>::into(ret).write_bytes(0, PAGE_SIZE);
@@ -50,6 +51,7 @@ impl Kallocator {
     }
 
     pub fn kfree(&mut self, page: PageNum) {
+        log!("kalloc":"kfree">"0x{:x}", page.page());
         *(page.offset_phys(0).as_mut()) = self.0;
         self.0 = page.page();
     }

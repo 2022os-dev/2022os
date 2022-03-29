@@ -68,7 +68,7 @@ impl Pgtbl {
     pub fn map(&mut self, vpage: PageNum, page: PageNum, flags: PTEFlag) {
         let pte = self.walk(vpage.offset(0), true);
         if pte.is_valid() {
-            log!(debug "[warn: Pgtbl.map] remap page 0x{:x}", vpage.page())
+            log!("pgtbl":"map""warn"> "remap page 0x{:x} -> 0x{:x}", vpage.page(), page.page());
         }
         pte.set_ppn(page);
         pte.set_flags(flags | PTEFlag::V);
@@ -80,7 +80,7 @@ impl Pgtbl {
             let pte: &mut PTE = physpte.as_mut();
             if pte.is_valid() {
                 if pte.is_leaf() {
-                    log!(debug "unmapping leaf 0x{:x}", ((addr << SV39_VPN_BIT) + idx) << PAGE_OFFSET_BIT);
+                    log!("pgtbl":"_unmap_page_table""warn"> "unmaping valid leaf page 0x{:x}", ((addr << SV39_VPN_BIT) + idx) << PAGE_OFFSET_BIT);
                 } else {
                     Self::_unmap_page_table(pte.ppn(), (addr << SV39_VPN_BIT) + idx);
                 }
@@ -192,13 +192,14 @@ impl Pgtbl {
     pub fn unmap_segments(&mut self, segments: &Segments, do_free: bool) {
         for (virt, (phys, _)) in segments.iter() {
             log!(debug "unmap seg 0x{:x}", virt.page());
+            log!("pgtbl":"unmap_segments"> "vpage 0x{:x} -> 0x{:x}", virt.page(), phys.page());
             self.unmap(*virt, do_free);
         }
     }
 
     pub fn map_segments(&mut self, segments: &Segments) {
         for (virt, (phys, flags)) in segments.iter() {
-            log!(debug "maping 0x{:x} {:?}", virt.0, flags);
+            log!("pgtbl":"map_segments">"vpage 0x{:x} -> 0x{:x} ({:?})", virt.page(), phys.page(), flags);
             self.map(*virt, *phys, *flags);
         }
     }
@@ -208,6 +209,5 @@ impl Pgtbl {
 impl Drop for Pgtbl {
     fn drop(&mut self) {
         panic!("freeing page table");
-        self.unmap_page_table();
     }
 }

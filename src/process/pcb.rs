@@ -76,12 +76,12 @@ impl Pcb {
 
 impl Drop for Pcb {
     fn drop(&mut self) {
-        println!("Freeing pid {}", self.pid);
+        log!("pcb":"drop">"pid({})", self.pid);
     }
 }
 
 pub fn pcb_block_slot(pcb: Arc<Mutex<Pcb>>, reason: BlockReason) {
-    log!(debug "process slot {:?}", reason);
+    log!("pcb":"slot">"pid({}) - Reason({:?})", pcb.lock().pid, reason);
     match reason {
         BlockReason::Wait => {
             scheduler_ready_pcb(pcb);

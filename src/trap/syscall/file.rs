@@ -19,8 +19,8 @@ pub(super) fn sys_write(
         FD_STDOUT => {
             let slice = buffer.as_slice();
             let string = core::str::from_utf8(slice).unwrap();
-            crate::console::Stdout.write_str(string);
-            0
+            log!("user_log":>"{}", string);
+            len as isize
         }
         _ => {
             panic!("Unsupport syscall write fd {}", fd);
