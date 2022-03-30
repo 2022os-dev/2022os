@@ -17,6 +17,7 @@ pub struct Pgtbl {
 impl Pgtbl {
     pub fn new() -> Self {
         let page = KALLOCATOR.lock().kalloc();
+        log!("pgtbl":"new">"page(0x{:x})", page.page());
         Self { root: page }
     }
 
@@ -31,7 +32,8 @@ impl Pgtbl {
             pte = physpte.as_mut();
             if pte.is_valid() {
                 if pte.is_leaf() {
-                    panic!("too short page table")
+                    self.print();
+                    panic!("too short page table, level({}), va(0x{:x}), ppn(0x{:x})", level, va.0, ppn.page());
                 }
                 ppn = pte.ppn();
             } else {
@@ -66,6 +68,7 @@ impl Pgtbl {
     }
 
     pub fn map(&mut self, vpage: PageNum, page: PageNum, flags: PTEFlag) {
+        // log!("pgtbl":"map">"vpate(0x{:x}) -> page(0x{:x}) {:?}", vpage.page(), page.page(), flags);
         let pte = self.walk(vpage.offset(0), true);
         if pte.is_valid() {
             log!("pgtbl":"map""warn"> "remap page 0x{:x} -> 0x{:x}", vpage.page(), page.page());

@@ -17,6 +17,9 @@ lazy_static! {
 pub fn alloc_pid() -> usize {
     PIDALLOCATOR.fetch_add(1, Ordering::Relaxed)
 }
+// Note: 使用Atomic类型会出错
+#[cfg(feature = "pcb")]
+pub static mut DROPPCBS: Mutex<usize> = Mutex::new(0);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PcbState {
@@ -32,6 +35,7 @@ pub struct Pcb {
     pub state: PcbState,
     pub memory_space: MemorySpace,
     pub children: Vec<Arc<Mutex<Pcb>>>,
+    pub sabounds: SigActionBounds
 }
 
 impl Pcb {
@@ -42,7 +46,10 @@ impl Pcb {
             state: PcbState::Ready,
             memory_space,
             children: Vec::new(),
+            sabounds: SigActionBounds::new()
         };
+        #[cfg(feature = "pcb")]
+        unsafe { *DROPPCBS.lock() += 1; }
         sigqueue_init(pcb.pid);
         pcb
     }
@@ -68,6 +75,8 @@ impl Pcb {
 
 impl Drop for Pcb {
     fn drop(&mut self) {
+        #[cfg(feature = "pcb")]
+        unsafe { *DROPPCBS.lock() -= 1; }
         log!("pcb":"drop">"pid({})", self.pid);
         sigqueue_clear(self.pid);
     }
