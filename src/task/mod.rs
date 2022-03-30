@@ -8,10 +8,8 @@ use spin::Mutex;
 use core::assert;
 
 lazy_static! {
-    // 保存所有Ready进程
+    // 保存所有可尝试调度的进程
     static ref READYTASKS: Mutex<Vec<Arc<Mutex<Pcb>>>> = Mutex::new(Vec::new());
-    // 保存所有Block进程
-    static ref BLOCKTASKS: Mutex<Vec<Arc<Mutex<Pcb>>>> = Mutex::new(Vec::new());
 }
 
 pub fn scheduler_load_pcb(memory_space: MemorySpace) -> Arc<Mutex<Pcb>> {
@@ -20,18 +18,19 @@ pub fn scheduler_load_pcb(memory_space: MemorySpace) -> Arc<Mutex<Pcb>> {
     pcb
 }
 
+/*
 pub fn scheduler_block_pcb(pcb: Arc<Mutex<Pcb>>, reason: BlockReason) {
     log!("scheduler":"Block">"pid({})", pcb.lock().pid);
     pcb.lock().set_state(PcbState::Block(reason));
     BLOCKTASKS.lock().insert(0, pcb);
 }
+*/
 
 pub fn scheduler_ready_pcb(pcb: Arc<Mutex<Pcb>>) {
     log!("scheduler":"Ready">"pid({})", pcb.lock().pid);
-    pcb.lock().set_state(PcbState::Ready);
     READYTASKS.lock().insert(0, pcb);
 }
-
+/*
 pub fn scheduler_signal(pid: Pid, reason: BlockReason) {
     log!("scheduler":"signal">"(pid({}), {:?})", pid, reason);
     let mut blocktasks = BLOCKTASKS.lock();
@@ -54,6 +53,7 @@ pub fn scheduler_signal(pid: Pid, reason: BlockReason) {
         pcb_block_slot(pcb, reason);
     }
 }
+*/
 
 pub fn schedule() -> ! {
     // FCFS
@@ -65,14 +65,15 @@ pub fn schedule() -> ! {
 
         if let Some(pcb) = pcb {
             // assert!(!pcb.is_locked());
-
-            let pid = pcb.lock().pid;
-            log!("scheduler":>"run pid({})", pid);
-            current_hart_run(pcb.clone());
-            drop(pcb);
-            // current_hart_memset().pgtbl().print();
-            let tf = current_pcb().unwrap().lock().memory_space.trapframe.offset(0);
-            restore_trapframe(tf);
+            if let Err(_) = current_hart_run(pcb.clone()) {
+                scheduler_ready_pcb(pcb);
+                continue;
+            } else {
+                drop(pcb);
+                // current_hart_memset().pgtbl().print();
+                let tf = current_pcb().unwrap().lock().memory_space.trapframe.offset(0);
+                restore_trapframe(tf);
+            }
         } else {
             drop(pcb);
             current_hart_leak();

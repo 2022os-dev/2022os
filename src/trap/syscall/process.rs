@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use core::mem::size_of;
 use spin::{Mutex, MutexGuard};
 use crate::mm::PhysAddr;
+use crate::process::signal::*;
 use crate::mm::VirtualAddr;
 use crate::process::pcb::alloc_pid;
 use crate::process::*;
@@ -31,6 +32,7 @@ pub(super) fn sys_yield() -> isize {
 pub(super) fn sys_exit(pcb: &mut MutexGuard<Pcb>, xstate: isize) {
     log!("syscall":"exit"> "pid({})", pcb.pid);
     pcb.exit(xstate);
+    sigqueue_send(pcb.parent, Signal::SIGCHLD);
 }
 
 // 忽略rusage
@@ -53,6 +55,7 @@ pub(super) fn sys_wait4(pcb: &mut MutexGuard<Pcb>, pid: isize, wstatus: VirtualA
     if let Some((idx, child)) = res {
         let child_pid = child.lock().pid;
         pcb.memory_space.copy_to_user(wstatus, PhysAddr::from(&xcode).as_slice(size_of::<usize>()));
+        // 清理子进程
         pcb.children.remove(idx);
         Ok(child_pid)
     }  else {

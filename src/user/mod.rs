@@ -7,5 +7,5 @@ static SYS_WAIT4 : &'static [u8] = include_bytes!("bin/sys_wait4");
 static SYS_BRK: &'static [u8] = include_bytes!("bin/sys_brk");
 
 lazy_static! {
-    pub static ref APP :Box<[&'static [u8]]> = Box::new([LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,LOOP10,]);
+    pub static ref APP :Box<[&'static [u8]]> = Box::new([SYS_WAIT4]);
 }

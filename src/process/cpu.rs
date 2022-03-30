@@ -74,23 +74,33 @@ pub fn current_hart() -> &'static mut Hart {
 }
 
 pub fn current_hart_leak() {
-    log!("hart":"leak">"hartid({})", hartid());
     if let Some(current) = current_hart().pcb.take() {
-        log!("hart":"leak">"hartid({}) unmap segments", hartid());
+        let pid = current.lock().pid;
+        log!("hart":"leak">"pid({}) unmap segments", pid);
         current_hart_pgtbl().unmap_segments(
             current.lock().memory_space.segments(), false);
         unsafe {
             asm!("sfence.vma");
         }
         // 用户栈
-        log!("hart":"leak">"hartid({}) unmap user stack", hartid());
+        log!("hart":"leak">"pid({}) unmap user stack",pid);
         current_hart_pgtbl().unmap(VirtualAddr(USER_STACK).floor(), false);
         drop(current);
     }
 }
 
-pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
+pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> Result<(), ()> {
     current_hart_leak();
+    let state = pcb.lock().state();
+    if let PcbState::Blocking(testfn) = state {
+        let pid = pcb.lock().pid;
+        log!("hart":"blocking">"pid({})", pid);
+        if !testfn(pcb.clone()) {
+            return Err(())
+        }
+    }
+    let pid = pcb.lock().pid;
+    log!("hart":"run">"pid({})", pid);
     // 需要设置进程的代码数据段、用户栈、trapframe、内核栈
     log!("hart":"run">"map segments");
     // map_segments将代码数据段映射到页表
@@ -108,6 +118,7 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
     pcb.lock().trapframe().kernel_sp = current_hart().kernel_sp;
     pcb.lock().set_state(PcbState::Running);
     current_hart().pcb = Some(pcb);
+    Ok(())
 }
 
 pub fn current_hart_pgtbl() -> &'static mut Pgtbl {

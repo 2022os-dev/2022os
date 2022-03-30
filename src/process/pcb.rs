@@ -1,10 +1,7 @@
 use super::TrapFrame;
-use crate::config::*;
-use crate::mm::kalloc::*;
 use crate::mm::MemorySpace;
-use crate::mm::address::*;
 use crate::task::scheduler_ready_pcb;
-use crate::task::scheduler_signal;
+use super::signal::*;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::sync::atomic::AtomicUsize;
@@ -21,17 +18,12 @@ pub fn alloc_pid() -> usize {
     PIDALLOCATOR.fetch_add(1, Ordering::Relaxed)
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum BlockReason {
-    Wait
-}
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PcbState {
     Ready,
     Running,
-    Block(BlockReason),
     Exit(isize),
+    Blocking(fn(Arc<Mutex<Pcb>>) -> bool)
 }
 
 pub struct Pcb {
@@ -51,6 +43,7 @@ impl Pcb {
             memory_space,
             children: Vec::new(),
         };
+        sigqueue_init(pcb.pid);
         pcb
     }
 
@@ -70,16 +63,17 @@ impl Pcb {
 
     pub fn exit(&mut self, xcode: isize) {
         self.state = PcbState::Exit(xcode);
-        scheduler_signal(self.parent, BlockReason::Wait);
     }
 }
 
 impl Drop for Pcb {
     fn drop(&mut self) {
         log!("pcb":"drop">"pid({})", self.pid);
+        sigqueue_clear(self.pid);
     }
 }
 
+/*
 pub fn pcb_block_slot(pcb: Arc<Mutex<Pcb>>, reason: BlockReason) {
     log!("pcb":"slot">"pid({}) - Reason({:?})", pcb.lock().pid, reason);
     match reason {
@@ -88,3 +82,4 @@ pub fn pcb_block_slot(pcb: Arc<Mutex<Pcb>>, reason: BlockReason) {
         }
     }
 }
+*/

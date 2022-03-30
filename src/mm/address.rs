@@ -36,6 +36,13 @@ impl Sub<usize> for VirtualAddr {
     }
 }
 
+impl From<PhysAddr> for VirtualAddr {
+    fn from(pa: PhysAddr) -> Self {
+        // 用户态与内核态使用同一个页表后可以直接转换
+        Self(pa.0)
+    }
+}
+
 impl From<PageNum> for VirtualAddr {
     fn from(page_num: PageNum) -> Self {
         if page_num.0 > (1 << PAGE_TABLE_LEVEL * SV39_VPN_BIT - 1) {
