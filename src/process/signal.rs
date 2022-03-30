@@ -3,10 +3,11 @@ use alloc::collections::BTreeMap;
 use spin::RwLock;
 use super::Pid;
 
+// Feature: 使用AtomicUsize原子类型
 lazy_static!{
-pub static ref SIGQUEUE: RwLock<BTreeMap<Pid, (Signal, Signal)>> = RwLock::new(BTreeMap::new());
+static ref SIGQUEUE: RwLock<BTreeMap<Pid, (Signal, Signal)>> = RwLock::new(BTreeMap::new());
 }
-
+pub const SIGTMIN: usize = 32;
 bitflags!{
     pub struct Signal: usize{
         const	SIGHUP		= 1 << ( 1-1);  
@@ -70,6 +71,38 @@ pub fn sigqueue_clear(pid: Pid) {
 pub fn sigqueue_init(pid: Pid) {
     if let Some(_) = SIGQUEUE.write().insert(pid, (Signal::empty(), Signal::empty())) {
         panic!("dumplicated sigqueue for pid {}", pid)
+    }
+}
+
+pub fn sigqueue_pending(pid: Pid) -> bool {
+    if let Some((pending, _)) = SIGQUEUE.read().get(&pid) {
+        return !pending.is_empty()
+    }
+    false
+}
+
+pub fn sigqueue_mask(pid: Pid, mask: Signal) -> Signal {
+    let mut sigqueue = SIGQUEUE.write();
+    let(_, oldmask) = sigqueue.get_mut(&pid).unwrap();
+    let old = oldmask.clone();
+    *oldmask = mask;
+    old
+}
+
+// 返回一个信号并且将sigqueue里相应的pending清空
+pub fn sigqueue_fetch(pid: Pid) -> Option<Signal> {
+    let mut sigqueue = SIGQUEUE.write();
+    if let Some((pending, mask)) = sigqueue.get_mut(&pid) {
+        for i in 0..SIGTMIN {
+            let testsig= Signal::from_bits(1 << i).unwrap_or(Signal::empty());
+            if *pending & testsig != Signal::empty() {
+                *pending &= !testsig;
+                return Some(testsig)
+            }
+        }
+        None
+    } else {
+        None
     }
 }
 
