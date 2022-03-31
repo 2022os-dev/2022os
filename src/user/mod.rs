@@ -8,5 +8,5 @@ static SYS_BRK: &'static [u8] = include_bytes!("bin/sys_brk");
 static SYS_KILL: &'static [u8] = include_bytes!("bin/sys_kill");
 
 lazy_static! {
-    pub static ref APP :Box<[&'static [u8]]> = Box::new([SYS_KILL]);
+    pub static ref APP :Box<[&'static [u8]]> = Box::new([SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,SYS_KILL,]);
 }

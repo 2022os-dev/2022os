@@ -67,34 +67,12 @@ pub fn schedule() -> ! {
         if let Some(pcb) = pcb {
             // assert!(!pcb.is_locked());
             let state = pcb.lock().state();
-            let pid = pcb.lock().pid;
             match state {
                 PcbState::Ready => {
-                    // 信号处理
-                    if let Some(signal) = sigqueue_fetch(pid) {
-                        let act = pcb.lock().sigaction(signal);
-                        match act {
-                            SigAction::Cont => {
-
-                            }
-                            SigAction::Term => {
-                                pcb.lock().exit(-1);
-                                continue;
-                            }
-                            SigAction::Core => {
-                                pcb.lock().exit(-1);
-                                continue;
-                            }
-                            SigAction::Stop => {
-                                continue;
-                            }
-                            SigAction::Ign => {
-
-                            }
-                            SigAction::Custom(_) => {
-
-                            }
-                        }
+                    pcb.lock().try_handle_signal();
+                    if let PcbState::Exit(_) = pcb.lock().state() {
+                        // 进程退出了，重新调度
+                        continue;
                     }
                 }
                 PcbState::Blocking(testfn) => {

@@ -85,6 +85,40 @@ impl Pcb {
             act.unwrap().clone().1
         }
     }
+
+    pub fn try_handle_signal(&mut self) {
+        // 信号处理
+        // 应该加上一层循环，等待所有信号处理完毕后再调度
+        while let Some(signal) = sigqueue_fetch(self.pid) {
+            let act = self.sigaction(signal);
+            match act {
+                SigAction::Cont => {
+                    // 不做处理
+                    continue;
+                }
+                SigAction::Term => {
+                    self.exit(-1);
+                    break;
+                }
+                SigAction::Core => {
+                    self.exit(-1);
+                    break;
+                }
+                SigAction::Stop => {
+                    self.exit(-1);
+                    break;
+                }
+                SigAction::Ign => {
+                    // 不做处理
+                    continue;
+                }
+                SigAction::Custom(_) => {
+                    unimplemented!("Haven't support customer sigaction");
+                }
+            }
+        }
+
+    }
 }
 
 impl Drop for Pcb {
