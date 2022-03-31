@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
-use lazy_static::*;
+use alloc::string::String;
+use alloc::vec::Vec;
 use spin::RwLock;
 
 
@@ -8,12 +9,14 @@ use super::{
     //未加入
     println,
     get_info_buffer,
+    get_data_block_buffer，
     FsInfo,
     ShortDirEntry,
     LongDirEntry,
     BPB,
     Buffer,
     BufferManager,
+    FAT,
 }
 
 const BLOCK_SIZE: u32 = 512;
@@ -21,7 +24,7 @@ const FAT32_ENTRY_SIZE: u32 = 4;
 const FAT_ENTRY_PER_SECTOR: u32 = BLOCK_SIZE / FAT32_ENTRY_SIZE;
 const LAST_CLUSTER: u32 = 0x0fffffff;
 const FREE_CLUSTER_ENTRY: u32 = 0x00000000;
-
+const SYSTEM: u8 = 0x00000100;
 
 pub struct Fat32Manager {
     // 每扇区字节数
@@ -40,7 +43,6 @@ pub struct Fat32Manager {
     fat:Arc<RwLock<FAT>>,
     //第一簇（前两个簇不被使用！！！）的第一个块的块号
     first_sector: u32,
-
 }
 
 impl Fat32Manager {
@@ -89,7 +91,6 @@ impl Fat32Manager {
             fsinfo_sector_num,
             dev,
         ).read().read(0, |fsi: &FsInfo| {
-            //小端序转换成大端序！！！
             *fsi
         })
 
@@ -112,14 +113,15 @@ impl Fat32Manager {
         let sectors_per_fat: u16 = bpb.get_sectors_per_fat();
         let fat_num = bpb.get_fat_num();
 
-        // FAT数据结构！！！
+        // FAT数据结构！！！这里默认fat有2个
         let fat = FAT::new(reserved_sector_num, sectors_per_fat + reserved_sector_num ,);
 
-        let first_sector: u32 = reserved_sector_num + sectors_per_fat * fat_num + sectors_per_cluster * 2;
+        let first_sector: u32 = reserved_sector_num + sectors_per_fat * fat_num;
         // 注意，先写1，等下实现
+        // ox2f（47）是/的ascii码，用这个来命名根目录
         let mut root_dir = ShortDirEntry::new(&[0x2F,0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20],
                                               &[0x20, 0x20, 0x20],
-                                              1,);
+                                              SYSTEM,);
         
         let fat32_manager = self {
             bytes_per_sector,
@@ -132,9 +134,9 @@ impl Fat32Manager {
             first_sector,
         }
                     
-
     }
 
+    // 分配need个簇，会进行越界检查
     pub fn alloc_cluster(&self ,need :usize, dev: u8) -> Option<u32>{
         let fsinfo = self.fsinfo.write();
         if fsinfo.get_free_cluster_num() < need {
@@ -161,6 +163,7 @@ impl Fat32Manager {
             Some(res);
         }
     }
+
     // 注意，调用此方法是从传入的start参数开始依次释放所有后面的簇，故一般要释放簇时只有当要删除整个文件时，暂时不支持在不删除文件的情况下动态减小该文件大小
     pub fn dealloc_cluster(&self ,start :u32, dev: u8) {
         let fsinfo = self.fsinfo.write();
@@ -191,6 +194,84 @@ impl Fat32Manager {
                 }  
             })
         }
+    }
+
+    pub fn get_bytes_per_sector(&self) -> u16 {
+        self.bytes_per_sector
+    }
+
+    pub fn get_sectors_per_cluster(&self) -> u8 {
+        self.get_sectors_per_cluster
+    }
+
+    pub fn get_fat(&self) -> Arc<RwLock<FAT>> {
+        self.fat
+    }
+
+    pub fn get_fsinfo(&self) -> Arc<RwLock<FsInfo>> {
+        self.fsinfo
+    }
+
+    pub fn get_first_sector(&self) -> u32 {
+        self.first_sector
+    }
+
+    pub fn split_long_name(&self ,long_name :&str) -> Vec<String> {
+        let name_byte = long_name.as_bytes();
+        let mut name_vec:Vec<String> = Vec::new();
+        let length = (long_name.len() + 12) / 13;
+        for i in (0..long_name.len()) {
+            let mut name = String::new();
+            for j in (i * 12..(i + 1) * 12) {
+                if j < long_name.len() {
+                    name.push(name_byte[j as usize] as char)
+                }
+                else if j == long_name.len() {
+                    name.push(0x00 as char)
+                }
+                else {
+                    name.push(0xff as char)
+                }
+                
+            }
+            name_vec.push(name.clone());
+        }
+        name_vec
+    }
+
+    pub fn split_name_extension<'a>(&self, name: &'a str) -> (&'a str, &'a str) {
+        let mut name_extension: Vec<&str> = name.split(".").collect();
+        let file_name = name_extension[0];
+        if name_extension.len() == 1 {
+            name_extension.push("");
+        } 
+        let extension_name = name_extension[1];
+        (file_name, extension_name)
+
+    }
+
+    //此方法需要更改，返回值为文件全名
+    pub fn long_name_to_short(&self ,long_name :&str) -> (String, String) {
+        // 取长文件名的前6个字符加上”~1”形成短文件名，扩展名不变。若一旦产生同名，后续处理暂时不实现
+        let mut file_name = String::new();
+        let mut extension_name = String::new();
+        let (file, extension) = self.split_name_extension(long_name);
+        let file_byte_arr = file.as_bytes();
+        let extension_byte_arr = extension.as_bytes();
+        for i in (0..6) {
+            file_name.push(file_byte_arr[i] as char)
+        }
+        file_name.push('~');
+        file_name.push('1');
+        for i in (0..3) {
+            if i > extension_byte_arr.len() {
+                extension_name.push('0x20' as char);
+            }
+            else {
+                extension_name.push(extension_byte_arr[i] as char);
+            }
+        }
+        (file_name, extension_name)
     }
 
     

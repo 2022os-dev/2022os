@@ -2,6 +2,8 @@ const LEADING_SIGNATURE: u32 = 0x41625252;
 const STRUCT_SIGNATURE: u32 = 0x61417272;
 const TRAILING_SIGNATURE: u32 = 0xaa550000;
 
+
+// 注意，该数据结构必须保持和磁盘中的fsinfo更新，目前暂时未实现
 pub struct FsInfo {
     // 固定值0x41625252
     lead_sig: u32,

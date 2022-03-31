@@ -1,3 +1,8 @@
+use alloc::sync::Arc;
+use lazy_static::*;
+use spin::RwLock;
+
+
 use super::{
     set_start_sector,
     //未加入
@@ -10,6 +15,7 @@ use super::{
     ShortDirEntry,
     LongDirEntry,
     BPB,
+    Fat32Manager,
 }
 
 
@@ -17,7 +23,8 @@ const BLOCK_SIZE: u32 = 512;
 const FAT32_ENTRY_SIZE: u32 = 4;
 const FAT_ENTRY_PER_SECTOR: u32 = BLOCK_SIZE / FAT32_ENTRY_SIZE;
 const FREE_CLUSTER_ENTRY: u32 = 0x00000000;
-const BAD_CLUSTER: u32 = 0x0ffffff7
+const BAD_CLUSTER: u32 = 0x0ffffff7;
+const LAST_CLUSTER: u32 = 0x0fffffff;
 
 pub struct FAT {
     // fat表1所在块
@@ -81,8 +88,34 @@ impl FAT {
         });                               
     }
 
-    
+    pub fn get_cluster_num(&self, current: u32, dev: u8) -> u32 {
+        let (fat1, fat2, off) = self.get_position(current);
+        let next = get_info_buffer(fat1, dev).read().read(off,|&fat32_entry: u32| {
+            fat32_entry
+        });
+        let mut res: u32 = 1;
+        while next != LAST_CLUSTER {
+            let (fat1, fat2, off) = self.get_position(next);
+            let next = get_info_buffer(fat1, dev).read().read(off,|&fat32_entry: u32| {
+                fat32_entry
+            });
+            res += 1;
+        }
+        res                              
+    }
 
-
+    pub fn get_file_last_cluster(&self, current: u32, dev: u8) -> u32 {
+        let (fat1, fat2, off) = self.get_position(current);
+        let next = get_info_buffer(fat1, dev).read().read(off,|&fat32_entry: u32| {
+            fat32_entry
+        });
+        while next != LAST_CLUSTER {
+            let (fat1, fat2, off) = self.get_position(next);
+            let next = get_info_buffer(fat1, dev).read().read(off,|&fat32_entry: u32| {
+                fat32_entry
+            });
+        }
+        next    
+    }
 
 }
