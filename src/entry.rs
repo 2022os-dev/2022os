@@ -1,7 +1,14 @@
 use core::arch::global_asm;
 
 global_asm!(
-    ".section .text.entry
+    ".section .bss.stack
+    .globl boot_stack
+boot_stack:
+    .space 8192 * 5
+    .globl boot_stack_top
+boot_stack_top:
+
+    .section .text.entry
     .globl _start
 _start:
     mv tp, a0
@@ -14,12 +21,5 @@ _start:
     sll a0, tp, a1
     # sp = boot_stack_top - 8192 * a0
     sub sp, sp, a0
-    j kernel_start
-
-    .section .bss.stack
-    .globl boot_stack
-boot_stack:
-    .space 8192 * 5
-    .globl boot_stack_top
-boot_stack_top:"
+    j kernel_start"
 );

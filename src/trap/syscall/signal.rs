@@ -1,4 +1,5 @@
 use crate::mm::address::*;
+use crate::process::signal::*;
 
 #[repr(C)]
 pub(super) struct rt_sigaction {
@@ -34,5 +35,12 @@ pub struct SaFlags: usize{
 
 pub(super) fn rt_sigaction(signum: usize, act: VirtualAddr, oldact: VirtualAddr) -> isize {
     let sa: &mut rt_sigaction = PhysAddr::from(act).as_mut();
+    0
+}
+
+pub(super) fn sys_kill(pid: usize, sig: usize) -> isize {
+    let signal = Signal::from_bits(sig).unwrap();
+    log!("syscall":"kill">"-> (pid({}), sig({:?}))", pid, signal);
+    sigqueue_send(pid,signal);
     0
 }

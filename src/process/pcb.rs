@@ -1,6 +1,5 @@
 use super::TrapFrame;
 use crate::mm::MemorySpace;
-use crate::task::scheduler_ready_pcb;
 use super::signal::*;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -21,7 +20,7 @@ pub fn alloc_pid() -> usize {
 #[cfg(feature = "pcb")]
 pub static mut DROPPCBS: Mutex<usize> = Mutex::new(0);
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PcbState {
     Ready,
     Running,
@@ -70,6 +69,21 @@ impl Pcb {
 
     pub fn exit(&mut self, xcode: isize) {
         self.state = PcbState::Exit(xcode);
+    }
+
+    pub fn sigaction(&self, signal: Signal) -> SigAction {
+        let act = self.sabounds.iter().find(|(sig, _)| {
+            if *sig == signal {
+                true
+            } else {
+                false
+            }
+        });
+        if let None = act {
+            sigactionbounds_default(signal)
+        } else {
+            act.unwrap().clone().1
+        }
     }
 }
 

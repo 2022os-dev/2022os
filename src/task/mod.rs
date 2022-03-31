@@ -2,6 +2,7 @@ use crate::mm::MemorySpace;
 use crate::process::cpu::*;
 use crate::process::pcb::*;
 use crate::process::{restore_trapframe, Pcb, PcbState};
+use crate::process::signal::*;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use spin::Mutex;
@@ -65,15 +66,53 @@ pub fn schedule() -> ! {
 
         if let Some(pcb) = pcb {
             // assert!(!pcb.is_locked());
-            if let Err(_) = current_hart_run(pcb.clone()) {
-                scheduler_ready_pcb(pcb);
-                continue;
-            } else {
-                drop(pcb);
-                // current_hart_memset().pgtbl().print();
-                let tf = current_pcb().unwrap().lock().memory_space.trapframe.offset(0);
-                restore_trapframe(tf);
+            let state = pcb.lock().state();
+            let pid = pcb.lock().pid;
+            match state {
+                PcbState::Ready => {
+                    // 信号处理
+                    if let Some(signal) = sigqueue_fetch(pid) {
+                        let act = pcb.lock().sigaction(signal);
+                        match act {
+                            SigAction::Cont => {
+
+                            }
+                            SigAction::Term => {
+                                pcb.lock().exit(-1);
+                                continue;
+                            }
+                            SigAction::Core => {
+                                pcb.lock().exit(-1);
+                                continue;
+                            }
+                            SigAction::Stop => {
+                                continue;
+                            }
+                            SigAction::Ign => {
+
+                            }
+                            SigAction::Custom(_) => {
+
+                            }
+                        }
+                    }
+                }
+                PcbState::Blocking(testfn) => {
+                    if !testfn(pcb.clone()) {
+                        scheduler_ready_pcb(pcb.clone());
+                        continue;
+                    }
+                }
+                _ => {
+                    panic!("invalid state pcb in tasks {:?}", state);
+                }
             }
+            current_hart_run(pcb.clone());
+            // current_hart_memset().pgtbl().print();
+            let tf = current_pcb().unwrap().lock().memory_space.trapframe.offset(0);
+            pcb.lock().set_state(PcbState::Running);
+            drop(pcb);
+            restore_trapframe(tf);
         } else {
             drop(pcb);
             current_hart_leak();

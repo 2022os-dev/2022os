@@ -1,12 +1,10 @@
 use super::address::*;
 use super::pte_sv39::{PTEFlag, PTE};
-use crate::asm;
 use crate::config::*;
 use crate::mm::MemorySpace;
 use crate::mm::memory_space::Segments;
 use core::mem::size_of;
 use core::ops::Range;
-use riscv::register::satp;
 
 use super::kalloc::KALLOCATOR;
 
@@ -92,10 +90,12 @@ impl Pgtbl {
         KALLOCATOR.lock().kfree(ppn);
     }
 
+    #[allow(unused)]
     pub fn unmap_page_table(&mut self) {
         Self::_unmap_page_table(self.root, 0);
     }
 
+    #[allow(unused)]
     pub fn unmap_pages(&mut self, vpages: Range<PageNum>, do_free: bool) {
         for page in vpages.start.page()..vpages.end.page() {
             self.unmap(page.into(), do_free);
@@ -112,6 +112,7 @@ impl Pgtbl {
         pte.set_flags(PTEFlag::empty());
     }
 
+    #[allow(unused)]
     fn copy_page(from: PageNum, to: PageNum, alloc_mem: bool) {
         // Fixme: 不用搜索整个空间，只复制用户空间和trapframe,trampoline
         for idx in 0..(PAGE_SIZE / size_of::<usize>()) {
@@ -139,17 +140,12 @@ impl Pgtbl {
             }
         }
     }
+
+    #[allow(unused)]
     pub fn copy(&self, alloc_mem: bool) -> Self {
         let child = Pgtbl::new();
         Self::copy_page(self.root, child.root, alloc_mem);
         child
-    }
-
-    pub fn activate(&self) {
-        unsafe {
-            satp::set(satp::Mode::Sv39, 0, self.root.page());
-            asm!("sfence.vma");
-        }
     }
 
     pub fn get_satp(&self) -> usize {
@@ -193,7 +189,7 @@ impl Pgtbl {
     }
 
     pub fn unmap_segments(&mut self, segments: &Segments, do_free: bool) {
-        for (virt, (phys, _)) in segments.iter() {
+        for (virt, (_, _)) in segments.iter() {
             log!(debug "unmap seg 0x{:x}", virt.page());
             log!("pgtbl":"unmap_segments"> "vpage 0x{:x} -> 0x{:x}", virt.page(), phys.page());
             self.unmap(*virt, do_free);

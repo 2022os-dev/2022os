@@ -11,6 +11,7 @@ use crate::task::*;
 use file::*;
 use mm::*;
 use process::*;
+use signal::*;
 
 const SYSCALL_GETCWD: usize = 17;
 const SYSCALL_DUP: usize = 23;
@@ -159,6 +160,14 @@ pub fn syscall_handler() {
             log!("syscall":"brk" > "pid({}) (0x{:x})", pcblock.pid, va.0);
             pcblock.trapframe()["a0"] = sys_brk(&mut pcblock, va) as usize;
             pcblock.set_state(PcbState::Ready);
+        }
+        SYSCALL_KILL => {
+            let pid = trapframe["a0"];
+            let sig = trapframe["a1"];
+            drop(trapframe);
+            pcblock.trapframe()["a0"] = sys_kill(pid, sig) as usize;
+            pcblock.set_state(PcbState::Ready);
+
         }
         SYSCALL_FORK => {
             drop(trapframe);

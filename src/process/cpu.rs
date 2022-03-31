@@ -11,6 +11,7 @@ use crate::mm::address::PhysAddr;
 use crate::mm::pgtbl::Pgtbl;
 use crate::mm::*;
 use crate::process::PcbState;
+use crate::process::signal::*;
 use crate::asm;
 
 // 最多支持4核
@@ -41,7 +42,6 @@ lazy_static! {
 pub fn init_hart() {
     log!("hart":>"init");
     let sp: usize = link_syms::boot_stack_top as usize - BOOT_STACK_SIZE * hartid();
-    // Note: 进入该函数时栈大小不应该超过 1 页
     let sp :PhysAddr = PhysAddr(sp).ceil().into();
     current_hart().hartid = hartid();
     current_hart().kernel_sp = sp.0;
@@ -89,16 +89,8 @@ pub fn current_hart_leak() {
     }
 }
 
-pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> Result<(), ()> {
+pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
     current_hart_leak();
-    let state = pcb.lock().state();
-    if let PcbState::Blocking(testfn) = state {
-        let pid = pcb.lock().pid;
-        log!("hart":"blocking">"pid({})", pid);
-        if !testfn(pcb.clone()) {
-            return Err(())
-        }
-    }
     let pid = pcb.lock().pid;
     log!("hart":"run">"pid({})", pid);
     // 需要设置进程的代码数据段、用户栈、trapframe、内核栈
@@ -116,9 +108,7 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> Result<(), ()> {
 
     // 设置内核栈
     pcb.lock().trapframe().kernel_sp = current_hart().kernel_sp;
-    pcb.lock().set_state(PcbState::Running);
     current_hart().pcb = Some(pcb);
-    Ok(())
 }
 
 pub fn current_hart_pgtbl() -> &'static mut Pgtbl {

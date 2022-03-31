@@ -16,7 +16,7 @@ bitflags!{
         const	SIGILL		= 1 << ( 4-1);  
         const	SIGTRAP		= 1 << ( 5-1);	
         const	SIGABRT		= 1 << ( 6-1);	
-        const	SIGIOT		= 1 << ( 6-1);  
+        // const	SIGIOT		= 1 << ( 6-1);  
         const	SIGBUS		= 1 << ( 7-1);  
         const	SIGFPE		= 1 << ( 8-1);  
         const	SIGKILL		= 1 << ( 9-1);  
@@ -107,11 +107,116 @@ pub fn sigqueue_fetch(pid: Pid) -> Option<Signal> {
 }
 
 #[derive(Clone)]
-pub struct SigAction {
+pub enum SigAction {
+    Term,
+    Ign,
+    Core,
+    Stop,
+    Cont,
+    Custom(CustomSigAction)
+}
+
+#[derive(Clone)]
+pub struct CustomSigAction {
     pub sa_handler:usize,
     // pub sa_sigaction:usize,
-    pub sa_mask:Vec<Signal>,
+    pub sa_mask:Signal,
     pub sa_flags:SaFlags,
 }
 
 pub type SigActionBounds = Vec<(Signal, SigAction)>;
+
+pub fn sigactionbounds_default(signal: Signal) -> SigAction {
+    match signal {
+        Signal::SIGHUP => {
+            SigAction::Term
+        }
+        Signal::SIGINT => {
+            SigAction::Term
+        }
+        Signal::SIGQUIT => {
+            SigAction::Core
+        }
+        Signal::SIGILL => {
+            SigAction::Core
+        }
+        Signal::SIGABRT => {
+            SigAction::Core
+        }
+        Signal::SIGFPE => {
+            SigAction::Core
+        }
+        Signal::SIGKILL => {
+            SigAction::Term
+        }
+        Signal::SIGSEGV => {
+            SigAction::Core
+        }
+        Signal::SIGPIPE => {
+            SigAction::Term
+        }
+        Signal::SIGALRM => {
+            SigAction::Term
+        }
+        Signal::SIGTERM => {
+            SigAction::Term
+        }
+        Signal::SIGUSR1 => {
+            SigAction::Term
+        }
+        Signal::SIGUSR2 => {
+            SigAction::Term
+        }
+        Signal::SIGCHLD => {
+            SigAction::Ign
+        }
+        Signal::SIGCONT => {
+            SigAction::Cont
+        }
+        Signal::SIGSTOP => {
+            SigAction::Stop
+        }
+        Signal::SIGTSTP => {
+            SigAction::Stop
+        }
+        Signal::SIGTTIN => {
+            SigAction::Stop
+        }
+        Signal::SIGTTOU => {
+            SigAction::Stop
+        }
+        Signal::SIGBUS => {
+            SigAction::Core
+        }
+        Signal::SIGPROF => {
+            SigAction::Term
+        }
+        Signal::SIGTRAP => {
+            SigAction::Core
+        }
+        Signal::SIGURG => {
+            SigAction::Ign
+        }
+        Signal::SIGVTALRM => {
+            SigAction::Term
+        }
+        Signal::SIGXCPU => {
+            SigAction::Core
+        }
+        Signal::SIGXFSZ => {
+            SigAction::Core
+        }
+        Signal::SIGSTKFLT => {
+            SigAction::Term
+        }
+        Signal::SIGIO => {
+            SigAction::Term
+        }
+        Signal::SIGWINCH => {
+            SigAction::Ign
+        }
+        _ => {
+            panic!("Error")
+        }
+    }
+}
