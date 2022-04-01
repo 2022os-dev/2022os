@@ -13,7 +13,7 @@ pub struct TrapFrame {
     pub kernel_sp: usize,
     pub trap_handler: usize,
 
-    pub ra_backpu: usize
+    pub ra_backpu: usize,
 }
 
 impl core::ops::Index<&str> for TrapFrame {

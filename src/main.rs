@@ -9,7 +9,11 @@
 #![feature(ptr_to_from_bits)]
 #![feature(const_trait_impl)]
 
-use crate::{process::cpu::{init_hart, hart_enable_timer_interrupt}, sbi::{sbi_hsm_hart_start}, clock::clock_init};
+use crate::{
+    clock::clock_init,
+    process::cpu::{hart_enable_timer_interrupt, init_hart},
+    sbi::sbi_hsm_hart_start,
+};
 use core::arch::asm;
 
 #[macro_use]
@@ -28,8 +32,8 @@ mod task;
 mod trap;
 mod user;
 
-mod config;
 mod clock;
+mod config;
 
 #[macro_use]
 extern crate lazy_static;
@@ -40,8 +44,8 @@ extern crate spin;
 extern crate bitflags;
 
 use mm::*;
-use task::*;
 use process::cpu::hartid;
+use task::*;
 
 /// Clear .bss section
 fn clear_bss() {
@@ -50,14 +54,16 @@ fn clear_bss() {
 }
 
 // 记录启动核
-static mut BOOTHART: isize = -1 ;
+static mut BOOTHART: isize = -1;
 
 // [no_mangle] Turn off Rust's name mangling
 #[no_mangle]
 extern "C" fn kernel_start() {
     log!("hart":"Booting">"");
     if unsafe { BOOTHART } == -1 {
-        unsafe { BOOTHART = hartid() as isize; };
+        unsafe {
+            BOOTHART = hartid() as isize;
+        };
 
         clear_bss();
 

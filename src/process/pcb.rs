@@ -1,7 +1,7 @@
+use super::signal::*;
 use super::TrapFrame;
 use crate::mm::MemorySpace;
 use crate::mm::PageNum;
-use super::signal::*;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::sync::atomic::AtomicUsize;
@@ -44,9 +44,9 @@ pub struct Pcb {
     stimes: usize,
     cutimes: usize,
     cstimes: usize,
-    
+
     // for nanosleep
-    pub wakeup_time: Option<usize>
+    pub wakeup_time: Option<usize>,
 }
 
 impl Pcb {
@@ -64,10 +64,12 @@ impl Pcb {
             cutimes: 0,
             cstimes: 0,
 
-            wakeup_time: None
+            wakeup_time: None,
         };
         #[cfg(feature = "pcb")]
-        unsafe { *DROPPCBS.lock() += 1; }
+        unsafe {
+            *DROPPCBS.lock() += 1;
+        }
         sigqueue_init(pcb.pid);
         pcb
     }
@@ -88,15 +90,11 @@ impl Pcb {
             PcbState::Running => {
                 self.state = PcbState::Ready;
             }
-            PcbState::Ready => {
-
-            }
+            PcbState::Ready => {}
             PcbState::Blocking(_) | PcbState::Exit(_) => {
                 panic!("can't reset block or exited pcb");
             }
-            PcbState::SigHandling(_, _) => {
-
-            }
+            PcbState::SigHandling(_, _) => {}
         }
         self.state
     }
@@ -110,13 +108,10 @@ impl Pcb {
     }
 
     pub fn sigaction(&mut self, signal: Signal) -> SigAction {
-        let act = self.sabinds.iter_mut().find(|(sig, _)| {
-            if *sig == signal {
-                true
-            } else {
-                false
-            }
-        });
+        let act =
+            self.sabinds
+                .iter_mut()
+                .find(|(sig, _)| if *sig == signal { true } else { false });
         if let None = act {
             sigactionbinds_default(signal)
         } else {
@@ -135,7 +130,7 @@ impl Pcb {
     pub fn utimes(&self) -> usize {
         self.utimes
     }
- 
+
     pub fn stimes(&self) -> usize {
         self.stimes
     }
@@ -151,7 +146,7 @@ impl Pcb {
     pub fn cutimes(&self) -> usize {
         self.cutimes
     }
- 
+
     pub fn cstimes(&self) -> usize {
         self.cstimes
     }
@@ -174,15 +169,15 @@ impl Pcb {
                 }
                 SigAction::Term => {
                     self.exit(-1);
-                    return PcbState::Exit(-1)
+                    return PcbState::Exit(-1);
                 }
                 SigAction::Core => {
                     self.exit(-1);
-                    return PcbState::Exit(-1)
+                    return PcbState::Exit(-1);
                 }
                 SigAction::Stop => {
                     self.exit(-1);
-                    return PcbState::Exit(-1)
+                    return PcbState::Exit(-1);
                 }
                 SigAction::Ign => {
                     // 不做处理
@@ -199,7 +194,7 @@ impl Pcb {
                     self.trapframe().init(oldsp, act.borrow().sa_handler);
                     self.trapframe()["a0"] = signal.bits();
                     self.set_state(PcbState::SigHandling(oldtf, mask));
-                    return PcbState::SigHandling(oldtf, mask)
+                    return PcbState::SigHandling(oldtf, mask);
                 }
             }
         }
@@ -228,7 +223,9 @@ impl Pcb {
 impl Drop for Pcb {
     fn drop(&mut self) {
         #[cfg(feature = "pcb")]
-        unsafe { *DROPPCBS.lock() -= 1; }
+        unsafe {
+            *DROPPCBS.lock() -= 1;
+        }
         log!("pcb":"drop">"pid({})", self.pid);
         sigqueue_clear(self.pid);
     }

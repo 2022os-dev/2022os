@@ -4,10 +4,10 @@ use super::KALLOCATOR;
 use crate::config::*;
 use crate::process::TrapFrame;
 use crate::trap::{__alltraps, __restore};
+use alloc::collections::BTreeMap;
 use core::cmp::min;
 use core::ops::Range;
 use core::slice;
-use alloc::collections::BTreeMap;
 use xmas_elf::ElfFile;
 
 pub type Segments = BTreeMap<PageNum, (PageNum, PTEFlag)>;
@@ -32,15 +32,17 @@ impl MemorySpace {
             trapframe: tf,
             user_stack: stack,
             prog_break: VirtualAddr(0),
-            prog_high_page: PageNum(0)
+            prog_high_page: PageNum(0),
         }
     }
 
     pub fn prog_sbrk(&mut self, inc: usize) -> VirtualAddr {
         if self.prog_break.0 == 0 {
-            let maxvpage = self.segments.keys().into_iter().max_by(|lvp, rvp| {
-                lvp.0.cmp(&rvp.0)
-            });
+            let maxvpage = self
+                .segments
+                .keys()
+                .into_iter()
+                .max_by(|lvp, rvp| lvp.0.cmp(&rvp.0));
             if let None = maxvpage {
                 panic!("Can't found max vpage in segments");
             }
@@ -50,9 +52,18 @@ impl MemorySpace {
         let retva = self.prog_break;
         while self.prog_break + inc > self.prog_high_page.offset(PAGE_SIZE) {
             if self.segments().contains_key(&(self.prog_high_page + 1)) {
-                panic!("duplicated program break page 0x{:x}", self.prog_high_page.offset(0).0);
+                panic!(
+                    "duplicated program break page 0x{:x}",
+                    self.prog_high_page.offset(0).0
+                );
             }
-            self.segments.insert(self.prog_high_page + 1, (KALLOCATOR.lock().kalloc(), PTEFlag::R | PTEFlag::W | PTEFlag::U));
+            self.segments.insert(
+                self.prog_high_page + 1,
+                (
+                    KALLOCATOR.lock().kalloc(),
+                    PTEFlag::R | PTEFlag::W | PTEFlag::U,
+                ),
+            );
             self.prog_high_page = self.prog_high_page + 1;
         }
         self.prog_break = self.prog_break + inc;
@@ -122,12 +133,10 @@ impl MemorySpace {
 
     pub fn trapframe(&mut self) -> &mut TrapFrame {
         let phys = self.trapframe.offset_phys(0).0;
-        unsafe {
-            <*mut TrapFrame>::from_bits(phys).as_mut().unwrap()
-        }
+        unsafe { <*mut TrapFrame>::from_bits(phys).as_mut().unwrap() }
     }
 
-    pub fn get_stack_sp() -> VirtualAddr{
+    pub fn get_stack_sp() -> VirtualAddr {
         VirtualAddr(USER_STACK_PAGE) + PAGE_SIZE
     }
 
@@ -206,20 +215,19 @@ impl MemorySpace {
         let mut wroten = 0;
         log!(debug "[kernel] Maping data page 0x{:x} - 0x{:x}, {:?}", start.0, end.0, flags);
         for vpage in start_page.page()..end_page.page() {
-            let vpage :PageNum = vpage.into();
+            let vpage: PageNum = vpage.into();
             let page;
             if self.segments.contains_key(&vpage) {
                 page = self.segments[&vpage].0;
                 self.segments.get_mut(&vpage).unwrap().1 |= flags;
             } else {
                 page = KALLOCATOR.lock().kalloc();
-                self.segments.insert(vpage,(page, flags));
+                self.segments.insert(vpage, (page, flags));
             }
             let size = min(PAGE_SIZE - start.page_offset(), total - wroten);
             log!(debug "maping data[{}]: 0x{:x} -> 0x{:x}", wroten, size, start.0);
-            page.offset_phys(start.page_offset()).write(unsafe {
-                slice::from_raw_parts(&data[wroten], size)
-            });
+            page.offset_phys(start.page_offset())
+                .write(unsafe { slice::from_raw_parts(&data[wroten], size) });
             wroten += size;
             start = start + size;
         }

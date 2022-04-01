@@ -2,17 +2,23 @@ use alloc::sync::Arc;
 use spin::Mutex;
 
 use super::Pcb;
+use crate::asm;
 use crate::config::*;
 use crate::link_syms;
 use crate::mm::address::PhysAddr;
 use crate::mm::pgtbl::Pgtbl;
 use crate::mm::*;
-use crate::sbi::*;
 use crate::process::restore_trapframe;
-use crate::asm;
+use crate::sbi::*;
 
 // 最多支持4核
-static mut _HARTS :[Hart; 5] = [Hart::default(), Hart::default(),Hart::default(),Hart::default(),Hart::default(),];
+static mut _HARTS: [Hart; 5] = [
+    Hart::default(),
+    Hart::default(),
+    Hart::default(),
+    Hart::default(),
+    Hart::default(),
+];
 
 pub struct Hart {
     pub hartid: usize,
@@ -20,7 +26,7 @@ pub struct Hart {
     pub kernel_sp: usize,
     pub pgtbl: Option<Pgtbl>,
     // 保存hart在进入内核态时或将要进入用户态前的时钟，用于计算用户态和内核态运行时间
-    pub times: usize
+    pub times: usize,
 }
 
 impl const Default for Hart {
@@ -30,7 +36,7 @@ impl const Default for Hart {
             pcb: None,
             kernel_sp: 0,
             pgtbl: None,
-            times: 0
+            times: 0,
         }
     }
 }
@@ -58,7 +64,7 @@ pub fn hart_enable_timer_interrupt() {
 pub fn init_hart() {
     log!("hart":>"init");
     let sp: usize = link_syms::boot_stack_top as usize - BOOT_STACK_SIZE * hartid();
-    let sp :PhysAddr = PhysAddr(sp).ceil().into();
+    let sp: PhysAddr = PhysAddr(sp).ceil().into();
     current_hart().hartid = hartid();
     current_hart().kernel_sp = sp.0;
     current_hart().pgtbl = Some(Pgtbl::new());
@@ -86,9 +92,7 @@ pub fn init_hart() {
 }
 
 pub fn current_hart() -> &'static mut Hart {
-    unsafe {
-        &mut _HARTS[hartid()]
-    }
+    unsafe { &mut _HARTS[hartid()] }
 }
 
 pub fn current_hart_trap_times() -> usize {
@@ -105,8 +109,7 @@ pub fn current_hart_leak() {
     if let Some(current) = current_hart().pcb.take() {
         let pid = current.lock().pid;
         log!("hart":"leak">"pid({}) unmap segments", pid);
-        current_hart_pgtbl().unmap_segments(
-            current.lock().memory_space.segments(), false);
+        current_hart_pgtbl().unmap_segments(current.lock().memory_space.segments(), false);
         unsafe {
             asm!("sfence.vma");
         }
@@ -117,7 +120,7 @@ pub fn current_hart_leak() {
     }
 }
 
-pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> !{
+pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> ! {
     current_hart_leak();
     let pid = pcb.lock().pid;
     log!("hart":"run">"pid({})", pid);
@@ -132,14 +135,19 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> !{
     // 映射用户栈,U flags
     let stack = pcb.lock().memory_space.user_stack;
     log!("hart":"run">"map user stack page 0x{:x}", stack.page());
-    current_hart_pgtbl().map(MemorySpace::get_stack_start().floor(), stack, PTEFlag::R | PTEFlag::W | PTEFlag::U);
+    current_hart_pgtbl().map(
+        MemorySpace::get_stack_start().floor(),
+        stack,
+        PTEFlag::R | PTEFlag::W | PTEFlag::U,
+    );
 
     // 设置内核栈
     pcb.lock().trapframe().kernel_sp = current_hart().kernel_sp;
     let sepc = pcb.lock().trapframe()["sepc"];
     log!("hart":"run">"sepc: 0x{:x}", sepc);
     let tf = VirtualAddr(pcb.lock().trapframe() as *const _ as usize);
-    pcb.lock().stimes_add(get_time() - current_hart_set_trap_times(get_time()));
+    pcb.lock()
+        .stimes_add(get_time() - current_hart_set_trap_times(get_time()));
     current_hart().pcb = Some(pcb);
     restore_trapframe(tf);
 }

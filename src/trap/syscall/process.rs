@@ -1,14 +1,14 @@
+use crate::config::*;
+use crate::mm::PhysAddr;
+use crate::mm::VirtualAddr;
+use crate::process::pcb::alloc_pid;
+use crate::process::signal::*;
+use crate::process::*;
+use crate::task::*;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::mem::size_of;
 use spin::{Mutex, MutexGuard};
-use crate::mm::PhysAddr;
-use crate::config::*;
-use crate::process::signal::*;
-use crate::mm::VirtualAddr;
-use crate::process::pcb::alloc_pid;
-use crate::process::*;
-use crate::task::*;
 
 pub(super) fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
     let child_ms = pcb.memory_space.copy();
@@ -37,7 +37,13 @@ pub(super) fn sys_exit(pcb: &mut MutexGuard<Pcb>, xstate: isize) {
 }
 
 // 忽略rusage
-pub(super) fn sys_wait4(pcb: &mut MutexGuard<Pcb>, pid: isize, wstatus: VirtualAddr, _: usize, _: VirtualAddr) -> Result<usize, ()> {
+pub(super) fn sys_wait4(
+    pcb: &mut MutexGuard<Pcb>,
+    pid: isize,
+    wstatus: VirtualAddr,
+    _: usize,
+    _: VirtualAddr,
+) -> Result<usize, ()> {
     // 阻塞直到某个子进程退出
     // 如果找不到退出的子进程，返回Err
     let mut xcode = 0;
@@ -50,11 +56,11 @@ pub(super) fn sys_wait4(pcb: &mut MutexGuard<Pcb>, pid: isize, wstatus: VirtualA
                 xcode = _xcode;
                 childutimes = child.utimes();
                 childstimes = child.stimes();
-                return true
+                return true;
             }
-            return false
+            return false;
         } else {
-            return false
+            return false;
         }
     });
     if let Some((idx, child)) = res {
@@ -68,7 +74,7 @@ pub(super) fn sys_wait4(pcb: &mut MutexGuard<Pcb>, pid: isize, wstatus: VirtualA
         // 清理子进程
         pcb.children.remove(idx);
         Ok(child_pid)
-    }  else {
+    } else {
         Err(())
     }
 }
@@ -93,10 +99,10 @@ pub(super) fn sys_times(pcb: &mut MutexGuard<Pcb>, tms: VirtualAddr) -> usize {
 #[repr(C)]
 pub(super) struct TimeSpec {
     pub tv_sec: usize,
-    pub tv_nsec: usize
+    pub tv_nsec: usize,
 }
 
-pub(super) fn sys_gettimeofday(timespec: VirtualAddr, _: VirtualAddr) -> isize{
+pub(super) fn sys_gettimeofday(timespec: VirtualAddr, _: VirtualAddr) -> isize {
     let mut timespec: PhysAddr = timespec.into();
     let timespec: &mut TimeSpec = timespec.as_mut();
     let time = cpu::get_time();

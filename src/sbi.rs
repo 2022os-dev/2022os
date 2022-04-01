@@ -10,8 +10,7 @@ pub const REMOTE_SFENCE_VMA: usize = 6;
 pub const REMOTE_SFENCE_ASID: usize = 7;
 pub const SHUTDOWN: usize = 8;
 
-
-pub fn sbi_call(eid: usize, fid: usize, mut args: [usize; 3]) -> (usize,usize) {
+pub fn sbi_call(eid: usize, fid: usize, mut args: [usize; 3]) -> (usize, usize) {
     unsafe {
         asm!("ecall", inout("x10") args[0],
             inout("x11") args[1],
@@ -20,7 +19,6 @@ pub fn sbi_call(eid: usize, fid: usize, mut args: [usize; 3]) -> (usize,usize) {
             in("x17") eid);
     };
     (args[0], args[1])
-
 }
 
 pub fn sbi_legacy_call(eid: usize, args: [usize; 3]) -> isize {

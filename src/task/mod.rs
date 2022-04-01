@@ -65,30 +65,27 @@ pub fn schedule() -> ! {
             // assert!(!pcb.is_locked());
             let state = pcb.lock().state();
             match state {
-                PcbState::Ready => {
-                    match pcb.lock().try_handle_signal() {
-                        PcbState::Exit(_) => {
-                            continue;
-                        }
-                        PcbState::Running => {}
-                        PcbState::SigHandling(_, _) => {}
-                        _ => {
-                            panic!("Invalid state");
-                        }
+                PcbState::Ready => match pcb.lock().try_handle_signal() {
+                    PcbState::Exit(_) => {
+                        continue;
                     }
-                }
+                    PcbState::Running => {}
+                    PcbState::SigHandling(_, _) => {}
+                    _ => {
+                        panic!("Invalid state");
+                    }
+                },
                 PcbState::Blocking(testfn) => {
                     if !testfn(pcb.clone()) {
                         log!("scheduler":"block">"still blocking");
-                    }else {
+                    } else {
                         log!("scheduler":"unblock">"");
                         pcb.lock().set_state(PcbState::Ready);
                     }
                     scheduler_ready_pcb(pcb);
                     continue;
                 }
-                PcbState::SigHandling(_, _) => {
-                }
+                PcbState::SigHandling(_, _) => {}
                 _ => {
                     panic!("invalid state pcb in tasks {:?}", state);
                 }

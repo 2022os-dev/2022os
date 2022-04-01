@@ -1,6 +1,6 @@
-use spin::MutexGuard;
-use crate::process::*;
 use crate::mm::*;
+use crate::process::*;
+use spin::MutexGuard;
 
 pub(super) fn sys_sbrk(pcb: &mut MutexGuard<Pcb>, inc: usize) -> usize {
     pcb.memory_space.prog_sbrk(inc).0

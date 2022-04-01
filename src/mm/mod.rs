@@ -4,8 +4,8 @@ pub mod memory_space;
 pub mod pgtbl;
 pub mod pte_sv39;
 
-use crate::link_syms;
 use crate::config::*;
+use crate::link_syms;
 use crate::process::cpu::*;
 use core::ops::Range;
 
@@ -29,24 +29,22 @@ pub fn activate_vm() {
     let range = kernel_range();
     let p = current_hart_pgtbl();
     for i in range.start.page()..range.end.page() {
-        let pte = p
-            .walk(Into::<PageNum>::into(i).offset(0), false);
+        let pte = p.walk(Into::<PageNum>::into(i).offset(0), false);
         if !pte.is_valid() {
             println!("0x{:x} is invalid", i);
         }
     }
     let range = frames_range();
     for i in range.start.page()..range.end.page() {
-        let pte = p
-            .walk(Into::<PageNum>::into(i).offset(0), false);
+        let pte = p.walk(Into::<PageNum>::into(i).offset(0), false);
         if !pte.is_valid() {
             println!("0x{:x} is invalid", i);
         }
     }
     // ###############################################
     log!(debug "Test finished before activate VM");
-    use riscv::register::satp;
     use core::arch::asm;
+    use riscv::register::satp;
     unsafe {
         satp::set(satp::Mode::Sv39, 0, p.root.0);
         asm!("sfence.vma");

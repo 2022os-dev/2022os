@@ -1,8 +1,8 @@
 use super::address::*;
 use super::pte_sv39::{PTEFlag, PTE};
 use crate::config::*;
-use crate::mm::MemorySpace;
 use crate::mm::memory_space::Segments;
+use crate::mm::MemorySpace;
 use core::mem::size_of;
 use core::ops::Range;
 
@@ -31,7 +31,12 @@ impl Pgtbl {
             if pte.is_valid() {
                 if pte.is_leaf() {
                     self.print();
-                    panic!("too short page table, level({}), va(0x{:x}), ppn(0x{:x})", level, va.0, ppn.page());
+                    panic!(
+                        "too short page table, level({}), va(0x{:x}), ppn(0x{:x})",
+                        level,
+                        va.0,
+                        ppn.page()
+                    );
                 }
                 ppn = pte.ppn();
             } else {
@@ -202,7 +207,6 @@ impl Pgtbl {
             self.map(*virt, *phys, *flags);
         }
     }
-
 }
 
 impl Drop for Pgtbl {

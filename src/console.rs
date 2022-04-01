@@ -2,7 +2,7 @@ use crate::sbi;
 use core::fmt::{self, Write};
 use spin::Mutex;
 
-pub static STDOUTLOCK : Mutex<()> = Mutex::new(());
+pub static STDOUTLOCK: Mutex<()> = Mutex::new(());
 
 pub struct Stdout;
 

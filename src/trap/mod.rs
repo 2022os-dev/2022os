@@ -28,7 +28,10 @@ pub fn init() {
 
 pub extern "C" fn trap_handler() {
     // Fixme: Don't skip the reference lifetime checker;
-    current_pcb().unwrap().lock().utimes_add(get_time() - current_hart_set_trap_times(get_time()));
+    current_pcb()
+        .unwrap()
+        .lock()
+        .utimes_add(get_time() - current_hart_set_trap_times(get_time()));
     let scause = scause::read();
     let stval = stval::read();
     match scause.cause() {
@@ -58,8 +61,8 @@ pub extern "C" fn trap_handler() {
         Trap::Exception(Exception::InstructionPageFault) => {
             use crate::mm::address::*;
             let mut i = PhysAddr(0xdc);
-            let i:&mut usize = i.as_mut();
-            println!("is {}",i); 
+            let i: &mut usize = i.as_mut();
+            println!("is {}", i);
             panic!(
                 "InstructionPageFault, core dumped, sepc: 0x{:x}, scause:{:?}",
                 current_pcb().unwrap().lock().trapframe()["sepc"],

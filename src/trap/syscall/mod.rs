@@ -1,14 +1,14 @@
 #![allow(unused)]
 mod file;
-mod process;
 mod mm;
+mod process;
 mod signal;
-use alloc::sync::Arc;
 use crate::config::RTCLK_FREQ;
 use crate::mm::address::*;
-use crate::{process::*, trap};
 use crate::process::cpu::{current_hart, get_time};
 use crate::task::*;
+use crate::{process::*, trap};
+use alloc::sync::Arc;
 use file::*;
 use mm::*;
 use process::*;
@@ -133,7 +133,7 @@ pub fn syscall_handler() {
                 // 回退上一条ecall指针，等待子进程信号
                 pcblock.trapframe()["sepc"] -= 4;
                 // 进入阻塞态，如果某个子进程退出则恢复
-                pcblock.set_state(PcbState::Blocking(|pcb| { 
+                pcblock.set_state(PcbState::Blocking(|pcb| {
                     let pcblock = pcb.try_lock();
                     if let Some(pcblock) = pcblock {
                         for i in pcblock.children.iter() {
@@ -177,19 +177,24 @@ pub fn syscall_handler() {
             let oldact = VirtualAddr(trapframe["a2"]);
             drop(trapframe);
             log!("syscall":"sigaction">"pid({}) signal({:?})", pcblock.pid, crate::process::signal::Signal::from_bits(signum));
-            pcblock.trapframe()["a0"] = sys_rt_sigaction(&mut pcblock, signum, act, oldact) as usize;
+            pcblock.trapframe()["a0"] =
+                sys_rt_sigaction(&mut pcblock, signum, act, oldact) as usize;
             pcblock.reset_state();
         }
         SYSCALL_SIGRETURN => {
             drop(trapframe);
-            assert!(if let PcbState::SigHandling(_, _) = pcblock.state() { true } else { false});
+            assert!(if let PcbState::SigHandling(_, _) = pcblock.state() {
+                true
+            } else {
+                false
+            });
             pcblock.signal_return();
             pcblock.set_state(PcbState::Ready);
         }
         SYSCALL_TIMES => {
             let tms = trapframe["a0"];
             drop(trapframe);
-            pcblock.trapframe()["a0"] = sys_times(&mut pcblock,VirtualAddr(tms));
+            pcblock.trapframe()["a0"] = sys_times(&mut pcblock, VirtualAddr(tms));
             log!("syscall":"times">"pid({})", pcblock.pid);
             pcblock.reset_state();
         }
@@ -204,11 +209,13 @@ pub fn syscall_handler() {
             let timespec: &TimeSpec = timespec.as_ref();
             let current_time = get_time();
             trapframe["a0"] = 0;
-            pcblock.wakeup_time = Some(get_time() + timespec.tv_sec * RTCLK_FREQ + timespec.tv_nsec * RTCLK_FREQ / 1000);
+            pcblock.wakeup_time = Some(
+                get_time() + timespec.tv_sec * RTCLK_FREQ + timespec.tv_nsec * RTCLK_FREQ / 1000,
+            );
             pcblock.set_state(PcbState::Blocking(move |pcb| {
                 if let Some(pcb) = pcb.try_lock() {
                     if pcb.wakeup_time.unwrap() <= get_time() {
-                        return true
+                        return true;
                     }
                 }
                 false
