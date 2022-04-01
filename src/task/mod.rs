@@ -4,7 +4,6 @@ use crate::process::*;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use spin::Mutex;
-use core::assert;
 
 lazy_static! {
     // 保存所有可尝试调度的进程

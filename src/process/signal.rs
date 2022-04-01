@@ -3,7 +3,6 @@ use core::cell::RefCell;
 use alloc::vec::Vec;
 use alloc::sync::Arc;
 use alloc::collections::BTreeMap;
-use alloc::vec;
 use spin::RwLock;
 use super::Pid;
 use crate::mm::PageNum;
@@ -103,7 +102,7 @@ pub fn sigqueue_mask(pid: Pid, mask: Signal) -> Signal {
 // 返回一个信号并且将sigqueue里相应的pending清空
 pub fn sigqueue_fetch(pid: Pid) -> Option<Signal> {
     let mut sigqueue = SIGQUEUE.write();
-    if let Some((pending, mask)) = sigqueue.get_mut(&pid) {
+    if let Some((pending, _)) = sigqueue.get_mut(&pid) {
         for i in 0..SIGTMIN {
             let testsig= Signal::from_bits(1 << i).unwrap_or(Signal::empty());
             if *pending & testsig != Signal::empty() {
@@ -147,10 +146,6 @@ impl Drop for CustomSigAction {
 }
 
 pub type SigActionBinds = Vec<(Signal, SigAction)>;
-
-static DEFAULTSABINDS: SigActionBinds = vec! [
-
-];
 
 pub fn sigactionbinds_default(signal: Signal) -> SigAction {
     match signal {

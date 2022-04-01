@@ -118,7 +118,7 @@ pub fn current_hart_leak() {
         }
         // 用户栈
         log!("hart":"leak">"pid({}) unmap user stack",pid);
-        current_hart_pgtbl().unmap(VirtualAddr(USER_STACK).floor(), false);
+        current_hart_pgtbl().unmap(MemorySpace::get_stack_start().floor(), false);
         drop(current);
     }
 }
@@ -135,10 +135,10 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> !{
     unsafe {
         asm!("sfence.vma");
     }
-    // 在原地映射用户栈,U flags
+    // 映射用户栈,U flags
     let stack = pcb.lock().memory_space.user_stack;
     log!("hart":"run">"map user stack page 0x{:x}", stack.page());
-    current_hart_pgtbl().map(VirtualAddr(USER_STACK).floor(), stack, PTEFlag::R | PTEFlag::W | PTEFlag::U);
+    current_hart_pgtbl().map(MemorySpace::get_stack_start().floor(), stack, PTEFlag::R | PTEFlag::W | PTEFlag::U);
 
     // 设置内核栈
     pcb.lock().trapframe().kernel_sp = current_hart().kernel_sp;

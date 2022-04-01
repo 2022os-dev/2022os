@@ -62,6 +62,7 @@ impl From<PageNum> for VirtualAddr {
 pub struct PhysAddr(pub usize);
 
 impl PhysAddr {
+    #![allow(unused)]
     pub fn floor(&self) -> PageNum {
         PageNum(self.0 / PAGE_SIZE)
     }

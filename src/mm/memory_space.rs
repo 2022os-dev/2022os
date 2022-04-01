@@ -3,7 +3,6 @@ use super::PTEFlag;
 use super::KALLOCATOR;
 use crate::config::*;
 use crate::process::TrapFrame;
-use crate::process::cpu::current_hart_pgtbl;
 use crate::trap::{__alltraps, __restore};
 use core::cmp::min;
 use core::ops::Range;
@@ -14,7 +13,7 @@ use xmas_elf::ElfFile;
 pub type Segments = BTreeMap<PageNum, (PageNum, PTEFlag)>;
 
 pub struct MemorySpace {
-    pub entry: usize,
+    entry: usize,
     // 保存elf中可加载的段
     pub segments: Segments,
     pub trapframe: PageNum,
@@ -37,7 +36,7 @@ impl MemorySpace {
         }
     }
 
-    pub fn prog_sbrk(&mut self, mut inc: usize) -> VirtualAddr {
+    pub fn prog_sbrk(&mut self, inc: usize) -> VirtualAddr {
         if self.prog_break.0 == 0 {
             let maxvpage = self.segments.keys().into_iter().max_by(|lvp, rvp| {
                 lvp.0.cmp(&rvp.0)
@@ -69,10 +68,6 @@ impl MemorySpace {
         PageNum::highest_page()
     }
 
-    pub fn trapframe_page() -> PageNum {
-        Self::trampoline_page() - 1
-    }
-
     // Return (alltraps, restore)
     pub fn trampoline_entry() -> (usize, usize) {
         let alltraps = Self::trampoline_page().offset(0);
@@ -80,6 +75,7 @@ impl MemorySpace {
         (alltraps.0, restore.0)
     }
 
+    /*
     pub fn copy_from_user(&mut self, src: VirtualAddr,  dst: &mut [u8]) {
         let pte = current_hart_pgtbl().walk(src, false);
         if !pte.is_valid() {
@@ -100,7 +96,9 @@ impl MemorySpace {
         let dst = dst.as_slice_mut(src.len());
         dst.copy_from_slice(src);
     }
+    */
 
+    // 完全复制一个内存空间，分配新的物理页面，将原页面的内容复制到新页面。用于fork
     pub fn copy(&self) -> Self {
         let mut mem = MemorySpace::new();
         mem.entry = self.entry;
@@ -129,12 +127,12 @@ impl MemorySpace {
         }
     }
 
-    pub fn get_stack_sp(&self) -> VirtualAddr{
-        VirtualAddr(USER_STACK) + PAGE_SIZE
+    pub fn get_stack_sp() -> VirtualAddr{
+        VirtualAddr(USER_STACK_PAGE) + PAGE_SIZE
     }
 
-    pub fn get_stack_start(&self) -> VirtualAddr {
-        VirtualAddr(USER_STACK)
+    pub fn get_stack_start() -> VirtualAddr {
+        VirtualAddr(USER_STACK_PAGE)
     }
 
     pub fn from_elf(data: &[u8]) -> Self {
@@ -144,7 +142,7 @@ impl MemorySpace {
         MemorySpace::validate_elf_header(elf_header);
         space.set_entry_point(elf_header.pt2.entry_point() as usize);
         space.add_elf_program_table(&elf);
-        let sp = space.get_stack_sp().0;
+        let sp = Self::get_stack_sp().0;
         let sepc = space.entry;
         space.trapframe().init(sp, sepc);
         space
@@ -177,6 +175,8 @@ impl MemorySpace {
         }
     }
 
+    /*
+    // 映射一段0内存
     fn add_area_zero(&mut self, area: Range<VirtualAddr>, flags: PTEFlag) {
         // Fixme: enhance performance
         let (start, end) = (area.start, area.end);
@@ -195,6 +195,7 @@ impl MemorySpace {
             page.offset_phys(0).write_bytes(0, PAGE_SIZE);
         }
     }
+    */
 
     fn add_area_data_each_byte(&mut self, area: Range<VirtualAddr>, flags: PTEFlag, data: &[u8]) {
         let mut start = area.start;

@@ -1,3 +1,4 @@
+#![allow(unused)]
 use alloc::boxed::Box;
 
 static HELLO_WORLD: &'static [u8] = include_bytes!("bin/hello_world");

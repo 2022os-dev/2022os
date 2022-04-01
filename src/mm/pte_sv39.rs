@@ -15,10 +15,6 @@ use crate::config::*;
 pub struct PTE(usize);
 
 impl PTE {
-    pub fn new(ppn: PageNum, flag: PTEFlag) -> Self {
-        PTE(ppn.page() << PTE_PPN_OFFSET | flag.bits() as usize)
-    }
-
     pub fn ppn(&self) -> PageNum {
         ((self.0 >> PTE_PPN_OFFSET) & ((1 << 27) - 1)).into()
     }

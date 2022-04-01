@@ -4,7 +4,9 @@ pub mod memory_space;
 pub mod pgtbl;
 pub mod pte_sv39;
 
-use crate::{config::PHYS_FRAME_END, link_syms, process::cpu::{hartid, current_hart_pgtbl}};
+use crate::link_syms;
+use crate::config::*;
+use crate::process::cpu::*;
 use core::ops::Range;
 
 pub use kalloc::KALLOCATOR;
@@ -25,7 +27,7 @@ pub fn activate_vm() {
     log!(debug "hart {} trying VM", hartid());
     // ################### TEST ######################
     let range = kernel_range();
-    let mut p = current_hart_pgtbl();
+    let p = current_hart_pgtbl();
     for i in range.start.page()..range.end.page() {
         let pte = p
             .walk(Into::<PageNum>::into(i).offset(0), false);

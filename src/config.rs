@@ -6,7 +6,7 @@ pub const PAGE_TABLE_LEVEL: usize = 3;
 // 物理内存终止页
 pub const PHYS_FRAME_END: usize = 0x80f00000;
 // 用户栈映射的虚拟地址, 用户栈大小为一个页
-pub const USER_STACK: usize = 0x80000000 - PAGE_SIZE;
+pub const USER_STACK_PAGE: usize = 0x80000000 - PAGE_SIZE;
 // 每个hart使用的栈大小
 pub const BOOT_STACK_SIZE: usize = 2 * PAGE_SIZE;
 // 定时器频率
