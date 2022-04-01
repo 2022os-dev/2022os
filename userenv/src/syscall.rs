@@ -238,3 +238,23 @@ pub fn syscall_times(tms: &mut Tms) -> usize {
     }
     a0
 }
+
+#[repr(C)]
+pub struct TimeSpec {
+    pub tv_sec: usize,
+    pub tv_nsec: usize
+}
+
+pub fn syscall_nanosleep(sec: usize, nsec: usize) -> isize {
+    let ts = TimeSpec {
+        tv_nsec: nsec,
+        tv_sec: sec
+    };
+    let mut a0 = &ts as *const _ as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x17") SYSCALL_NANOSLEEP
+        )
+    }
+    a0 as isize
+}

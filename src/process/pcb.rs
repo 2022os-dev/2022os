@@ -28,7 +28,7 @@ pub enum PcbState {
     Exit(isize),
     // 保持信号处理前的trapframe和signal mask
     SigHandling(PageNum, Signal),
-    Blocking(fn(Arc<Mutex<Pcb>>) -> bool)
+    Blocking(fn(Arc<Mutex<Pcb>>) -> bool),
 }
 
 pub struct Pcb {
@@ -43,7 +43,10 @@ pub struct Pcb {
     utimes: usize,
     stimes: usize,
     cutimes: usize,
-    cstimes: usize
+    cstimes: usize,
+    
+    // for nanosleep
+    pub wakeup_time: Option<usize>
 }
 
 impl Pcb {
@@ -59,7 +62,9 @@ impl Pcb {
             utimes: 0,
             stimes: 0,
             cutimes: 0,
-            cstimes: 0
+            cstimes: 0,
+
+            wakeup_time: None
         };
         #[cfg(feature = "pcb")]
         unsafe { *DROPPCBS.lock() += 1; }

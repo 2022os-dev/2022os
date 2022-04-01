@@ -10,7 +10,8 @@ static SYS_KILL: &'static [u8] = include_bytes!("bin/sys_kill");
 static FORKBOOM: &'static [u8] = include_bytes!("bin/forkboom");
 static SIGNAL_CHLD: &'static [u8] = include_bytes!("bin/signal_chld");
 static TIMES: &'static [u8] = include_bytes!("bin/times");
+static NANOSLEEP : &'static [u8] = include_bytes!("bin/nanosleep");
 
 lazy_static! {
-    pub static ref APP :Box<[&'static [u8]]> = Box::new([TIMES]);
+    pub static ref APP :Box<[&'static [u8]]> = Box::new([SYS_BRK, NANOSLEEP, LOOP10, SYS_WAIT4, SYS_KILL, SIGNAL_CHLD, TIMES, HELLO_WORLD, GET_PID,SYS_BRK, NANOSLEEP, LOOP10, SYS_WAIT4, SYS_KILL, SIGNAL_CHLD, TIMES, HELLO_WORLD, GET_PID,SYS_BRK, NANOSLEEP, LOOP10, SYS_WAIT4, SYS_KILL, SIGNAL_CHLD, TIMES, HELLO_WORLD, GET_PID,SYS_BRK, NANOSLEEP, LOOP10, SYS_WAIT4, SYS_KILL, SIGNAL_CHLD, TIMES, HELLO_WORLD, GET_PID,SYS_BRK, NANOSLEEP, LOOP10, SYS_WAIT4, SYS_KILL, SIGNAL_CHLD, TIMES, HELLO_WORLD, GET_PID,]);
 }

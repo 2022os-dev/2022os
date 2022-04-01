@@ -4,9 +4,10 @@ mod process;
 mod mm;
 mod signal;
 use alloc::sync::Arc;
+use crate::config::RTCLK_FREQ;
 use crate::mm::address::*;
 use crate::{process::*, trap};
-use crate::process::cpu::current_hart;
+use crate::process::cpu::{current_hart, get_time};
 use crate::task::*;
 use file::*;
 use mm::*;
@@ -191,6 +192,27 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_times(&mut pcblock,VirtualAddr(tms));
             log!("syscall":"times">"pid({})", pcblock.pid);
             pcblock.reset_state();
+        }
+        SYSCALL_GET_TIME_OF_DAY => {
+            let timespec = VirtualAddr(trapframe["a0"]);
+            let timezone = VirtualAddr(trapframe["a1"]);
+            pcblock.trapframe()["a0"] = sys_gettimeofday(timespec, timezone) as usize;
+            pcblock.reset_state();
+        }
+        SYSCALL_NANOSLEEP => {
+            let timespec = PhysAddr(trapframe["a0"]);
+            let timespec: &TimeSpec = timespec.as_ref();
+            let current_time = get_time();
+            trapframe["a0"] = 0;
+            pcblock.wakeup_time = Some(get_time() + timespec.tv_sec * RTCLK_FREQ + timespec.tv_nsec * RTCLK_FREQ / 1000);
+            pcblock.set_state(PcbState::Blocking(move |pcb| {
+                if let Some(pcb) = pcb.try_lock() {
+                    if pcb.wakeup_time.unwrap() <= get_time() {
+                        return true
+                    }
+                }
+                false
+            }));
         }
         SYSCALL_FORK => {
             drop(trapframe);

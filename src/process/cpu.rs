@@ -1,6 +1,4 @@
 use alloc::sync::Arc;
-use alloc::vec::Vec;
-use lazy_static::lazy_static;
 use spin::Mutex;
 
 use super::Pcb;
@@ -35,10 +33,6 @@ impl const Default for Hart {
             times: 0
         }
     }
-}
-
-lazy_static! {
-    static ref HARTS: Mutex<Vec<Hart>> = Mutex::new(Vec::new());
 }
 
 pub fn get_time() -> usize {

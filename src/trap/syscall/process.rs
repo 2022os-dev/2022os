@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use core::mem::size_of;
 use spin::{Mutex, MutexGuard};
 use crate::mm::PhysAddr;
+use crate::config::*;
 use crate::process::signal::*;
 use crate::mm::VirtualAddr;
 use crate::process::pcb::alloc_pid;
@@ -87,4 +88,19 @@ pub(super) fn sys_times(pcb: &mut MutexGuard<Pcb>, tms: VirtualAddr) -> usize {
     tms.cstime = pcb.cstimes();
     // Fix: 只是简单返回times
     cpu::get_time()
+}
+
+#[repr(C)]
+pub(super) struct TimeSpec {
+    pub tv_sec: usize,
+    pub tv_nsec: usize
+}
+
+pub(super) fn sys_gettimeofday(timespec: VirtualAddr, _: VirtualAddr) -> isize{
+    let mut timespec: PhysAddr = timespec.into();
+    let timespec: &mut TimeSpec = timespec.as_mut();
+    let time = cpu::get_time();
+    timespec.tv_sec = time / RTCLK_FREQ;
+    timespec.tv_nsec = time % RTCLK_FREQ / (RTCLK_FREQ / 1000);
+    0
 }

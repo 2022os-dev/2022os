@@ -43,3 +43,7 @@ path = "src/signal_chld.rs"
 [[bin]]
 name = "times"
 path = "src/times.rs"
+
+[[bin]]
+name = "nanosleep"
+path = "src/nanosleep.rs"
