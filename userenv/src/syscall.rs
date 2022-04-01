@@ -222,6 +222,7 @@ pub fn syscall_sigreturn() {
     }
 }
 #[repr(C)]
+#[derive(Default)]
 pub struct Tms {
     pub utime: usize,
     pub stime: usize,
