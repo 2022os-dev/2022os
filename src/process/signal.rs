@@ -1,7 +1,13 @@
+use core::cell::RefCell;
+
 use alloc::vec::Vec;
+use alloc::sync::Arc;
 use alloc::collections::BTreeMap;
+use alloc::vec;
 use spin::RwLock;
 use super::Pid;
+use crate::mm::PageNum;
+use crate::mm::kalloc::KALLOCATOR;
 
 // Feature: 使用AtomicUsize原子类型
 lazy_static!{
@@ -58,6 +64,9 @@ pub fn sigqueue_send(pid: Pid, signal: Signal) {
     if let Some((pending, mask)) = SIGQUEUE.write().get_mut(&pid) {
         if signal & *mask == Signal::empty() {
             *pending |= signal;
+            log!("signal":"send">"successed (pid({}), signal({:?}))", pid, signal);
+        } else {
+            log!("signal":"send">"masked (pid({}), signal({:?}))", pid, signal);
         }
     } else {
         // 不存在，表明进程已经退出
@@ -65,10 +74,12 @@ pub fn sigqueue_send(pid: Pid, signal: Signal) {
 }
 pub fn sigqueue_clear(pid: Pid) {
     // 清除进程的sigqueue
+    log!("signal":"clear">"pid({})", pid);
     SIGQUEUE.write().remove(&pid);
 }
 
 pub fn sigqueue_init(pid: Pid) {
+    log!("signal":"init">"pid({})", pid);
     if let Some(_) = SIGQUEUE.write().insert(pid, (Signal::empty(), Signal::empty())) {
         panic!("dumplicated sigqueue for pid {}", pid)
     }
@@ -106,27 +117,42 @@ pub fn sigqueue_fetch(pid: Pid) -> Option<Signal> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SigAction {
     Term,
     Ign,
     Core,
     Stop,
     Cont,
-    Custom(CustomSigAction)
+    Custom(Arc<RefCell<CustomSigAction>>)
 }
+unsafe impl Send for SigAction {}
+unsafe impl Sync for SigAction {}
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CustomSigAction {
     pub sa_handler:usize,
     // pub sa_sigaction:usize,
     pub sa_mask:Signal,
     pub sa_flags:SaFlags,
+    pub trapframe: PageNum,
+    pub user_stack: PageNum
 }
 
-pub type SigActionBounds = Vec<(Signal, SigAction)>;
+impl Drop for CustomSigAction {
+    fn drop(&mut self) {
+        KALLOCATOR.lock().kfree(self.trapframe);
+        KALLOCATOR.lock().kfree(self.user_stack);
+    }
+}
 
-pub fn sigactionbounds_default(signal: Signal) -> SigAction {
+pub type SigActionBinds = Vec<(Signal, SigAction)>;
+
+static DEFAULTSABINDS: SigActionBinds = vec! [
+
+];
+
+pub fn sigactionbinds_default(signal: Signal) -> SigAction {
     match signal {
         Signal::SIGHUP => {
             SigAction::Term

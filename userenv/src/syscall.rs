@@ -187,7 +187,7 @@ bitflags!{
         const SA_INTERRUPT = 0x20000000;    /* Historical no-op.  */
     }
 }
-pub fn syscall_kill(mut pid: usize, sig: Signal) -> isize {
+pub fn syscall_kill(mut pid: isize, sig: Signal) -> isize {
     unsafe {
         asm!("ecall", inout("x10") pid,
             in("x11") sig.bits(),
@@ -195,4 +195,29 @@ pub fn syscall_kill(mut pid: usize, sig: Signal) -> isize {
         )
     }
     pid as isize
+}
+
+#[repr(C)]
+pub struct rt_sigaction {
+    pub sa_handler: usize,
+    pub sa_flags: usize,
+    pub sa_mask: usize
+}
+
+pub fn syscall_sigaction(signal: Signal, act: &rt_sigaction, old: &rt_sigaction) -> isize {
+    let mut a0 = signal.bits();
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") act as *const _ as usize,
+            in("x12") old as *const _ as usize,
+            in("x17") SYSCALL_SIGACTION
+        )
+    }
+    a0 as isize
+}
+pub fn syscall_sigreturn() {
+    unsafe {
+        asm!("ecall", in("x17") SYSCALL_SIGRETURN
+        )
+    }
 }

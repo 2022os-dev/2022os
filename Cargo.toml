@@ -12,7 +12,7 @@ overflow-check = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["user_log", "print_lock", "pcb"]
+default = ["user_log", "print_lock", "pcb", "syscall", "signal"]
 print_lock = []
 syscall = []
 scheduler = []
@@ -20,6 +20,7 @@ hart = []
 pgtbl = []
 kalloc = []
 pcb = []
+signal = []
 user_log = []
 
 

@@ -9,7 +9,6 @@ use riscv::register::{
 };
 
 use crate::{mm::MemorySpace, process::cpu::current_hart};
-use crate::process::PcbState;
 use crate::task::*;
 
 extern "C" {
@@ -41,7 +40,6 @@ pub fn enable_timer_interupt() {
 pub extern "C" fn trap_handler() {
     // Fixme: Don't skip the reference lifetime checker;
 
-    log!(debug "in Trap");
     let scause = scause::read();
     let stval = stval::read();
     match scause.cause() {
@@ -81,7 +79,7 @@ pub extern "C" fn trap_handler() {
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             crate::trap::time::set_next_trigger();
-            current_pcb().unwrap().lock().set_state(PcbState::Ready);
+            current_pcb().unwrap().lock().reset_state();
             scheduler_ready_pcb(current_hart().pcb.take().unwrap());
             schedule();
         }

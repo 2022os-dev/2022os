@@ -31,3 +31,11 @@ path = "src/sys_brk.rs"
 [[bin]]
 name = "sys_kill"
 path = "src/sys_kill.rs"
+
+[[bin]]
+name = "forkboom"
+path = "src/forkboom.rs"
+
+[[bin]]
+name = "signal_chld"
+path = "src/signal_chld.rs"

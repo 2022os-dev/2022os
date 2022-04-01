@@ -1,4 +1,9 @@
+use alloc::sync::Arc;
+use core::cell::RefCell;
+use spin::mutex::MutexGuard;
 use crate::mm::address::*;
+use crate::mm::kalloc::KALLOCATOR;
+use crate::process::*;
 use crate::process::signal::*;
 
 #[repr(C)]
@@ -20,22 +25,23 @@ pub(super) struct rt_sigaction {
  * };
  */
 
-bitflags! {
-pub struct SaFlags: usize{
-    const SA_NOCLDSTOP = 1		   ;     /* Don't send SIGCHLD when children stop.  */
-    const SA_NOCLDWAIT = 2		   ;     /* Don't create zombie on child death.  */
-    const SA_SIGINFO   = 4		   ;     /* Invoke signal-catching function with three arguments instead of one.  */
-    const SA_ONSTACK   = 0x08000000;    /* Use signal stack by using `sa_restorer'. */
-    const SA_RESTART   = 0x10000000;    /* Restart syscall on signal return.  */
-    const SA_NODEFER   = 0x40000000;    /* Don't automatically block the signal when its handler is being executed.  */
-    const SA_RESETHAND = 0x80000000;    /* Reset to SIG_DFL on entry to handler.  */
-    const SA_INTERRUPT = 0x20000000;    /* Historical no-op.  */
-}
-}
-
-pub(super) fn rt_sigaction(signum: usize, act: VirtualAddr, oldact: VirtualAddr) -> isize {
-    let sa: &mut rt_sigaction = PhysAddr::from(act).as_mut();
-    0
+pub(super) fn sys_rt_sigaction(pcb: &mut MutexGuard<Pcb>, signum: usize, act: VirtualAddr, oldact: VirtualAddr) -> isize {
+    let mut sa = PhysAddr::from(act);
+    let sa: &mut rt_sigaction = sa.as_mut();
+    if let Some(signal) = Signal::from_bits(signum) {
+        let tf = KALLOCATOR.lock().kalloc();
+        let stack = KALLOCATOR.lock().kalloc();
+        pcb.sigaction_bind(signal, SigAction::Custom(Arc::new(RefCell::new(CustomSigAction {
+            sa_handler: sa.sa_handler,
+            sa_flags: SaFlags::from_bits(sa.sa_flags).unwrap(),
+            sa_mask: Signal::from_bits(sa.sa_mask).unwrap(),
+            trapframe: tf,
+            user_stack: stack
+        }))));
+        0
+    } else {
+        -1
+    }
 }
 
 pub(super) fn sys_kill(pid: usize, sig: usize) -> isize {

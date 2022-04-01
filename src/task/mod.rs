@@ -69,10 +69,19 @@ pub fn schedule() -> ! {
             let state = pcb.lock().state();
             match state {
                 PcbState::Ready => {
-                    pcb.lock().try_handle_signal();
-                    if let PcbState::Exit(_) = pcb.lock().state() {
-                        // 进程退出了，重新调度
-                        continue;
+                    match pcb.lock().try_handle_signal() {
+                        PcbState::Exit(_) => {
+                            continue;
+                        }
+                        PcbState::Running => {
+
+                        }
+                        PcbState::SigHandling(_, _) => {
+
+                        }
+                        _ => {
+                            panic!("Invalid state");
+                        }
                     }
                 }
                 PcbState::Blocking(testfn) => {
@@ -81,6 +90,8 @@ pub fn schedule() -> ! {
                         continue;
                     }
                 }
+                PcbState::SigHandling(_, _) => {
+                }
                 _ => {
                     panic!("invalid state pcb in tasks {:?}", state);
                 }
@@ -88,7 +99,6 @@ pub fn schedule() -> ! {
             current_hart_run(pcb.clone());
             // current_hart_memset().pgtbl().print();
             let tf = current_pcb().unwrap().lock().memory_space.trapframe.offset(0);
-            pcb.lock().set_state(PcbState::Running);
             drop(pcb);
             restore_trapframe(tf);
         } else {

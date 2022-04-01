@@ -20,6 +20,8 @@ user_apps:
 	mv userenv/target/riscv64gc-unknown-none-elf/debug/sys_wait4 src/user/bin/sys_wait4
 	mv userenv/target/riscv64gc-unknown-none-elf/debug/sys_brk src/user/bin/sys_brk
 	mv userenv/target/riscv64gc-unknown-none-elf/debug/sys_kill src/user/bin/sys_kill
+	mv userenv/target/riscv64gc-unknown-none-elf/debug/forkboom src/user/bin/forkboom
+	mv userenv/target/riscv64gc-unknown-none-elf/debug/signal_chld src/user/bin/signal_chld
 
 kernel.bin: user_apps
 	@cargo build --release

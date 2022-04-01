@@ -10,8 +10,6 @@ use crate::link_syms;
 use crate::mm::address::PhysAddr;
 use crate::mm::pgtbl::Pgtbl;
 use crate::mm::*;
-use crate::process::PcbState;
-use crate::process::signal::*;
 use crate::asm;
 
 // 最多支持4核
@@ -108,6 +106,8 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
 
     // 设置内核栈
     pcb.lock().trapframe().kernel_sp = current_hart().kernel_sp;
+    let sepc = pcb.lock().trapframe()["sepc"];
+    log!("hart":"run">"sepc: 0x{:x}", sepc);
     current_hart().pcb = Some(pcb);
 }
 

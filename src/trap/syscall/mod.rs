@@ -98,7 +98,7 @@ pub fn syscall_handler() {
             drop(trapframe);
             log!("syscall":"write" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
             pcblock.trapframe()["a0"] = sys_write(&mut pcblock, fd, buf, len) as usize;
-            pcblock.set_state(PcbState::Ready);
+            pcblock.reset_state();
         }
         SYSCALL_EXIT => {
             let xcode = trapframe["a0"];
@@ -109,12 +109,12 @@ pub fn syscall_handler() {
         SYSCALL_YIELD => {
             trapframe["a0"] = sys_yield() as usize;
             log!("syscall": "yield" > "pid({})", pcblock.pid);
-            pcblock.set_state(PcbState::Ready);
+            pcblock.reset_state();
         }
         SYSCALL_GETPID => {
             log!("syscall": "getpid"> "pid({})", pcblock.pid);
             pcblock.trapframe()["a0"] = sys_getpid(&pcblock) as usize;
-            pcblock.set_state(PcbState::Ready);
+            pcblock.reset_state();
         }
         SYSCALL_WAIT4 => {
             let pid = trapframe["a0"] as isize;
@@ -126,7 +126,7 @@ pub fn syscall_handler() {
             let ret = sys_wait4(&mut pcblock, pid, wstatus, options, rusage);
             if let Ok(child_pid) = ret {
                 pcblock.trapframe()["a0"] = child_pid;
-                pcblock.set_state(PcbState::Ready);
+                pcblock.reset_state();
             } else {
                 // 回退上一条ecall指针，等待子进程信号
                 pcblock.trapframe()["sepc"] -= 4;
@@ -152,32 +152,45 @@ pub fn syscall_handler() {
             drop(trapframe);
             log!("syscall":"sbrk" > "pid({}) (0x{:x})", pcblock.pid, inc);
             pcblock.trapframe()["a0"] = sys_sbrk(&mut pcblock, inc);
-            pcblock.set_state(PcbState::Ready);
+            pcblock.reset_state();
         }
         SYSCALL_BRK => {
             let va = VirtualAddr(trapframe["a0"]);
             drop(trapframe);
             log!("syscall":"brk" > "pid({}) (0x{:x})", pcblock.pid, va.0);
             pcblock.trapframe()["a0"] = sys_brk(&mut pcblock, va) as usize;
-            pcblock.set_state(PcbState::Ready);
+            pcblock.reset_state();
         }
         SYSCALL_KILL => {
             let pid = trapframe["a0"];
             let sig = trapframe["a1"];
             drop(trapframe);
             pcblock.trapframe()["a0"] = sys_kill(pid, sig) as usize;
+            pcblock.reset_state();
+        }
+        SYSCALL_SIGACTION => {
+            let signum = trapframe["a0"];
+            let act = VirtualAddr(trapframe["a1"]);
+            let oldact = VirtualAddr(trapframe["a2"]);
+            drop(trapframe);
+            log!("syscall":"sigaction">"pid({}) signal({:?})", pcblock.pid, crate::process::signal::Signal::from_bits(signum));
+            pcblock.trapframe()["a0"] = sys_rt_sigaction(&mut pcblock, signum, act, oldact) as usize;
+            pcblock.reset_state();
+        }
+        SYSCALL_SIGRETURN => {
+            assert!(if let PcbState::SigHandling(_, _) = pcblock.state() { true } else { false});
+            pcblock.signal_return();
             pcblock.set_state(PcbState::Ready);
-
         }
         SYSCALL_FORK => {
             drop(trapframe);
             log!("syscall":"fork" > "pid({}) ()", pcblock.pid);
             pcblock.trapframe()["a0"] = sys_fork(&mut pcblock) as usize;
-            pcblock.set_state(PcbState::Ready);
+            pcblock.reset_state();
         }
         _ => {
             println!("unsupported syscall {}", trapframe["a7"]);
-            pcblock.set_state(PcbState::Ready);
+            pcblock.reset_state();
         }
     }
     let state = pcblock.state;
@@ -188,6 +201,5 @@ pub fn syscall_handler() {
     }
     // Note: 这里必须显式调用drop释放进程锁
     drop(pcb);
-    log!("syscall": "handler">"going to scheduler");
     schedule();
 }

@@ -144,7 +144,7 @@ impl From<PageNum> for PhysAddr {
  * PageNum: 页号
  */
 
-#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct PageNum(pub usize);
 
 impl From<usize> for PageNum {
