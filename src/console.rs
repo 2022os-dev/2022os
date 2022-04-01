@@ -2,8 +2,6 @@ use crate::sbi;
 use core::fmt::{self, Write};
 use spin::Mutex;
 
-static mut KERNEL_LOG: bool = true;
-
 pub static STDOUTLOCK : Mutex<()> = Mutex::new(());
 
 pub struct Stdout;
@@ -16,12 +14,8 @@ impl Write for Stdout {
         Ok(())
     }
 }
-impl Stdout {
-    pub fn is_log() -> bool {
-        return unsafe { KERNEL_LOG };
-    }
-}
 
+#[allow(unused)]
 pub fn print(args: fmt::Arguments) {
     // 暂时锁住输出，防止多线程输出混乱
     #[cfg(feature = "print_lock")]
@@ -29,19 +23,6 @@ pub fn print(args: fmt::Arguments) {
     Stdout.write_fmt(args).unwrap();
     #[cfg(feature = "print_lock")]
     drop(_lock);
-}
-
-#[allow(unused)]
-pub fn turn_off_log() {
-    unsafe {
-        KERNEL_LOG = false;
-    };
-}
-#[allow(unused)]
-pub fn turn_on_log() {
-    unsafe {
-        KERNEL_LOG = true;
-    };
 }
 
 #[macro_export]

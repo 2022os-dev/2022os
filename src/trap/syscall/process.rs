@@ -40,11 +40,15 @@ pub(super) fn sys_wait4(pcb: &mut MutexGuard<Pcb>, pid: isize, wstatus: VirtualA
     // 阻塞直到某个子进程退出
     // 如果找不到退出的子进程，返回Err
     let mut xcode = 0;
+    let mut childutimes = 0;
+    let mut childstimes = 0;
     let res = pcb.children.iter().enumerate().find(|(_idx, child)| {
         let child = child.lock();
         if pid == -1 || child.pid == pid.abs() as usize {
             if let PcbState::Exit(_xcode) = child.state() {
                 xcode = _xcode;
+                childutimes = child.utimes();
+                childstimes = child.stimes();
                 return true
             }
             return false
@@ -54,11 +58,33 @@ pub(super) fn sys_wait4(pcb: &mut MutexGuard<Pcb>, pid: isize, wstatus: VirtualA
     });
     if let Some((idx, child)) = res {
         let child_pid = child.lock().pid;
-        pcb.memory_space.copy_to_user(wstatus, PhysAddr::from(&xcode).as_slice(size_of::<usize>()));
+        // wstatus = xcode
+        let mut wstatus: PhysAddr = wstatus.into();
+        let wstatus: &mut usize = wstatus.as_mut();
+        *wstatus = xcode as usize;
+        pcb.cutimes_add(childutimes);
+        pcb.cstimes_add(childstimes);
         // 清理子进程
         pcb.children.remove(idx);
         Ok(child_pid)
     }  else {
         Err(())
     }
+}
+#[repr(C)]
+struct Tms {
+    utime: usize,
+    stime: usize,
+    cutime: usize,
+    cstime: usize,
+}
+pub(super) fn sys_times(pcb: &mut MutexGuard<Pcb>, tms: VirtualAddr) -> usize {
+    let mut tms: PhysAddr = tms.into();
+    let tms: &mut Tms = tms.as_mut();
+    tms.utime = pcb.utimes();
+    tms.stime = pcb.stimes();
+    tms.cutime = pcb.cutimes();
+    tms.cstime = pcb.cstimes();
+    // Fix: 只是简单返回times
+    cpu::get_time()
 }

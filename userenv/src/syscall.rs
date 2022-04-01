@@ -221,3 +221,20 @@ pub fn syscall_sigreturn() {
         )
     }
 }
+#[repr(C)]
+pub struct Tms {
+    pub utime: usize,
+    pub stime: usize,
+    pub cutime: usize,
+    pub cstime: usize,
+}
+
+pub fn syscall_times(tms: &mut Tms) -> usize {
+    let mut a0 = tms as *const _ as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x17") SYSCALL_TIMES
+        )
+    }
+    a0
+}

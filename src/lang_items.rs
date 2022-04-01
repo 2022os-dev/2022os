@@ -19,5 +19,4 @@ fn panic(info: &PanicInfo) -> ! {
         println!("{}: Panicked: {}", hartid(), info.message().unwrap());
     }
     crate::sbi::shutdown();
-    loop {}
 }

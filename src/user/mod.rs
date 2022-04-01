@@ -8,7 +8,8 @@ static SYS_BRK: &'static [u8] = include_bytes!("bin/sys_brk");
 static SYS_KILL: &'static [u8] = include_bytes!("bin/sys_kill");
 static FORKBOOM: &'static [u8] = include_bytes!("bin/forkboom");
 static SIGNAL_CHLD: &'static [u8] = include_bytes!("bin/signal_chld");
+static TIMES: &'static [u8] = include_bytes!("bin/times");
 
 lazy_static! {
-    pub static ref APP :Box<[&'static [u8]]> = Box::new([SIGNAL_CHLD]);
+    pub static ref APP :Box<[&'static [u8]]> = Box::new([TIMES]);
 }

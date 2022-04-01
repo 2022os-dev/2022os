@@ -12,9 +12,9 @@ boot_stack_top:
     .globl _start
 _start:
     mv tp, a0
-    addi a0, a0, 48
-    li a7, 1
-    ecall
+    # addi a0, a0, 48
+    # li a7, 1
+    # ecall
     la sp, boot_stack_top
     # 8192 = 2 ^ 13
     li a1, 13

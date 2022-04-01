@@ -38,6 +38,12 @@ pub struct Pcb {
     pub memory_space: MemorySpace,
     pub children: Vec<Arc<Mutex<Pcb>>>,
     pub sabinds: SigActionBinds,
+
+    // times()
+    utimes: usize,
+    stimes: usize,
+    cutimes: usize,
+    cstimes: usize
 }
 
 impl Pcb {
@@ -48,7 +54,12 @@ impl Pcb {
             state: PcbState::Ready,
             memory_space,
             children: Vec::new(),
-            sabinds: SigActionBinds::new()
+            sabinds: SigActionBinds::new(),
+
+            utimes: 0,
+            stimes: 0,
+            cutimes: 0,
+            cstimes: 0
         };
         #[cfg(feature = "pcb")]
         unsafe { *DROPPCBS.lock() += 1; }
@@ -94,7 +105,7 @@ impl Pcb {
     }
 
     pub fn sigaction(&mut self, signal: Signal) -> SigAction {
-        let mut act = self.sabinds.iter_mut().find(|(sig, _)| {
+        let act = self.sabinds.iter_mut().find(|(sig, _)| {
             if *sig == signal {
                 true
             } else {
@@ -106,6 +117,38 @@ impl Pcb {
         } else {
             act.unwrap().clone().1
         }
+    }
+
+    pub fn utimes_add(&mut self, times: usize) {
+        self.utimes += times;
+    }
+
+    pub fn stimes_add(&mut self, times: usize) {
+        self.stimes += times;
+    }
+
+    pub fn utimes(&self) -> usize {
+        self.utimes
+    }
+ 
+    pub fn stimes(&self) -> usize {
+        self.stimes
+    }
+
+    pub fn cutimes_add(&mut self, times: usize) {
+        self.cutimes += times;
+    }
+
+    pub fn cstimes_add(&mut self, times: usize) {
+        self.cstimes += times;
+    }
+
+    pub fn cutimes(&self) -> usize {
+        self.cutimes
+    }
+ 
+    pub fn cstimes(&self) -> usize {
+        self.cstimes
     }
 
     pub fn sigaction_bind(&mut self, signal: Signal, act: SigAction) {

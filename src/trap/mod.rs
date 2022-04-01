@@ -1,27 +1,24 @@
 pub mod syscall;
-pub mod time;
 use core::arch::global_asm;
 
 use riscv::register::{
     mtvec::TrapMode,
     scause::{self, Exception, Interrupt, Trap},
-    sie, stval, stvec,
+    stval, stvec,
 };
 
-use crate::{mm::MemorySpace, process::cpu::current_hart};
+use crate::mm::MemorySpace;
+use crate::process::cpu::*;
 use crate::task::*;
 
 extern "C" {
     pub fn __alltraps();
-}
-extern "C" {
     pub fn __restore(cx: usize, satp: usize);
-}
-extern "C" {
     pub fn trampoline();
 }
 
 global_asm!(include_str!("traps.s"));
+
 pub fn init() {
     unsafe {
         let (alltraps, _) = MemorySpace::trampoline_entry();
@@ -29,17 +26,9 @@ pub fn init() {
     }
 }
 
-pub fn enable_timer_interupt() {
-    unsafe {
-        sie::set_stimer();
-    }
-    time::set_next_trigger();
-}
-
-#[no_mangle]
 pub extern "C" fn trap_handler() {
     // Fixme: Don't skip the reference lifetime checker;
-
+    current_pcb().unwrap().lock().utimes_add(get_time() - current_hart_set_trap_times(get_time()));
     let scause = scause::read();
     let stval = stval::read();
     match scause.cause() {
@@ -78,7 +67,8 @@ pub extern "C" fn trap_handler() {
             );
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
-            crate::trap::time::set_next_trigger();
+            log!("trap":"time_interrupt">"");
+            hart_set_next_trigger();
             current_pcb().unwrap().lock().reset_state();
             scheduler_ready_pcb(current_hart().pcb.take().unwrap());
             schedule();

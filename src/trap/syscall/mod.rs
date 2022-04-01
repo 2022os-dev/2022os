@@ -5,7 +5,7 @@ mod mm;
 mod signal;
 use alloc::sync::Arc;
 use crate::mm::address::*;
-use crate::process::*;
+use crate::{process::*, trap};
 use crate::process::cpu::current_hart;
 use crate::task::*;
 use file::*;
@@ -117,14 +117,15 @@ pub fn syscall_handler() {
             pcblock.reset_state();
         }
         SYSCALL_WAIT4 => {
-            let pid = trapframe["a0"] as isize;
+            let waitpid = trapframe["a0"] as isize;
             let wstatus = VirtualAddr(trapframe["a1"]);
             let options = trapframe["a2"];
             let rusage = VirtualAddr(trapframe["a3"]);
             drop(trapframe);
-            log!("syscall":"wait4" > "pid({}) ({}, 0x{:x}, 0x{:x})", pcblock.pid, pid, wstatus.0, options);
-            let ret = sys_wait4(&mut pcblock, pid, wstatus, options, rusage);
+            log!("syscall":"wait4" > "pid({}) ({}, 0x{:x}, 0x{:x})", pcblock.pid, waitpid, wstatus.0, options);
+            let ret = sys_wait4(&mut pcblock, waitpid, wstatus, options, rusage);
             if let Ok(child_pid) = ret {
+                log!("syscall":"wait4">"got child pid({})", child_pid);
                 pcblock.trapframe()["a0"] = child_pid;
                 pcblock.reset_state();
             } else {
@@ -144,7 +145,7 @@ pub fn syscall_handler() {
                     }
                     false
                 }));
-                log!("syscall":"wait4" > "pid({})", pcblock.pid);
+                log!("syscall":"wait4" > "blocking pid({})", pcblock.pid);
             }
         }
         SYSCALL_SBRK => {
@@ -165,6 +166,7 @@ pub fn syscall_handler() {
             let pid = trapframe["a0"];
             let sig = trapframe["a1"];
             drop(trapframe);
+            log!("syscall":"times">"pid({})", pcblock.pid);
             pcblock.trapframe()["a0"] = sys_kill(pid, sig) as usize;
             pcblock.reset_state();
         }
@@ -178,9 +180,17 @@ pub fn syscall_handler() {
             pcblock.reset_state();
         }
         SYSCALL_SIGRETURN => {
+            drop(trapframe);
             assert!(if let PcbState::SigHandling(_, _) = pcblock.state() { true } else { false});
             pcblock.signal_return();
             pcblock.set_state(PcbState::Ready);
+        }
+        SYSCALL_TIMES => {
+            let tms = trapframe["a0"];
+            drop(trapframe);
+            pcblock.trapframe()["a0"] = sys_times(&mut pcblock,VirtualAddr(tms));
+            log!("syscall":"times">"pid({})", pcblock.pid);
+            pcblock.reset_state();
         }
         SYSCALL_FORK => {
             drop(trapframe);

@@ -113,6 +113,7 @@ impl TrapFrame {
         self["sepc"] = sepc;
         let mut sstatus_reg = sstatus::read();
         sstatus_reg.set_spp(sstatus::SPP::User);
+        sstatus_reg.set_spie(true);
         self["sstatus"] = sstatus_reg.bits();
         self.trap_handler = crate::trap::trap_handler as usize;
     }

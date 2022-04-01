@@ -9,7 +9,7 @@
 #![feature(ptr_to_from_bits)]
 #![feature(const_trait_impl)]
 
-use crate::{process::cpu::init_hart, sbi::{sbi_hsm_hart_start}};
+use crate::{process::cpu::{init_hart, hart_enable_timer_interrupt}, sbi::{sbi_hsm_hart_start}, clock::clock_init};
 use core::arch::asm;
 
 #[macro_use]
@@ -29,6 +29,7 @@ mod trap;
 mod user;
 
 mod config;
+mod clock;
 
 #[macro_use]
 extern crate lazy_static;
@@ -54,23 +55,22 @@ static mut BOOTHART: isize = -1 ;
 // [no_mangle] Turn off Rust's name mangling
 #[no_mangle]
 extern "C" fn kernel_start() {
-    log!(debug "Booting hart {}", hartid());
+    log!("hart":"Booting">"");
     if unsafe { BOOTHART } == -1 {
         unsafe { BOOTHART = hartid() as isize; };
 
-        // log!("test":"main"> "for test");
-        console::turn_off_log();
         clear_bss();
-        println!("[kernel] Clear bss");
+
+        // 需要在开启虚拟内存之前初始化时钟，
+        // 因为内核不会映射时钟配置寄存器
+        #[cfg(feature = "init_clock")]
+        clock_init();
+
         heap::init();
-        println!("[kernel] Init heap");
+
         mm::init();
-        println!("[kernel] mm::init");
 
         init_hart();
-
-        // Run user space application
-        println!("[kernel] Load user address space");
 
         // Load tasks
         for i in user::APP.iter() {
@@ -78,6 +78,7 @@ extern "C" fn kernel_start() {
             scheduler_load_pcb(virtual_space);
         }
 
+        #[cfg(feature = "multicore")]
         for i in 1..=4 {
             if hartid() != i {
                 sbi_hsm_hart_start(i, 0x80200000, 0);
@@ -87,7 +88,7 @@ extern "C" fn kernel_start() {
         init_hart();
     }
     trap::init();
-    trap::enable_timer_interupt();
+    hart_enable_timer_interrupt();
     log!(debug "Start schedule");
     schedule();
 }

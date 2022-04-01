@@ -1,8 +1,6 @@
 use crate::mm::MemorySpace;
 use crate::process::cpu::*;
-use crate::process::pcb::*;
-use crate::process::{restore_trapframe, Pcb, PcbState};
-use crate::process::signal::*;
+use crate::process::*;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use spin::Mutex;
@@ -73,12 +71,8 @@ pub fn schedule() -> ! {
                         PcbState::Exit(_) => {
                             continue;
                         }
-                        PcbState::Running => {
-
-                        }
-                        PcbState::SigHandling(_, _) => {
-
-                        }
+                        PcbState::Running => {}
+                        PcbState::SigHandling(_, _) => {}
                         _ => {
                             panic!("Invalid state");
                         }
@@ -86,9 +80,13 @@ pub fn schedule() -> ! {
                 }
                 PcbState::Blocking(testfn) => {
                     if !testfn(pcb.clone()) {
-                        scheduler_ready_pcb(pcb.clone());
-                        continue;
+                        log!("scheduler":"block">"still blocking");
+                    }else {
+                        log!("scheduler":"unblock">"");
+                        pcb.lock().set_state(PcbState::Ready);
                     }
+                    scheduler_ready_pcb(pcb);
+                    continue;
                 }
                 PcbState::SigHandling(_, _) => {
                 }
@@ -96,11 +94,7 @@ pub fn schedule() -> ! {
                     panic!("invalid state pcb in tasks {:?}", state);
                 }
             }
-            current_hart_run(pcb.clone());
-            // current_hart_memset().pgtbl().print();
-            let tf = current_pcb().unwrap().lock().memory_space.trapframe.offset(0);
-            drop(pcb);
-            restore_trapframe(tf);
+            current_hart_run(pcb);
         } else {
             drop(pcb);
             current_hart_leak();

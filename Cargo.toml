@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [profile.dev]
-opt-level = 1
+opt-level = 3
 debug = false
 strip = "debuginfo"
 overflow-check = true
@@ -12,16 +12,21 @@ overflow-check = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["user_log", "print_lock", "pcb", "syscall", "signal"]
-print_lock = []
+default = ["multicore", "init_clock", "user_log", "print_lock", "pcb"]
+board_unleashed = []
+init_clock = ["board_unleashed"]
+multicore = []    # 开启多核
+# log control
+print_lock = []   # 使用互斥锁防止多核打印格式混乱
+user_log = []     # 打印用户态程序输出
 syscall = []
+trap = []
 scheduler = []
 hart = []
 pgtbl = []
 kalloc = []
 pcb = []
 signal = []
-user_log = []
 
 
 [dependencies]

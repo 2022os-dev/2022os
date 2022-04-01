@@ -1,3 +1,4 @@
+#![allow(unused)]
 use crate::asm;
 pub const SET_TIMER: usize = 0;
 pub const PUT_CHAR: usize = 1;

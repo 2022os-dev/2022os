@@ -4,12 +4,13 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 
 use super::Pcb;
-use crate::config::BOOT_STACK_SIZE;
-use crate::config::USER_STACK;
+use crate::config::*;
 use crate::link_syms;
 use crate::mm::address::PhysAddr;
 use crate::mm::pgtbl::Pgtbl;
 use crate::mm::*;
+use crate::sbi::*;
+use crate::process::restore_trapframe;
 use crate::asm;
 
 // 最多支持4核
@@ -19,7 +20,9 @@ pub struct Hart {
     pub hartid: usize,
     pub pcb: Option<Arc<Mutex<Pcb>>>,
     pub kernel_sp: usize,
-    pub pgtbl: Option<Pgtbl>
+    pub pgtbl: Option<Pgtbl>,
+    // 保存hart在进入内核态时或将要进入用户态前的时钟，用于计算用户态和内核态运行时间
+    pub times: usize
 }
 
 impl const Default for Hart {
@@ -28,13 +31,34 @@ impl const Default for Hart {
             hartid: 0,
             pcb: None,
             kernel_sp: 0,
-            pgtbl: None
+            pgtbl: None,
+            times: 0
         }
     }
 }
 
 lazy_static! {
     static ref HARTS: Mutex<Vec<Hart>> = Mutex::new(Vec::new());
+}
+
+pub fn get_time() -> usize {
+    riscv::register::time::read()
+}
+
+fn hart_set_timecmp(timecmp: usize) {
+    crate::sbi::sbi_legacy_call(SET_TIMER, [timecmp, 0, 0]);
+}
+
+pub fn hart_set_next_trigger() {
+    hart_set_timecmp(get_time() + RTCLK_FREQ * 1);
+}
+
+pub fn hart_enable_timer_interrupt() {
+    use riscv::register::*;
+    unsafe {
+        sie::set_stimer();
+    }
+    hart_set_next_trigger();
 }
 
 pub fn init_hart() {
@@ -59,16 +83,28 @@ pub fn init_hart() {
     current_hart_pgtbl().map_trampoline();
     unsafe {
         riscv::register::sstatus::set_sum();
-        // 目前还不支持中断
+        // 内核态不支持中断
         riscv::register::sstatus::clear_sie();
     }
     activate_vm();
+
+    current_hart_set_trap_times(get_time());
 }
 
 pub fn current_hart() -> &'static mut Hart {
     unsafe {
         &mut _HARTS[hartid()]
     }
+}
+
+pub fn current_hart_trap_times() -> usize {
+    current_hart().times
+}
+
+pub fn current_hart_set_trap_times(times: usize) -> usize {
+    let t = current_hart_trap_times();
+    current_hart().times = times;
+    t
 }
 
 pub fn current_hart_leak() {
@@ -87,7 +123,7 @@ pub fn current_hart_leak() {
     }
 }
 
-pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
+pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> !{
     current_hart_leak();
     let pid = pcb.lock().pid;
     log!("hart":"run">"pid({})", pid);
@@ -108,7 +144,10 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) {
     pcb.lock().trapframe().kernel_sp = current_hart().kernel_sp;
     let sepc = pcb.lock().trapframe()["sepc"];
     log!("hart":"run">"sepc: 0x{:x}", sepc);
+    let tf = VirtualAddr(pcb.lock().trapframe() as *const _ as usize);
+    pcb.lock().stimes_add(get_time() - current_hart_set_trap_times(get_time()));
     current_hart().pcb = Some(pcb);
+    restore_trapframe(tf);
 }
 
 pub fn current_hart_pgtbl() -> &'static mut Pgtbl {
