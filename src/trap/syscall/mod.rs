@@ -117,6 +117,11 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_getpid(&pcblock) as usize;
             pcblock.reset_state();
         }
+        SYSCALL_GETPPID => {
+            log!("syscall": "getppid"> "pid({})", pcblock.pid);
+            pcblock.trapframe()["a0"] = sys_getppid(&pcblock);
+            pcblock.reset_state();
+        }
         SYSCALL_WAIT4 => {
             let waitpid = trapframe["a0"] as isize;
             let wstatus = VirtualAddr(trapframe["a1"]);

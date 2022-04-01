@@ -110,3 +110,7 @@ pub(super) fn sys_gettimeofday(timespec: VirtualAddr, _: VirtualAddr) -> isize {
     timespec.tv_nsec = time % RTCLK_FREQ / (RTCLK_FREQ / 1000);
     0
 }
+
+pub(super) fn sys_getppid(pcb: &MutexGuard<Pcb>) -> usize {
+    pcb.parent
+}
