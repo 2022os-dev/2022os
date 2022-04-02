@@ -65,8 +65,8 @@ pub fn schedule() -> ! {
             // assert!(!pcb.is_locked());
             let state = pcb.lock().state();
             match state {
-                PcbState::Ready => match pcb.lock().try_handle_signal() {
-                    PcbState::Exit(_) => {
+                PcbState::Running => match pcb.lock().try_handle_signal() {
+                    PcbState::Zombie(_) => {
                         continue;
                     }
                     PcbState::Running => {}
@@ -80,7 +80,7 @@ pub fn schedule() -> ! {
                         log!("scheduler":"block">"still blocking");
                     } else {
                         log!("scheduler":"unblock">"");
-                        pcb.lock().set_state(PcbState::Ready);
+                        pcb.lock().set_state(PcbState::Running);
                     }
                     scheduler_ready_pcb(pcb);
                     continue;

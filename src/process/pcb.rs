@@ -11,21 +11,23 @@ use spin::Mutex;
 pub type Pid = usize;
 
 lazy_static! {
+    // 0 用作不存在的根Pcb
     static ref PIDALLOCATOR: AtomicUsize = AtomicUsize::new(1);
 }
 
 pub fn alloc_pid() -> usize {
     PIDALLOCATOR.fetch_add(1, Ordering::Relaxed)
 }
+
 // Note: 使用Atomic类型会出错
+// 统计所有Pcb是否释放，检测引用计数
 #[cfg(feature = "pcb")]
 pub static mut DROPPCBS: Mutex<usize> = Mutex::new(0);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PcbState {
-    Ready,
     Running,
-    Exit(isize),
+    Zombie(isize),
     // 保持信号处理前的trapframe和signal mask
     SigHandling(PageNum, Signal),
     Blocking(fn(Arc<Mutex<Pcb>>) -> bool),
@@ -54,7 +56,7 @@ impl Pcb {
         let pcb = Self {
             parent,
             pid: alloc_pid(),
-            state: PcbState::Ready,
+            state: PcbState::Running,
             memory_space,
             children: Vec::new(),
             sabinds: SigActionBinds::new(),
@@ -84,30 +86,15 @@ impl Pcb {
         old_state
     }
 
-    // 将进程状态重新设置为可调度的状态 Ready、SigHandling
-    pub fn reset_state(&mut self) -> PcbState {
-        match self.state {
-            PcbState::Running => {
-                self.state = PcbState::Ready;
-            }
-            PcbState::Ready => {}
-            PcbState::Blocking(_) | PcbState::Exit(_) => {
-                panic!("can't reset block or exited pcb");
-            }
-            PcbState::SigHandling(_, _) => {}
-        }
-        self.state
-    }
-
     pub fn trapframe(&mut self) -> &mut TrapFrame {
         self.memory_space.trapframe()
     }
 
     pub fn exit(&mut self, xcode: isize) {
-        self.state = PcbState::Exit(xcode);
+        self.state = PcbState::Zombie(xcode);
     }
 
-    pub fn sigaction(&mut self, signal: Signal) -> SigAction {
+    pub fn get_sigaction(&mut self, signal: Signal) -> SigAction {
         let act =
             self.sabinds
                 .iter_mut()
@@ -161,7 +148,7 @@ impl Pcb {
         // 应该加上一层循环，等待所有信号处理完毕后再调度
         while let Some(signal) = sigqueue_fetch(self.pid) {
             log!("signal":"handle">"pid({}) try handle signal({:?})", self.pid, signal);
-            let act = self.sigaction(signal);
+            let act = self.get_sigaction(signal);
             match act {
                 SigAction::Cont => {
                     // 不做处理
@@ -169,15 +156,15 @@ impl Pcb {
                 }
                 SigAction::Term => {
                     self.exit(-1);
-                    return PcbState::Exit(-1);
+                    return PcbState::Zombie(-1);
                 }
                 SigAction::Core => {
                     self.exit(-1);
-                    return PcbState::Exit(-1);
+                    return PcbState::Zombie(-1);
                 }
                 SigAction::Stop => {
                     self.exit(-1);
-                    return PcbState::Exit(-1);
+                    return PcbState::Zombie(-1);
                 }
                 SigAction::Ign => {
                     // 不做处理
@@ -190,7 +177,7 @@ impl Pcb {
                     log!("signal":"handle">"pid({}) custom action", self.pid);
                     let mask = sigqueue_mask(self.pid, act.borrow().sa_mask);
                     let oldsp = self.trapframe()["sp"];
-                    let oldtf = self.sigaction_swap_trapframe(act.borrow().trapframe);
+                    let oldtf = self.swap_trapframe(act.borrow().trapframe);
                     self.trapframe().init(oldsp, act.borrow().sa_handler);
                     self.trapframe()["a0"] = signal.bits();
                     self.set_state(PcbState::SigHandling(oldtf, mask));
@@ -206,14 +193,15 @@ impl Pcb {
     pub fn signal_return(&mut self) {
         if let PcbState::SigHandling(tf, mask) = self.state() {
             log!("signal":"return">"pid({})", self.pid);
-            self.sigaction_swap_trapframe(tf);
+            self.swap_trapframe(tf);
             sigqueue_mask(self.pid, mask);
         } else {
             panic!("Not handling signal");
         }
     }
 
-    fn sigaction_swap_trapframe(&mut self, tf: PageNum) -> PageNum {
+    // 交换trapframe
+    fn swap_trapframe(&mut self, tf: PageNum) -> PageNum {
         let old = self.memory_space.trapframe;
         self.memory_space.trapframe = tf;
         old

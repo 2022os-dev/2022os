@@ -52,7 +52,7 @@ pub(super) fn sys_wait4(
     let res = pcb.children.iter().enumerate().find(|(_idx, child)| {
         let child = child.lock();
         if pid == -1 || child.pid == pid.abs() as usize {
-            if let PcbState::Exit(_xcode) = child.state() {
+            if let PcbState::Zombie(_xcode) = child.state() {
                 xcode = _xcode;
                 childutimes = child.utimes();
                 childstimes = child.stimes();

@@ -99,7 +99,6 @@ pub fn syscall_handler() {
             drop(trapframe);
             log!("syscall":"write" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
             pcblock.trapframe()["a0"] = sys_write(&mut pcblock, fd, buf, len) as usize;
-            pcblock.reset_state();
         }
         SYSCALL_EXIT => {
             let xcode = trapframe["a0"];
@@ -110,17 +109,14 @@ pub fn syscall_handler() {
         SYSCALL_YIELD => {
             trapframe["a0"] = sys_yield() as usize;
             log!("syscall": "yield" > "pid({})", pcblock.pid);
-            pcblock.reset_state();
         }
         SYSCALL_GETPID => {
             log!("syscall": "getpid"> "pid({})", pcblock.pid);
             pcblock.trapframe()["a0"] = sys_getpid(&pcblock) as usize;
-            pcblock.reset_state();
         }
         SYSCALL_GETPPID => {
             log!("syscall": "getppid"> "pid({})", pcblock.pid);
             pcblock.trapframe()["a0"] = sys_getppid(&pcblock);
-            pcblock.reset_state();
         }
         SYSCALL_WAIT4 => {
             let waitpid = trapframe["a0"] as isize;
@@ -133,7 +129,6 @@ pub fn syscall_handler() {
             if let Ok(child_pid) = ret {
                 log!("syscall":"wait4">"got child pid({})", child_pid);
                 pcblock.trapframe()["a0"] = child_pid;
-                pcblock.reset_state();
             } else {
                 // 回退上一条ecall指针，等待子进程信号
                 pcblock.trapframe()["sepc"] -= 4;
@@ -143,7 +138,7 @@ pub fn syscall_handler() {
                     if let Some(pcblock) = pcblock {
                         for i in pcblock.children.iter() {
                             if let Some(childlock) = i.try_lock() {
-                                if let PcbState::Exit(_) = childlock.state {
+                                if let PcbState::Zombie(_) = childlock.state {
                                     return true;
                                 }
                             }
@@ -159,14 +154,12 @@ pub fn syscall_handler() {
             drop(trapframe);
             log!("syscall":"sbrk" > "pid({}) (0x{:x})", pcblock.pid, inc);
             pcblock.trapframe()["a0"] = sys_sbrk(&mut pcblock, inc);
-            pcblock.reset_state();
         }
         SYSCALL_BRK => {
             let va = VirtualAddr(trapframe["a0"]);
             drop(trapframe);
             log!("syscall":"brk" > "pid({}) (0x{:x})", pcblock.pid, va.0);
             pcblock.trapframe()["a0"] = sys_brk(&mut pcblock, va) as usize;
-            pcblock.reset_state();
         }
         SYSCALL_KILL => {
             let pid = trapframe["a0"];
@@ -174,7 +167,6 @@ pub fn syscall_handler() {
             drop(trapframe);
             log!("syscall":"times">"pid({})", pcblock.pid);
             pcblock.trapframe()["a0"] = sys_kill(pid, sig) as usize;
-            pcblock.reset_state();
         }
         SYSCALL_SIGACTION => {
             let signum = trapframe["a0"];
@@ -184,7 +176,6 @@ pub fn syscall_handler() {
             log!("syscall":"sigaction">"pid({}) signal({:?})", pcblock.pid, crate::process::signal::Signal::from_bits(signum));
             pcblock.trapframe()["a0"] =
                 sys_rt_sigaction(&mut pcblock, signum, act, oldact) as usize;
-            pcblock.reset_state();
         }
         SYSCALL_SIGRETURN => {
             drop(trapframe);
@@ -194,20 +185,18 @@ pub fn syscall_handler() {
                 false
             });
             pcblock.signal_return();
-            pcblock.set_state(PcbState::Ready);
+            pcblock.set_state(PcbState::Running);
         }
         SYSCALL_TIMES => {
             let tms = trapframe["a0"];
             drop(trapframe);
             pcblock.trapframe()["a0"] = sys_times(&mut pcblock, VirtualAddr(tms));
             log!("syscall":"times">"pid({})", pcblock.pid);
-            pcblock.reset_state();
         }
         SYSCALL_GET_TIME_OF_DAY => {
             let timespec = VirtualAddr(trapframe["a0"]);
             let timezone = VirtualAddr(trapframe["a1"]);
             pcblock.trapframe()["a0"] = sys_gettimeofday(timespec, timezone) as usize;
-            pcblock.reset_state();
         }
         SYSCALL_NANOSLEEP => {
             let timespec = PhysAddr(trapframe["a0"]);
@@ -230,16 +219,14 @@ pub fn syscall_handler() {
             drop(trapframe);
             log!("syscall":"fork" > "pid({}) ()", pcblock.pid);
             pcblock.trapframe()["a0"] = sys_fork(&mut pcblock) as usize;
-            pcblock.reset_state();
         }
         _ => {
             println!("unsupported syscall {}", trapframe["a7"]);
-            pcblock.reset_state();
         }
     }
     let state = pcblock.state;
     drop(pcblock);
-    if let PcbState::Exit(_) = state {
+    if let PcbState::Zombie(_) = state {
     } else {
         scheduler_ready_pcb(pcb.clone());
     }

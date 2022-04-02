@@ -72,7 +72,6 @@ pub extern "C" fn trap_handler() {
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             log!("trap":"time_interrupt">"");
             hart_set_next_trigger();
-            current_pcb().unwrap().lock().reset_state();
             scheduler_ready_pcb(current_hart().pcb.take().unwrap());
             schedule();
         }
