@@ -16,7 +16,7 @@ use super::{
     LongDirEntry,
     BPB,
     Fat32Manager,
-}
+};
 
 
 const BLOCK_SIZE: u32 = 512;
@@ -48,7 +48,7 @@ impl FAT {
 
     // 注意，caller必须保证有足够的free_cluster!!!
     pub fn get_next_free_cluster(&self, current_cluster: u32, dev: u8) -> u32 {
-        let current == current_cluster + 1;
+        let current = current_cluster + 1;
         // 这个循环不可能走到尽头
         while current < (self.fat2 - self.fat1) * FAT_ENTRY_PER_SECTOR {
             let (fat1, fat2, off) = self.get_position(current);
