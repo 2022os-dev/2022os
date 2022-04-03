@@ -1,4 +1,4 @@
-use core::ops::Deref;
+use std::ops::Deref;
 use registers::*;
 
 #[derive(Copy, Clone)]
@@ -96,7 +96,7 @@ pub struct RegisterBlock {
 
 mod registers {
 
-  use core::marker::PhantomData;
+  use std::marker::PhantomData;
 
   pub trait Reset {
     fn reset(&self);
@@ -117,10 +117,10 @@ mod registers {
   }
 
   impl<T: Sized + Clone + Copy, U> Reg<T, U> {
-    fn read(&self) -> T {
+    pub fn read(&self) -> T {
       self.value
     }
-    fn write(&self, val: T) {
+    pub fn write(&self, val: T) {
       let ptr = self as *const Self as usize as *mut Self;
       unsafe { (*ptr).value = val; }
     }
@@ -294,14 +294,15 @@ mod registers {
       self.write((r & (!0b011u32)) | p);
     }
 
+    // TODO FIX BITWISE OPS
     pub fn set_endian(&self, msb: bool) {
       let end = if msb { 0u32 } else { 1u32 };
       let r = self.read();
       self.write((r & (!0b100u32)) | end);
     }
 
-    pub fn set_direction(&self, rx: bool) {
-      let dir = if rx { 0u32 } else { 1u32 };
+    pub fn set_direction(&self, tx: bool) {
+      let dir = if tx { 1u32 } else { 0u32 };
       let r = self.read();
       self.write((r & (!0b1000u32)) | dir);
     }
@@ -462,3 +463,18 @@ mod registers {
     }
   }
 }
+
+
+
+/*
+fn main() {
+  use registers::*;
+  let a = [0u32; 0x50];
+  let b = &a as *const _ as usize as *const RegisterBlock;
+  let c: &RegisterBlock = unsafe { &*b };
+
+  println!("{:#x}", c.fmt.read());
+  c.fmt.switch_protocol(Protocol::Dual);
+  println!("{:#x}", c.fmt.read());
+}
+*/
