@@ -14,6 +14,7 @@ qemu:
 
 user_apps:
 	cd userenv && cargo build
+	@[ -e src/user/bin ] || mkdir src/user/bin
 	mv userenv/target/riscv64gc-unknown-none-elf/debug/loop10 src/user/bin/loop10
 	mv userenv/target/riscv64gc-unknown-none-elf/debug/hello_world src/user/bin/hello_world
 	mv userenv/target/riscv64gc-unknown-none-elf/debug/get_pid src/user/bin/get_pid
