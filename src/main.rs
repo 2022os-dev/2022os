@@ -33,6 +33,7 @@ mod trap;
 mod user;
 
 mod clock;
+mod vfs;
 mod config;
 
 #[macro_use]

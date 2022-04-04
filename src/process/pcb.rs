@@ -2,12 +2,16 @@ use super::signal::*;
 use super::TrapFrame;
 use crate::mm::MemorySpace;
 use crate::mm::PageNum;
+use crate::vfs::file::*;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::boxed::Box;
+use alloc::vec;
 use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::Ordering;
 use spin::Mutex;
+use spin::rw_lock::RwLock;
 
 pub type Pid = usize;
 
@@ -40,6 +44,7 @@ pub struct Pcb {
     pub cwd: String,
     pub state: PcbState,
     pub memory_space: MemorySpace,
+    pub fds: Vec<Arc<RwLock<Box<dyn _File + Send + Sync>>>>,
     pub children: Vec<Arc<Mutex<Pcb>>>,
     pub sabinds: SigActionBinds,
 
@@ -53,6 +58,8 @@ pub struct Pcb {
     pub wakeup_time: Option<usize>,
 }
 
+unsafe impl Send for Pcb {}
+
 impl Pcb {
     pub fn new(memory_space: MemorySpace, parent: Pid) -> Self {
         let pcb = Self {
@@ -61,6 +68,7 @@ impl Pcb {
             state: PcbState::Running,
             cwd: String::from("/"),
             memory_space,
+            fds: vec![STDIN.clone(), STDOUT.clone()],
             children: Vec::new(),
             sabinds: SigActionBinds::new(),
 
@@ -77,6 +85,14 @@ impl Pcb {
         }
         sigqueue_init(pcb.pid);
         pcb
+    }
+
+    pub fn get_fd(&self, idx: usize) -> Option<Arc<RwLock<Box<dyn _File + Send + Sync>>>> {
+        self.fds.get(idx).cloned()
+    }
+
+    pub fn get_mut_fd(&mut self, idx: usize) -> Option<Arc<RwLock<Box<dyn _File + Send + Sync>>>> {
+        self.fds.get_mut(idx).cloned()
     }
 
     pub fn state(&self) -> PcbState {

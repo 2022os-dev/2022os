@@ -25,6 +25,7 @@ user_apps:
 	mv userenv/target/riscv64gc-unknown-none-elf/debug/signal_chld src/user/bin/signal_chld
 	mv userenv/target/riscv64gc-unknown-none-elf/debug/times src/user/bin/times
 	mv userenv/target/riscv64gc-unknown-none-elf/debug/nanosleep src/user/bin/nanosleep
+	mv userenv/target/riscv64gc-unknown-none-elf/debug/read src/user/bin/read
 
 kernel.bin: user_apps
 	@cargo build --release

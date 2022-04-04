@@ -68,14 +68,27 @@ const SYSCALL_SHUTDOWN: usize = 501;
 const SYSCALL_CLEAR: usize = 502;
 
 
-pub fn syscall_write(fd: usize, buf: &[u8]) {
+pub fn syscall_write(fd: usize, buf: &[u8]) -> isize {
+    let mut a0 = fd;
     unsafe {
-        asm!("ecall", in("x10") fd,
+        asm!("ecall", inout("x10") a0,
             in("x11") buf.as_ptr() as usize,
             in("x12") buf.len(),
             in("x17") SYSCALL_WRITE
         )
     }
+    a0 as isize
+}
+pub fn syscall_read(fd: usize, buf: &mut [u8]) -> isize {
+    let mut a0 = fd;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") buf.as_ptr() as usize,
+            in("x12") buf.len(),
+            in("x17") SYSCALL_READ
+        )
+    }
+    a0 as isize
 }
 
 pub fn syscall_exit(xcode: isize) -> !{

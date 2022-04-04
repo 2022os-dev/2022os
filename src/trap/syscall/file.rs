@@ -82,16 +82,34 @@ pub(super) fn sys_write(
     len: usize,
 ) -> isize {
     let mut buf: PhysAddr = buf.into();
-    let buf: &[u8] = buf.as_slice(len);
-    const FD_STDOUT: usize = 1;
-    match fd {
-        FD_STDOUT => {
-            let string = core::str::from_utf8(buf).unwrap();
-            log!("user_log":>"{}", string);
+    let buf: &[u8] = buf.as_slice_mut(len);
+    if let Some(fd) = pcb.get_mut_fd(fd) {
+        if let Err(_) = fd.write().write(buf) {
+            -1 
+        } else {
             len as isize
         }
-        _ => {
-            panic!("Unsupport syscall write fd {}", fd);
-        }
+    } else {
+        -1
     }
+}
+
+pub(super) fn sys_read(
+    pcb: &mut MutexGuard<Pcb>,
+    fd: usize,
+    buf: VirtualAddr,
+    len: usize,
+) -> isize {
+    let mut buf: PhysAddr = buf.into();
+    let buf: &mut [u8] = buf.as_slice_mut(len);
+    if let Some(fd) = pcb.get_mut_fd(fd) {
+        if let Err(_) = fd.write().read(buf) {
+            -1 
+        } else {
+            len as isize
+        }
+    } else {
+        -1
+    }
+
 }

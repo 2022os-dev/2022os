@@ -47,3 +47,7 @@ path = "src/times.rs"
 [[bin]]
 name = "nanosleep"
 path = "src/nanosleep.rs"
+
+[[bin]]
+name = "read"
+path = "src/read.rs"
