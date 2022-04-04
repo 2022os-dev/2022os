@@ -11,6 +11,17 @@ qemu:
 		-drive file=sdcard.img,if=sd,format=raw \
 		-device loader,file=kernel.bin,addr=0x80200000 \
 		-nographic
+apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
+	  	forkboom signal_chld times nanosleep
+
+user_apps:
+	@cat userenv/cargo.toml.template > userenv/cargo.toml
+	@for x in $(user); do \
+		echo "[[bin]]" >> userenv/cargo.toml
+		echo "name = $$x" >> userenv/cargo.toml
+		echo "path = src/$$x" >> userenv/cargo.toml
+	done
+	@cd userenv && cargo build
 
 user_apps:
 	cd userenv && cargo build
