@@ -95,7 +95,7 @@ pub fn syscall_handler() {
         SYSCALL_GETCWD => {
             let buf = VirtualAddr(trapframe["a0"]);
             let size = trapframe["a1"];
-            log!("syscall":"getcwd" > "pid({}) (0x{:x}, {})", pcblock.pid, buf.0, len);
+            log!("syscall":"getcwd" > "pid({}) (0x{:x})", pcblock.pid, buf.0);
             pcblock.trapframe()["a0"] = sys_getcwd(&mut pcblock, buf, size).0;
         }
         SYSCALL_PIPE=> {
@@ -116,7 +116,7 @@ pub fn syscall_handler() {
         }
         SYSCALL_CHDIR => {
             let path = VirtualAddr(trapframe["a0"]);
-            log!("syscall":"chdir" > "pid({}) ({})", pcblock.pid, path);
+            log!("syscall":"chdir" > "pid({}) (0x{:x})", pcblock.pid, path.0);
             pcblock.trapframe()["a0"] = sys_chdir(&mut pcblock, path) as usize;
         }
         SYSCALL_OPENAT => {
@@ -124,7 +124,7 @@ pub fn syscall_handler() {
             let filename = VirtualAddr(trapframe["a1"]);
             let flags = trapframe["a2"];
             let mode = trapframe["a3"];
-            log!("syscall":"openat" > "pid({}) ({}, {})", pcblock.pid, fd, filename);
+            log!("syscall":"openat" > "pid({}) ({}, 0x{:x})", pcblock.pid, fd, filename.0);
             pcblock.trapframe()["a0"] = sys_openat(&mut pcblock, fd, filename, flags, mode) as usize;
         }
         SYSCALL_CLOSE => {
