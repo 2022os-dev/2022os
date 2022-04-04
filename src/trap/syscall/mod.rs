@@ -92,6 +92,55 @@ pub fn syscall_handler() {
     trapframe["sepc"] += 4;
 
     match syscall_id {
+        SYSCALL_GETCWD => {
+            let buf = VirtualAddr(trapframe["a0"]);
+            let size = trapframe["a1"];
+            log!("syscall":"getcwd" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
+            pcblock.trapframe()["a0"] = sys_getcwd(&mut pcblock, buf, size).0;
+        }
+        SYSCALL_PIPE=> {
+            let pipe = VirtualAddr(trapframe["a0"]);
+            log!("syscall":"pipe" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
+            pcblock.trapframe()["a0"] = sys_pipe(&mut pcblock, pipe) as usize;
+        }
+        SYSCALL_DUP => {
+            let fd = trapframe["a0"];
+            log!("syscall":"dup" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
+            pcblock.trapframe()["a0"] = sys_dup(&mut pcblock, fd) as usize;
+        }
+        SYSCALL_DUP3 => {
+            let oldfd = trapframe["a0"];
+            let newfd = trapframe["a1"];
+            log!("syscall":"dup3" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
+            pcblock.trapframe()["a0"] = sys_dup3(&mut pcblock, oldfd, newfd) as usize;
+        }
+        SYSCALL_CHDIR => {
+            let path = VirtualAddr(trapframe["a0"]);
+            log!("syscall":"chdir" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
+            pcblock.trapframe()["a0"] = sys_chdir(&mut pcblock, path) as usize;
+        }
+        SYSCALL_OPENAT => {
+            let fd = trapframe["a0"];
+            let filename = VirtualAddr(trapframe["a1"]);
+            let flags = trapframe["a2"];
+            let mode = trapframe["a3"];
+            log!("syscall":"openat" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
+            pcblock.trapframe()["a0"] = sys_openat(&mut pcblock, fd, filename, flags, mode) as usize;
+        }
+        SYSCALL_CLOSE => {
+            let fd = trapframe["a0"];
+            drop(trapframe);
+            log!("syscall":"close" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
+            pcblock.trapframe()["a0"] = sys_close(&mut pcblock, fd) as usize;
+        }
+        SYSCALL_GETDENTS64 => {
+            let fd = trapframe["a0"];
+            let buf = VirtualAddr(trapframe["a1"]);
+            let len = trapframe["a2"];
+            drop(trapframe);
+            log!("syscall":"close" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
+            pcblock.trapframe()["a0"] = sys_getdents64(&mut pcblock, fd, buf, len) as usize;
+        }
         SYSCALL_WRITE => {
             let fd = trapframe["a0"];
             let buf = VirtualAddr(trapframe["a1"]);

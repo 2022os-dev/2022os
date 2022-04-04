@@ -4,6 +4,7 @@ use crate::mm::MemorySpace;
 use crate::mm::PageNum;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use alloc::string::String;
 use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::Ordering;
 use spin::Mutex;
@@ -36,6 +37,7 @@ pub enum PcbState {
 pub struct Pcb {
     pub parent: Pid,
     pub pid: Pid,
+    pub cwd: String,
     pub state: PcbState,
     pub memory_space: MemorySpace,
     pub children: Vec<Arc<Mutex<Pcb>>>,
@@ -57,6 +59,7 @@ impl Pcb {
             parent,
             pid: alloc_pid(),
             state: PcbState::Running,
+            cwd: String::from("/"),
             memory_space,
             children: Vec::new(),
             sabinds: SigActionBinds::new(),
