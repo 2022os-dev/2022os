@@ -139,7 +139,7 @@ pub trait _File {
         unimplemented!("readdir")
     }
 
-    fn open(&mut self) -> Result<(), FileErr> {
+    fn open(&mut self, mode: FileOpenMode) -> Result<(), FileErr> {
         unimplemented!("open")
     }
 
