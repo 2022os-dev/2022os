@@ -11,32 +11,21 @@ qemu:
 		-drive file=sdcard.img,if=sd,format=raw \
 		-device loader,file=kernel.bin,addr=0x80200000 \
 		-nographic
+
 apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
 	  	forkboom signal_chld times nanosleep
 
 user_apps:
 	@cat userenv/cargo.toml.template > userenv/cargo.toml
-	@for x in $(user); do \
-		echo "[[bin]]" >> userenv/cargo.toml
-		echo "name = $$x" >> userenv/cargo.toml
-		echo "path = src/$$x" >> userenv/cargo.toml
+	@for x in $(apps); do \
+		echo "\n[[bin]]\n" >> userenv/cargo.toml; \
+		echo "name = \"$$x\"\n" >> userenv/cargo.toml; \
+		echo "path = \"src/$$x.rs\"\n" >> userenv/cargo.toml; \
 	done
 	@cd userenv && cargo build
-
-user_apps:
-	cd userenv && cargo build
-	@[ -e src/user/bin ] || mkdir src/user/bin
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/loop10 src/user/bin/loop10
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/hello_world src/user/bin/hello_world
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/get_pid src/user/bin/get_pid
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/sys_wait4 src/user/bin/sys_wait4
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/sys_brk src/user/bin/sys_brk
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/sys_kill src/user/bin/sys_kill
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/forkboom src/user/bin/forkboom
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/signal_chld src/user/bin/signal_chld
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/times src/user/bin/times
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/nanosleep src/user/bin/nanosleep
-	mv userenv/target/riscv64gc-unknown-none-elf/debug/read src/user/bin/read
+	@for x in $(apps); do \
+		mv userenv/target/riscv64gc-unknown-none-elf/debug/$$x src/user/bin/$$x; \
+	done
 
 kernel.bin: user_apps
 	@cargo build --release
