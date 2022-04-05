@@ -75,11 +75,3 @@ path = "src/times.rs"
 name = "nanosleep"
 
 path = "src/nanosleep.rs"
-
-
-[[bin]]
-
-name = "openat"
-
-path = "src/openat.rs"
-
