@@ -12,7 +12,8 @@
   - [ ] clone
     - [ ] fork时复制文件描述符
   - [x] exit
-  - [x] wait4
+  - [ ] wait4
+    - [ ] 处理wait4选项
   - [x] getpid
   - [x] getppid
   - [x] yield
