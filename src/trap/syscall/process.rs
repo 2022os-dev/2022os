@@ -11,6 +11,7 @@ use core::mem::size_of;
 use spin::{Mutex, MutexGuard};
 
 pub(super) fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
+    // Fixme: 复制文件描述符
     let child_ms = pcb.memory_space.copy();
     let child = Arc::new(Mutex::new(Pcb::new(child_ms, pcb.pid)));
     let mut childlock = child.lock();

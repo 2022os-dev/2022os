@@ -67,6 +67,61 @@ const SYSCALL_LS: usize = 500;
 const SYSCALL_SHUTDOWN: usize = 501;
 const SYSCALL_CLEAR: usize = 502;
 
+bitflags! {
+    // 表示openat(2) 中的flags
+    pub struct OpenFlags: usize {
+        const RDONLY = 0;
+        const WRONLY = 1 << 0;
+        const RDWR = 1 << 1;
+        const CREATE = 1 << 6;
+        const TRUNC = 1 << 10;
+        const DIRECTROY = 0200000;
+        const LARGEFILE  = 0100000;
+        const CLOEXEC = 02000000;
+    }
+    // 表示openat(2) 中的mode_t
+    pub struct FileMode: usize {
+    }
+}
+impl OpenFlags {
+    pub fn readable(&self) -> bool {
+        *self & OpenFlags::RDWR != OpenFlags::empty() || 
+            *self & OpenFlags::RDONLY != OpenFlags::empty()
+    }
+    pub fn writable(&self) -> bool {
+        *self & OpenFlags::RDWR != OpenFlags::empty() || 
+            *self & OpenFlags::WRONLY != OpenFlags::empty()
+    }
+
+}
+
+pub fn syscall_openat(fd: usize, filename: &str, flags: OpenFlags, mode: FileMode) -> isize {
+    let mut a0 = fd;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") filename.as_ptr() as usize,
+            in("x12") flags.bits() as usize,
+            in("x13") mode.bits() as usize,
+            in("x17") SYSCALL_OPENAT
+        )
+    }
+    a0 as isize
+}
+
+pub const SEEK_SET: usize = 0;
+pub const SEEK_CUR : usize = 1;
+pub const SEEK_END : usize = 2;
+pub fn syscall_lseek(fd: usize, offset: isize, whence: usize) -> isize {
+    let mut a0 = fd;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") offset as usize,
+            in("x12") whence,
+            in("x17") SYSCALL_LSEEK
+        )
+    }
+    a0 as isize
+}
 
 pub fn syscall_write(fd: usize, buf: &[u8]) -> isize {
     let mut a0 = fd;

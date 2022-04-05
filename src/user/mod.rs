@@ -12,9 +12,10 @@ static SIGNAL_CHLD: &'static [u8] = include_bytes!("bin/signal_chld");
 static TIMES: &'static [u8] = include_bytes!("bin/times");
 static NANOSLEEP: &'static [u8] = include_bytes!("bin/nanosleep");
 static READ: &'static [u8] = include_bytes!("bin/read");
+static OPENAT: &'static [u8] = include_bytes!("bin/openat");
 
 lazy_static! {
     pub static ref APP: Box<[&'static [u8]]> = Box::new([
-        READ,
+        OPENAT
     ]);
 }

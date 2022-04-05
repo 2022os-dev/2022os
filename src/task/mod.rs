@@ -10,10 +10,9 @@ lazy_static! {
     static ref READYTASKS: Mutex<Vec<Arc<Mutex<Pcb>>>> = Mutex::new(Vec::new());
 }
 
-pub fn scheduler_load_pcb(memory_space: MemorySpace) -> Arc<Mutex<Pcb>> {
+pub fn scheduler_load_pcb(memory_space: MemorySpace) {
     let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 0)));
-    scheduler_ready_pcb(pcb.clone());
-    pcb
+    scheduler_ready_pcb(pcb);
 }
 
 /*

@@ -138,8 +138,16 @@ pub fn syscall_handler() {
             let buf = VirtualAddr(trapframe["a1"]);
             let len = trapframe["a2"];
             drop(trapframe);
-            log!("syscall":"close" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
+            log!("syscall":"getdents64" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
             pcblock.trapframe()["a0"] = sys_getdents64(&mut pcblock, fd, buf, len) as usize;
+        }
+        SYSCALL_LSEEK => {
+            let fd = trapframe["a0"];
+            let offset = trapframe["a1"] as isize;
+            let whence = trapframe["a2"];
+            drop(trapframe);
+            log!("syscall":"lseek" > "pid({}) ({}, {}, {})", pcblock.pid, fd, offset, whence);
+            pcblock.trapframe()["a0"] = sys_lseek(&mut pcblock, fd, offset, whence) as usize;
         }
         SYSCALL_WRITE => {
             let fd = trapframe["a0"];

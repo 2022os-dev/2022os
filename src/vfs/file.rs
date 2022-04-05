@@ -1,31 +1,168 @@
-use spin::RwLock;
-use alloc::boxed::Box;
 use alloc::sync::Arc;
-
-use super::dentry::Dentry;
+use core::convert::TryFrom;
 
 use crate::sbi::*;
 
-pub enum FileType {
-    File,
-    Directory,
-}
 
-pub enum FileOpenMode {
-    Read,
-    Write
+bitflags! {
+    // 表示openat(2) 中的flags
+    pub struct OpenFlags: usize {
+        const RDONLY = 0;
+        const WRONLY = 1 << 0;
+        const RDWR = 1 << 1;
+        const CREATE = 1 << 6;
+        const TRUNC = 1 << 10;
+        const DIRECTROY = 0200000;
+        const LARGEFILE  = 0100000;
+        const CLOEXEC = 02000000;
+    }
+    // 表示openat(2) 中的mode_t
+    pub struct FileMode: usize {
+    }
 }
+impl OpenFlags {
+    pub fn readable(&self) -> bool {
+        *self & OpenFlags::RDWR != OpenFlags::empty() || 
+            *self & OpenFlags::RDONLY != OpenFlags::empty()
+    }
+    pub fn writable(&self) -> bool {
+        *self & OpenFlags::RDWR != OpenFlags::empty() || 
+            *self & OpenFlags::WRONLY != OpenFlags::empty()
+    }
 
+}
 
 #[derive(Debug)]
 pub enum FileErr {
-    NotWrite
+    NotWrite,
+    NotRead,
+    NotDefine
 }
 
+pub type Inode = Arc<dyn _Inode + Send + Sync + 'static>;
+
+#[derive(Clone)]
+pub struct File {
+    pos: usize,
+    flags: OpenFlags,
+    inode: Inode
+}
+
+impl File {
+    pub fn open(inode: Inode, flags: OpenFlags) -> Result<Self, FileErr> {
+        Ok(Self {
+            pos: 0,
+            flags,
+            inode
+        })
+    }
+
+    pub fn lseek(&mut self, whence: usize, off: isize) -> Result<usize, FileErr> {
+        if whence == 0 {
+            // SEEK_SET
+            if let Ok(off) = usize::try_from(off) {
+                self.pos = off;
+            } else {
+                return Err(FileErr::NotDefine)
+            }
+        } else if whence == 1 {
+            // SEEK_CUR
+            if off > 0 {
+                if let Some(i) = self.pos.checked_add(off as usize) {
+                    self.pos = i;
+                } else {
+                    return Err(FileErr::NotDefine)
+                }
+            } else {
+                if let Some(i) = self.pos.checked_sub((-off) as usize) {
+                    self.pos = i;
+                } else {
+                    return Err(FileErr::NotDefine)
+                }
+            }
+        } else if whence == 2 {
+            // SEEK_END
+            if off > 0 {
+                if let Some(i) = self.inode.len().checked_add(off as usize) {
+                    self.pos = i
+                } else {
+                    return Err(FileErr::NotDefine)
+                }
+            } else {
+                if let Some(i) = self.inode.len().checked_sub((-off) as usize) {
+                    self.pos = i
+                } else {
+                    return Err(FileErr::NotDefine)
+                }
+            }
+        } else {
+            return Err(FileErr::NotDefine)
+        }
+        Ok(self.pos)
+    }
+
+    pub fn flags(&self) -> Result<OpenFlags, FileErr> {
+        Ok(self.flags)
+    }
+
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, FileErr> {
+        if !self.flags.contains(OpenFlags::RDONLY) && !self.flags.contains(OpenFlags::RDWR) {
+            return Err(FileErr::NotRead)
+        }
+        if let Ok(size) = self.inode.read_offset(self.pos, buf) {
+            self.pos += size;
+            Ok(size)
+        } else {
+            Err(FileErr::NotDefine)
+        }
+    }
+    pub fn write(&mut self, buf: &[u8]) -> Result<usize, FileErr> {
+        if !self.flags.contains(OpenFlags::WRONLY) && !self.flags.contains(OpenFlags::RDWR) {
+            return Err(FileErr::NotWrite)
+        }
+        if let Ok(size) = self.inode.write_offset(self.pos, buf) {
+            self.pos += size;
+            Ok(size)
+        } else {
+            Err(FileErr::NotDefine)
+        }
+    }
+}
+pub trait _Inode {
+
+    fn get_child(&self, _: &str) -> Result<Inode, FileErr> {
+        unimplemented!("get_child")
+    }
+
+    // 打开子文件，可能为普通文件或目录
+    fn open_child(&self, name: &str, _: OpenFlags) -> Result<File, FileErr> {
+        unimplemented!("open_child")
+    }
+
+    // 在当前目录创建一个文件（普通文件或者目录文件，由FileMode指定）
+    fn create(&self, _: &str, _: FileMode) -> Result<Inode, FileErr> {
+        unimplemented!("write")
+    }
+    fn read_offset(&self, _: usize, _: &mut [u8]) -> Result<usize, FileErr> {
+        unimplemented!("read")
+    }
+    fn write_offset(&self, _: usize, _: &[u8]) -> Result<usize, FileErr> {
+        unimplemented!("write")
+    }
+    fn len(&self) -> usize {
+        unimplemented!("len")
+    }
+    fn get_uid(&self) -> usize {
+        0
+    }
+    fn get_gid(&self) -> usize {
+        0
+    }
+
+}
 
 lazy_static!{
-    pub static ref STDIN: Arc<RwLock<Box<dyn _File + Send + Sync>>> = Arc::new(RwLock::new(Box::new(Console::new())));
-    pub static ref STDOUT: Arc<RwLock<Box<dyn _File + Send + Sync>>> = Arc::new(RwLock::new(Box::new(Console::new())));
+    pub static ref CONSOLE: Inode = Arc::new(Console::new());
 }
 
 #[cfg(feature = "read_buffer")]
@@ -78,14 +215,14 @@ impl Console {
     }
 }
 
-impl _File for Console {
-    fn write(&mut self, buf: &[u8]) -> Result<(), FileErr> {
+impl _Inode for Console {
+    fn write_offset(&self, _: usize, buf: &[u8]) -> Result<usize, FileErr> {
         unsafe {
             log!("user_log":>"{}", core::str::from_utf8_unchecked(buf));
         }
-        Ok(())
+        Ok(buf.len())
     }
-    fn read(&mut self, buf: &mut [u8]) -> Result<(), FileErr> {
+    fn read_offset(&self, _: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
         let mut i = 0;
         while i < buf.len() {
             #[cfg(feature = "read_buffer")]
@@ -121,44 +258,8 @@ impl _File for Console {
             }
             }
         }
-        Ok(())
+        Ok(buf.len())
     }
-}
-
-pub trait _File {
-    fn lseek(&mut self, offset: isize) -> Result<(), FileErr> {
-        unimplemented!("lseek")
-    }
-    fn read(&mut self, buf: &mut [u8]) -> Result<(), FileErr> {
-        unimplemented!("read")
-    }
-    fn write(&mut self, buf: &[u8]) -> Result<(), FileErr> {
-        unimplemented!("write")
-    }
-    fn readdir(&mut self) -> Result<Dentry, FileErr> {
-        unimplemented!("readdir")
-    }
-
-    fn open(&mut self, mode: FileOpenMode) -> Result<(), FileErr> {
-        unimplemented!("open")
-    }
-
-    fn file_type(&self) -> FileType {
-        unimplemented!("file_type")
-    }
-    fn open_mode(&self) -> FileOpenMode {
-        unimplemented!("open_mode")
-    }
-    fn get_uid(&self) -> usize {
-        unimplemented!("get_uid")
-    }
-    fn get_gid(&self) -> usize {
-        unimplemented!("get_gid")
-    }
-    fn get_pos(&self) -> usize {
-        unimplemented!("get_pos")
-    }
-
 }
 
 /*
