@@ -124,7 +124,11 @@ pub(super) fn sys_close (
     pcb: &mut MutexGuard<Pcb>,
     fd: usize,
 ) -> isize {
-    unimplemented!();
+    if pcb.fds_close(fd) {
+        0
+    } else {
+        -1
+    }
 }
 
 pub(super) fn sys_getdents64 (

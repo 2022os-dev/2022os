@@ -119,6 +119,15 @@ impl Pcb {
         false
     }
 
+    pub fn fds_close(&mut self, idx: usize) -> bool {
+        if let Some(_) = self.get_mut_fd(idx)  {
+            self.fds[idx] = None;
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn state(&self) -> PcbState {
         self.state
     }

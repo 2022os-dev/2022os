@@ -56,7 +56,7 @@
     - [ ] 解析相对路径
     - [x] 创建文件
     - [x] 在指定的文件描述符打开文件
-  - [ ] close
+  - [x] close
   - [ ] getdents
   - [x] read
   - [x] write
