@@ -54,13 +54,13 @@ pub(super) fn sys_chdir (
 pub(super) fn sys_openat (
     pcb: &mut MutexGuard<Pcb>,
     fd: usize,
-    filename: VirtualAddr,
+    path: VirtualAddr,
     flags: usize,
     mode: usize
 ) -> isize {
-    // Test:目前只在Root建立文件
-    let filename: PhysAddr = filename.into();
+    let filename: PhysAddr = path.into();
     let mut len = 0;
+    // Fixme: 假设路径最长为512
     while len < 512 {
         if unsafe { *(filename.0 as *const u8).add(len) } != 0 {
             len += 1;
@@ -68,24 +68,50 @@ pub(super) fn sys_openat (
             break
         }
     }
-    let filename = unsafe { core::str::from_utf8_unchecked(filename.as_slice(len)) };
+    let path = unsafe { core::str::from_utf8_unchecked(filename.as_slice(len)) };
     let flags = OpenFlags::from_bits(flags).unwrap();
     let mode = FileMode::from_bits(mode).unwrap();
-
-    let f = ROOT.open_child(filename, flags);
-    if let Ok(file) = f {
-        log!("syscall":"openat">"ok");
-        pcb.fds.push(file);
-        return (pcb.fds.len() - 1) as isize
-    } else if flags.contains(OpenFlags::CREATE){
-        if let Ok(inode) = ROOT.create(filename, mode) {
-            if let Ok(file) = File::open(inode, flags) {
-                pcb.fds.push(file);
-                return (pcb.fds.len() - 1) as isize
+    if is_absolute_path(path) {
+        log!("syscall":"openat">"absolute path: {}", path);
+        match parse_path(&*ROOT, path) {
+            Ok(inode) => {
+                log!("syscall":"openat">"path exists: {}", path);
+                if let Ok(newfd) = File::open(inode, flags).and_then(|file| {
+                    pcb.fds.push(file);
+                    Ok(pcb.fds.len() - 1)
+                }) {
+                    return newfd as isize
+                } else {
+                    return -1
+                }
+            }
+            Err(FileErr::InodeNotChild) if flags.contains(OpenFlags::CREATE) => {
+                log!("syscall":"openat">"path not exists, create: {}", path);
+                let (rest, comp) = rsplit_path(path);
+                if let Some(rest) = rest {
+                    if let Ok(newfd) = parse_path(&*ROOT, rest).and_then(|inode| {
+                        inode.create(comp, mode)
+                    }).and_then(|inode| {
+                        File::open(inode, flags)
+                    }).and_then(|file| {
+                        pcb.fds.push(file);
+                        Ok(pcb.fds.len() - 1)
+                    }) {
+                        return newfd as isize
+                    }
+                }
+                return -1
+            }
+            _ => {
+                log!("syscall":"openat">"path not exists: {}", path);
+                return -1
             }
         }
+    } else {
+        log!("syscall":"openat">"relative path: {}", path);
+        // 目前暂时不支持相对路径
+        return -1
     }
-    -1
 }
 
 pub(super) fn sys_close (

@@ -11,7 +11,7 @@ use core::mem::size_of;
 use core::assert;
 
 fn main() {
-    let name = "gg\0";
+    let name = "/gg\0";
     let flags = OpenFlags::CREATE | OpenFlags::RDWR;
     let mode = FileMode::empty();
     // 创建文件

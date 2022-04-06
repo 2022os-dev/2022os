@@ -61,6 +61,7 @@ impl _Inode for MemInode {
         }
         Ok(i)
     }
+
     fn create(&self, subname: &str, _: FileMode) -> Result<Inode, FileErr> {
         log!("vfs":"mem_create">"({})", subname);
         let inode = alloc_inode();
@@ -70,15 +71,13 @@ impl _Inode for MemInode {
         self.inner.write().children.insert(String::from(subname), inode.clone().unwrap());
         Ok(inode.unwrap())
     }
+
     fn open_child(&self, name: &str, flags: OpenFlags) -> Result<File, FileErr> {
         log!("vfs":"mem_open">"({})", name);
-        let key = String::from(name);
-        if let Some(f) = self.inner.read().children.get(&key) {
-            if let Ok(file) = File::open(f.clone(), flags) {
-                Ok(file)
-            } else {
-                Err(FileErr::NotDefine)
-            }
+        if let Ok(file) = self.get_child(name).and_then(|inode| {
+            File::open(inode, flags)
+        }) {
+            Ok(file)
         } else {
             Err(FileErr::NotDefine)
         }
@@ -89,8 +88,12 @@ impl _Inode for MemInode {
         if let Some(child) = self.inner.read().children.get(name) {
             Ok(child.clone())
         } else {
-            Err(FileErr::NotDefine)
+            Err(FileErr::InodeNotChild)
         }
+    }
+
+    fn len(&self) -> usize {
+        self.inner.read().len
     }
 
 }

@@ -36,7 +36,8 @@ impl OpenFlags {
 pub enum FileErr {
     NotWrite,
     NotRead,
-    NotDefine
+    NotDefine,
+    InodeNotChild
 }
 
 pub type Inode = Arc<dyn _Inode + Send + Sync + 'static>;
@@ -135,7 +136,7 @@ pub trait _Inode {
     }
 
     // 打开子文件，可能为普通文件或目录
-    fn open_child(&self, name: &str, _: OpenFlags) -> Result<File, FileErr> {
+    fn open_child(&self, _: &str, _: OpenFlags) -> Result<File, FileErr> {
         unimplemented!("open_child")
     }
 
@@ -143,12 +144,15 @@ pub trait _Inode {
     fn create(&self, _: &str, _: FileMode) -> Result<Inode, FileErr> {
         unimplemented!("write")
     }
+    // 从Inode的某个偏移量读出
     fn read_offset(&self, _: usize, _: &mut [u8]) -> Result<usize, FileErr> {
         unimplemented!("read")
     }
+    // 在Inode的某个偏移量写入
     fn write_offset(&self, _: usize, _: &[u8]) -> Result<usize, FileErr> {
         unimplemented!("write")
     }
+    // Inode表示的文件都长度
     fn len(&self) -> usize {
         unimplemented!("len")
     }
