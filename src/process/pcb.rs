@@ -3,6 +3,7 @@ use super::TrapFrame;
 use crate::mm::MemorySpace;
 use crate::mm::PageNum;
 use crate::vfs::*;
+use crate::config::*;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use alloc::string::String;
@@ -42,7 +43,7 @@ pub struct Pcb {
     pub cwd: String,
     pub state: PcbState,
     pub memory_space: MemorySpace,
-    pub fds: Vec<File>,
+    pub fds: Vec<Option<File>>,
     pub children: Vec<Arc<Mutex<Pcb>>>,
     pub sabinds: SigActionBinds,
 
@@ -66,8 +67,8 @@ impl Pcb {
             state: PcbState::Running,
             cwd: String::from("/"),
             memory_space,
-            fds: vec![File::open(CONSOLE.clone(), OpenFlags::RDONLY).unwrap(),
-                     File::open(CONSOLE.clone(), OpenFlags::WRONLY).unwrap()],
+            fds: vec![Some(File::open(CONSOLE.clone(), OpenFlags::RDONLY).unwrap()),
+                     Some(File::open(CONSOLE.clone(), OpenFlags::WRONLY).unwrap())],
             children: Vec::new(),
             sabinds: SigActionBinds::new(),
 
@@ -87,11 +88,35 @@ impl Pcb {
     }
 
     pub fn get_fd(&self, idx: usize) -> Option<&File> {
-        self.fds.get(idx)
+        if let Some(fd) = self.fds.get(idx) {
+            fd.as_ref()
+        } else {
+            None
+        }
     }
 
     pub fn get_mut_fd(&mut self, idx: usize) -> Option<&mut File> {
-        self.fds.get_mut(idx)
+        if let Some(fd) = self.fds.get_mut(idx) {
+            fd.as_mut()
+        } else {
+            None
+        }
+    }
+
+    pub fn fds_add(&mut self, idx: usize, file: File) -> bool {
+        if self.fds.len() <= idx && idx < MAX_FDS {
+            for _ in 0..idx - self.fds.len() {
+                self.fds.push(None)
+            }
+            self.fds.push(Some(file));
+            return true
+        } else if self.fds.len() > idx {
+            if let None = self.get_fd(idx) {
+                self.fds[idx] = Some(file);
+                return true
+            }
+        }
+        false
     }
 
     pub fn state(&self) -> PcbState {
