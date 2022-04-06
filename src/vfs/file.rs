@@ -37,7 +37,8 @@ pub enum FileErr {
     NotWrite,
     NotRead,
     NotDefine,
-    InodeNotChild
+    InodeNotChild,
+    InvalidFd
 }
 
 pub type Inode = Arc<dyn _Inode + Send + Sync + 'static>;

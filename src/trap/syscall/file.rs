@@ -76,11 +76,14 @@ pub(super) fn sys_openat (
         match parse_path(&*ROOT, path) {
             Ok(inode) => {
                 log!("syscall":"openat">"path exists: {}", path);
-                if let Ok(newfd) = File::open(inode, flags).and_then(|file| {
-                    pcb.fds.push(file);
-                    Ok(pcb.fds.len() - 1)
+                if let Ok(_) = File::open(inode, flags).and_then(|file| {
+                    if pcb.fds_add(fd, file) {
+                        Ok(())
+                    } else {
+                        Err(FileErr::InvalidFd)
+                    }
                 }) {
-                    return newfd as isize
+                    return fd as isize
                 } else {
                     return -1
                 }
@@ -89,15 +92,18 @@ pub(super) fn sys_openat (
                 log!("syscall":"openat">"path not exists, create: {}", path);
                 let (rest, comp) = rsplit_path(path);
                 if let Some(rest) = rest {
-                    if let Ok(newfd) = parse_path(&*ROOT, rest).and_then(|inode| {
+                    if let Ok(_) = parse_path(&*ROOT, rest).and_then(|inode| {
                         inode.create(comp, mode)
                     }).and_then(|inode| {
                         File::open(inode, flags)
                     }).and_then(|file| {
-                        pcb.fds.push(file);
-                        Ok(pcb.fds.len() - 1)
+                        if pcb.fds_add(fd, file) {
+                            Ok(())
+                        } else {
+                            Err(FileErr::InvalidFd)
+                        }
                     }) {
-                        return newfd as isize
+                        return fd as isize
                     }
                 }
                 return -1

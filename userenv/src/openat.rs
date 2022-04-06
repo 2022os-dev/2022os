@@ -15,7 +15,8 @@ fn main() {
     let flags = OpenFlags::CREATE | OpenFlags::RDWR;
     let mode = FileMode::empty();
     // 创建文件
-    let fd = syscall_openat(0, name, flags, mode);
+    let fd = syscall_openat(10, name, flags, mode);
+    println!{"fd is {}", fd};
     if fd < 0 {
         println!("openat failed");
         return;
