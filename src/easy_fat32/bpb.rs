@@ -1,5 +1,5 @@
-
-
+#[repr(packed)]
+#[derive(Clone, Copy, Debug)]
 pub struct BPB {
     // 3字节的文件跳转指令
     jump_instruction: [u8;3],
@@ -30,7 +30,7 @@ pub struct BPB {
     // 文件系统总扇区数
     total_sector: u32,
     // 每个fat表所占用扇区数
-    sectors_per_fat: u16,
+    sectors_per_fat: u32,
     // 标记
     extended_flag: u16,
     // fat32版本号
@@ -60,10 +60,11 @@ impl BPB {
         self.total_sector
     }
 
-    pub fn get_sectors_per_fat(&self) -> u16 {
+    pub fn get_sectors_per_fat(&self) -> u32 {
         self.sectors_per_fat
     }
 
+    #[allow(unused)]
     pub fn get_root_cluster_number(&self) -> u32 {
         self.root_cluster_number
     }
@@ -73,9 +74,10 @@ impl BPB {
     }
 
     pub fn get_reserved_sector_num(&self) -> u16 {
-        self.get_reserved_sector_num
+        self.reserved_sector_num
     }
 
+    #[allow(unused)]
     pub fn get_fat_num(&self) -> u8 {
         self.fat_num
     }

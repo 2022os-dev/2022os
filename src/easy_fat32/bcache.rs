@@ -1,27 +1,31 @@
+
+
 const BLOCK_SIZE : usize = 512;
-const DEV : usize = 1;
-const DATA_BLOCK_BUFFER_SIZE: usize = 1024;
-const INFO_BUFFER_SIZE: usize = 20;
-pub type Ino = usize; // 磁盘块号
+const DEV : u8 = 1;
+const DATA_BLOCK_BUFFER_SIZE: u32 = 1024;
+const INFO_BUFFER_SIZE: u32 = 20;
+pub type Ino = u32; // 磁盘块号
+
 
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use lazy_static::*;
 use spin::RwLock;
-// use riscv::register::time;
 
 pub struct Buffer {
+    
     block_id: Ino,
-    dev: usize,
-    data: [u8; BLOCK_SZ],
+    dev: u8,
+    //测试
+    pub data: [u8; BLOCK_SIZE],
     modified: bool,
 }
 
 impl Buffer {
-    pub fn new(block_id: Ino, dev: usize) -> Self {
-        let mut data = [0u8; BLOCK_SZ];
+    pub fn new(block_id: Ino, dev: u8) -> Self {
+        let mut data = [0; BLOCK_SIZE];
         //待实现
-        block_device.read_block(block_id, &mut data);
+        // block_device.read_block(block_id, &mut data);
         Self {
             block_id,
             dev,
@@ -31,7 +35,7 @@ impl Buffer {
     }
 
     fn addr_of_offset(&self, offset: usize) -> usize {
-        &self.cache[offset] as *const _ as usize
+        &self.data[offset] as *const _ as usize
     }
 
     pub fn get_ref<T>(&self, offset: usize) -> &T
@@ -39,7 +43,7 @@ impl Buffer {
         T: Sized,
     {
         let type_size = core::mem::size_of::<T>();
-        assert!(offset + type_size <= BLOCK_SZ);
+        assert!(offset + type_size <= BLOCK_SIZE);
         let addr = self.addr_of_offset(offset);
         unsafe { &*(addr as *const T) }
     }
@@ -49,7 +53,7 @@ impl Buffer {
         T: Sized,
     {
         let type_size = core::mem::size_of::<T>();
-        assert!(offset + type_size <= BLOCK_SZ);
+        assert!(offset + type_size <= BLOCK_SIZE);
         self.modified = true;
         let addr = self.addr_of_offset(offset);
         unsafe { &mut *(addr as *mut T) }
@@ -66,7 +70,8 @@ impl Buffer {
     pub fn sync(&mut self) {
         if self.modified {
             self.modified = false;
-            self.block_device.write_block(self.block_id, &self.cache);
+            // 待实现
+            // self.block_device.write_block(self.block_id, &self.data);
         }
     }
 }
@@ -78,13 +83,13 @@ impl Drop for Buffer {
 }
 
 pub struct BufferManager {
-    queue: VecDeque<(usize, Arc<RwLock<Buffer>>)>,
-    start_sector: usize,
-    volume: usize,
+    queue: VecDeque<(u32, Arc<RwLock<Buffer>>)>,
+    start_sector: u32,
+    volume: u32,
 }
 
 impl BufferManager {
-    pub fn new(volume: usize) -> Self {
+    pub fn new(volume: u32) -> Self {
         Self {
             queue: VecDeque::new(),
             start_sector: 0,
@@ -95,13 +100,13 @@ impl BufferManager {
     pub fn get_buffer(
         &mut self,
         block_id: Ino,
-        dev: usize,
+        dev: u8,
     ) -> Arc<RwLock<Buffer>> {
         if let Some(pair) = self.queue.iter().find(|pair| pair.0 == block_id) {
             Arc::clone(&pair.1)
         } else {
             // substitute
-            if self.queue.len() == self.volume {
+            if self.queue.len() == self.volume as usize{
                 // from front to tail
                 if let Some((idx, _)) = self
                     .queue
@@ -120,7 +125,7 @@ impl BufferManager {
                 dev,
             )));
             self.queue.push_back((block_id, Arc::clone(&buffer)));
-            buffers
+            buffer
         }
     }
 
@@ -136,13 +141,19 @@ impl BufferManager {
     //     }
     // }
 
-    pub fn set_start_sector(&self , new_start_sector: usize) {
+    pub fn set_start_sector(&mut self , new_start_sector: u32) {
         self.start_sector = new_start_sector;
     }
 
-    pub fn get_start_sector(&self , new_start_sector: usize) {
+    pub fn get_start_sector(&self) -> u32{
         self.start_sector 
     }
+
+    //测试
+    pub fn add(&mut self ,id: Ino) {
+        self.queue.push_back((id, Arc::new(RwLock::new(Buffer::new(id, DEV)))));
+    }
+
 }
 
 
@@ -154,6 +165,7 @@ lazy_static! {
 lazy_static! {
     pub static ref INFO_BUFFER_MANAGER: RwLock<BufferManager> =
         RwLock::new(BufferManager::new(INFO_BUFFER_SIZE));
+
 }
 
 // #[derive(PartialEq,Copy,Clone,Debug)]
@@ -164,9 +176,9 @@ lazy_static! {
 
 pub fn get_data_block_buffer(
     block_id: Ino,
-    dev: usize,
+    dev: u8,
 ) -> Arc<RwLock<Buffer>> {
-    let id = block_id + self.start_sector;
+    let id = block_id + DATA_BLOCK_BUFFER_MANAGER.read().start_sector;
     // if op == RwOption::READ {
     //     DATA_BLOCK_BUFFER_MANAGER.write().get_buffer(id, dev);
     //     DATA_BLOCK_BUFFER_MANAGER.read().read_buffer(id, dev).unwrap()
@@ -178,9 +190,9 @@ pub fn get_data_block_buffer(
 
 pub fn get_info_buffer(
     block_id: Ino,
-    dev: usize,
+    dev: u8,
 ) -> Arc<RwLock<Buffer>> {
-    let id = block_id + self.start_sector;
+    let id = block_id + INFO_BUFFER_MANAGER.read().start_sector;
     // if op == RwOption::READ {
     //     INFO_BUFFER_MANAGER.write().get_buffer(id, dev);
     //     INFO_BUFFER_MANAGER.read().get_buffer(id, dev).unwrap()
@@ -190,9 +202,9 @@ pub fn get_info_buffer(
     INFO_BUFFER_MANAGER.write().get_buffer(id, dev)
 }
 
-pub fn set_start_sector(new_start_sector: usize) {
-    DATA_BLOCK_BUFFER_MANAGER.start_sector = new_start_sector;
-    INFO_BUFFER_MANAGER.start_sector = new_start_sector;
+pub fn set_start_sector(new_start_sector: u32) {
+    DATA_BLOCK_BUFFER_MANAGER.write().start_sector = new_start_sector;
+    INFO_BUFFER_MANAGER.write().start_sector = new_start_sector;
 }
 
 
