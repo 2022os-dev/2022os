@@ -22,12 +22,10 @@ bitflags! {
 }
 impl OpenFlags {
     pub fn readable(&self) -> bool {
-        *self & OpenFlags::RDWR != OpenFlags::empty() || 
-            *self & OpenFlags::RDONLY != OpenFlags::empty()
+        self.bits() & 1 == 0 || self.contains(OpenFlags::RDWR)
     }
     pub fn writable(&self) -> bool {
-        *self & OpenFlags::RDWR != OpenFlags::empty() || 
-            *self & OpenFlags::WRONLY != OpenFlags::empty()
+        self.bits() & 1 == 1 || self.contains(OpenFlags::RDWR)
     }
 
 }
@@ -38,7 +36,9 @@ pub enum FileErr {
     NotRead,
     NotDefine,
     InodeNotChild,
-    InvalidFd
+    InvalidFd,
+    PipeReadWait,
+    PipeWriteWait
 }
 
 pub type Inode = Arc<dyn _Inode + Send + Sync + 'static>;
@@ -108,26 +108,22 @@ impl File {
     }
 
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, FileErr> {
-        if !self.flags.contains(OpenFlags::RDONLY) && !self.flags.contains(OpenFlags::RDWR) {
+        if !self.flags.readable() {
             return Err(FileErr::NotRead)
         }
-        if let Ok(size) = self.inode.read_offset(self.pos, buf) {
+        self.inode.read_offset(self.pos, buf).and_then(|size| {
             self.pos += size;
             Ok(size)
-        } else {
-            Err(FileErr::NotDefine)
-        }
+        })
     }
     pub fn write(&mut self, buf: &[u8]) -> Result<usize, FileErr> {
-        if !self.flags.contains(OpenFlags::WRONLY) && !self.flags.contains(OpenFlags::RDWR) {
+        if !self.flags.writable() {
             return Err(FileErr::NotWrite)
         }
-        if let Ok(size) = self.inode.write_offset(self.pos, buf) {
+        self.inode.write_offset(self.pos, buf).and_then(|size| {
             self.pos += size;
             Ok(size)
-        } else {
-            Err(FileErr::NotDefine)
-        }
+        })
     }
 }
 pub trait _Inode {

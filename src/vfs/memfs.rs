@@ -117,7 +117,7 @@ fn alloc_inode() -> Result<Arc<MemInode>, ()> {
 }
 
 pub fn memfs_init() {
-    for i in 0..10 {
+    for _ in 0..10 {
         MEMINODES.write().push(Arc::new(MemInode::new()));
     }
 }

@@ -95,6 +95,17 @@ impl OpenFlags {
 
 }
 
+pub fn syscall_pipe(pipe: &mut [usize; 2]) -> isize {
+    let mut a0 = pipe as *const _ as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x17") SYSCALL_PIPE
+        )
+    }
+    a0 as isize
+
+}
+
 pub fn syscall_openat(fd: usize, filename: &str, flags: OpenFlags, mode: FileMode) -> isize {
     let mut a0 = fd;
     unsafe {

@@ -119,6 +119,19 @@ impl Pcb {
         false
     }
 
+    // 找到空闲的位置插入File，或者push
+    pub fn fds_insert(&mut self, file: File) -> Option<usize> {
+        self.fds.iter_mut().enumerate().find(|(_, fd)| {
+            fd.is_none()
+        }).and_then(|(idx, fd)| {
+            *fd = Some(file.clone());
+            Some(idx)
+        }).or_else(|| {
+            self.fds.push(Some(file));
+            Some(self.fds.len()-1)
+        })
+    }
+
     pub fn fds_close(&mut self, idx: usize) -> bool {
         if let Some(_) = self.get_mut_fd(idx)  {
             self.fds[idx] = None;

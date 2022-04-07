@@ -1,4 +1,5 @@
 use core::ops::Add;
+use alloc::sync::Arc;
 
 use crate::mm::*;
 use crate::process::*;
@@ -26,7 +27,22 @@ pub(super) fn sys_pipe (
     pcb: &mut MutexGuard<Pcb>,
     pipe: VirtualAddr
 ) -> isize {
-    unimplemented!();
+    let mut phys: PhysAddr = pipe.into();
+    let pipe: &mut [usize; 2] = phys.as_mut();
+    if let Ok((reader, writer)) = make_pipe().and_then(|(reader, writer)| {
+        pcb.fds_insert(reader).and_then(|rfd| {
+            pcb.fds_insert(writer).and_then(|wfd| {
+                Some((rfd, wfd))
+            })
+        }).ok_or(FileErr::NotDefine)
+    }) {
+        pipe[0] = reader;
+        pipe[1] = writer;
+        0
+    } else {
+        log!("syscall":"pipe">"fail");
+        -1
+    }
 }
 
 pub(super) fn sys_dup (
@@ -165,11 +181,24 @@ pub(super) fn sys_write(
 ) -> isize {
     let mut buf: PhysAddr = buf.into();
     let buf: &[u8] = buf.as_slice_mut(len);
-    if let Some(fd) = pcb.get_mut_fd(fd) {
-        if let Err(_) = fd.write(buf) {
-            -1 
-        } else {
-            len as isize
+    if let Some(file) = pcb.get_mut_fd(fd) {
+        match file.write(buf) {
+            Ok(size) => {
+                size as isize
+            }
+            Err(FileErr::PipeWriteWait) => {
+                // 管道需要等待另一端读出，回退到ecall
+                pcb.trapframe()["sepc"] -= 4;
+                // 等待唤醒
+                pcb.set_state(PcbState::Blocking(|pcb| {
+                    false
+                }));
+                // 返回fd用于修改trapframe["a0"]，保证下次调用正确
+                fd as isize
+            }
+            _ => {
+                -1
+            }
         }
     } else {
         -1
@@ -184,11 +213,24 @@ pub(super) fn sys_read(
 ) -> isize {
     let mut buf: PhysAddr = buf.into();
     let buf: &mut [u8] = buf.as_slice_mut(len);
-    if let Some(fd) = pcb.get_mut_fd(fd) {
-        if let Err(_) = fd.read(buf) {
-            -1 
-        } else {
-            len as isize
+    if let Some(file) = pcb.get_mut_fd(fd) {
+        match file.read(buf) {
+            Ok(size) => {
+                size as isize
+            }
+            Err(FileErr::PipeReadWait) => {
+                // 管道需要等待另一端，回退到ecall
+                pcb.trapframe()["sepc"] -= 4;
+                // 等待唤醒
+                pcb.set_state(PcbState::Blocking(|pcb| {
+                    false
+                }));
+                // 返回fd用于修改trapframe["a0"]，保证下次调用正确
+                fd as isize
+            }
+            _ => {
+                -1
+            }
         }
     } else {
         -1

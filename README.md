@@ -48,6 +48,9 @@
   - [ ] execve
   - [x] getcwd
   - [ ] pipe2
+    - [x] 管道Inode结构
+    - [ ] 没有数据时阻塞等待另一方读/写
+    - [ ] 当另一端关闭时候不再等待
   - [ ] dup 
   - [ ] dup3
   - [ ] chdir
