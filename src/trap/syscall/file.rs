@@ -49,15 +49,42 @@ pub(super) fn sys_dup (
     pcb: &mut MutexGuard<Pcb>,
     fd: usize,
 ) -> isize {
-    unimplemented!();
+    match pcb.get_fd(fd).and_then(|fd| {
+        pcb.fds_insert(fd)
+    }) {
+        Some(fd) => {
+            fd as isize
+        }
+        None => {
+            -1
+        }
+    }
 }
 
 pub(super) fn sys_dup3 (
     pcb: &mut MutexGuard<Pcb>,
-    old: usize,
-    new: usize
+    oldfd: usize,
+    newfd: usize
 ) -> isize {
-    unimplemented!();
+    // Fixme: 2021初赛中没有指定flags选项
+    if oldfd == newfd {
+        return newfd as isize
+    }
+    match pcb.get_fd(oldfd).and_then(|fd| {
+        pcb.fds_close(newfd);
+        if pcb.fds_add(newfd, fd) {
+            Some(())
+        } else {
+            None
+        }
+    }) {
+        Some(_) => {
+            newfd as isize
+        }
+        None => {
+            -1
+        }
+    }
 }
 
 pub(super) fn sys_chdir (
