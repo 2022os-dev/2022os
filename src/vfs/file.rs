@@ -52,6 +52,7 @@ pub struct File {
 
 impl File {
     pub fn open(inode: Inode, flags: OpenFlags) -> Result<Self, FileErr> {
+        inode.file_open();
         Ok(Self {
             pos: 0,
             flags,
@@ -126,6 +127,13 @@ impl File {
         })
     }
 }
+
+impl Drop for File {
+    fn drop(&mut self) {
+        // 文件关闭时通知Inode
+        self.inode.file_close();
+    }
+}
 pub trait _Inode {
 
     fn get_child(&self, _: &str) -> Result<Inode, FileErr> {
@@ -141,21 +149,36 @@ pub trait _Inode {
     fn create(&self, _: &str, _: FileMode) -> Result<Inode, FileErr> {
         unimplemented!("write")
     }
+
     // 从Inode的某个偏移量读出
     fn read_offset(&self, _: usize, _: &mut [u8]) -> Result<usize, FileErr> {
         unimplemented!("read")
     }
+
     // 在Inode的某个偏移量写入
     fn write_offset(&self, _: usize, _: &[u8]) -> Result<usize, FileErr> {
         unimplemented!("write")
     }
+
     // Inode表示的文件都长度
     fn len(&self) -> usize {
         unimplemented!("len")
     }
+    
+    // File打开时通知Inode，可以方便Inode记录引用
+    fn file_open(&self) {
+        log!("vfs":"inode">"file open");
+    }
+
+    // File关闭时通知Inode
+    fn file_close(&self) {
+        log!("vfs":"inode">"file close");
+    }
+
     fn get_uid(&self) -> usize {
         0
     }
+
     fn get_gid(&self) -> usize {
         0
     }

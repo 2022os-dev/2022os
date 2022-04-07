@@ -1,7 +1,5 @@
 use alloc::sync::Arc;
 use spin::Mutex;
-use crate::process::*;
-
 use super::*;
 
 #[derive(Default)]
@@ -11,9 +9,6 @@ struct PipeInode {
 
 const PIPE_INODE_SIZE: usize = 512;
 struct PipeInner {
-    reader: Option<Arc<Mutex<Pcb>>>,
-    writer: Option<Arc<Mutex<Pcb>>>,
-
     // 记录上一次未完成的读操作已读数据
     last_read: usize,
     // 记录上一次未完成的写操作已写数据
@@ -26,8 +21,6 @@ struct PipeInner {
 impl Default for PipeInner {
     fn default() -> Self {
         Self {
-            reader: None,
-            writer: None,
             last_read: 0,
             last_write: 0,
             nread: 0,
