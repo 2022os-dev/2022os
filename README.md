@@ -46,6 +46,7 @@
 - [ ] fat32文件系统集成
 - [ ] 文件系统调用
   - [ ] execve
+    - [ ] 处理O_CLOEXEC
   - [x] getcwd
   - [ ] pipe2
     - [x] 管道Inode结构
