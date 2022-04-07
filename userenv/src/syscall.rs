@@ -119,6 +119,17 @@ pub fn syscall_openat(fd: usize, filename: &str, flags: OpenFlags, mode: FileMod
     a0 as isize
 }
 
+pub fn syscall_close(fd: usize) -> isize {
+    let mut a0 = fd;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x17") SYSCALL_CLOSE
+        )
+    }
+    a0 as isize
+
+}
+
 pub const SEEK_SET: usize = 0;
 pub const SEEK_CUR : usize = 1;
 pub const SEEK_END : usize = 2;

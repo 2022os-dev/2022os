@@ -43,7 +43,6 @@ pub enum FileErr {
 
 pub type Inode = Arc<dyn _Inode + Send + Sync + 'static>;
 
-#[derive(Clone)]
 pub struct File {
     pos: usize,
     flags: OpenFlags,
@@ -52,7 +51,7 @@ pub struct File {
 
 impl File {
     pub fn open(inode: Inode, flags: OpenFlags) -> Result<Self, FileErr> {
-        inode.file_open();
+        inode.file_open(flags);
         Ok(Self {
             pos: 0,
             flags,
@@ -104,8 +103,8 @@ impl File {
         Ok(self.pos)
     }
 
-    pub fn flags(&self) -> Result<OpenFlags, FileErr> {
-        Ok(self.flags)
+    pub fn flags(&self) -> OpenFlags {
+        self.flags
     }
 
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, FileErr> {
@@ -131,7 +130,7 @@ impl File {
 impl Drop for File {
     fn drop(&mut self) {
         // 文件关闭时通知Inode
-        self.inode.file_close();
+        self.inode.file_close(self);
     }
 }
 pub trait _Inode {
@@ -166,12 +165,12 @@ pub trait _Inode {
     }
     
     // File打开时通知Inode，可以方便Inode记录引用
-    fn file_open(&self) {
+    fn file_open(&self, flags: OpenFlags) {
         log!("vfs":"inode">"file open");
     }
 
     // File关闭时通知Inode
-    fn file_close(&self) {
+    fn file_close(&self, file: &File) {
         log!("vfs":"inode">"file close");
     }
 
