@@ -72,7 +72,7 @@ impl _Inode for MemInode {
         Ok(inode.unwrap())
     }
 
-    fn open_child(&self, name: &str, flags: OpenFlags) -> Result<File, FileErr> {
+    fn open_child(&self, name: &str, flags: OpenFlags) -> Result<Fd, FileErr> {
         log!("vfs":"mem_open">"({})", name);
         if let Ok(file) = self.get_child(name).and_then(|inode| {
             File::open(inode, flags)

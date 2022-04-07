@@ -43,7 +43,7 @@ pub struct Pcb {
     pub cwd: String,
     pub state: PcbState,
     pub memory_space: MemorySpace,
-    pub fds: Vec<Option<File>>,
+    pub fds: Vec<Option<Fd>>,
     pub children: Vec<Arc<Mutex<Pcb>>>,
     pub sabinds: SigActionBinds,
 
@@ -67,8 +67,7 @@ impl Pcb {
             state: PcbState::Running,
             cwd: String::from("/"),
             memory_space,
-            fds: vec![Some(File::open(CONSOLE.clone(), OpenFlags::RDONLY).unwrap()),
-                     Some(File::open(CONSOLE.clone(), OpenFlags::WRONLY).unwrap())],
+            fds: vec![Some(STDIN.clone()), Some(STDOUT.clone())],
             children: Vec::new(),
             sabinds: SigActionBinds::new(),
 
@@ -87,32 +86,24 @@ impl Pcb {
         pcb
     }
 
-    pub fn get_fd(&self, idx: usize) -> Option<&File> {
+    pub fn get_fd(&self, idx: usize) -> Option<Fd> {
         if let Some(fd) = self.fds.get(idx) {
-            fd.as_ref()
+            fd.clone()
         } else {
             None
         }
     }
 
-    pub fn get_mut_fd(&mut self, idx: usize) -> Option<&mut File> {
-        if let Some(fd) = self.fds.get_mut(idx) {
-            fd.as_mut()
-        } else {
-            None
-        }
-    }
-
-    pub fn fds_add(&mut self, idx: usize, file: File) -> bool {
+    pub fn fds_add(&mut self, idx: usize, fd: Fd) -> bool {
         if self.fds.len() <= idx && idx < MAX_FDS {
             for _ in 0..idx - self.fds.len() {
                 self.fds.push(None)
             }
-            self.fds.push(Some(file));
+            self.fds.push(Some(fd));
             return true
         } else if self.fds.len() > idx {
             if let None = self.get_fd(idx) {
-                self.fds[idx] = Some(file);
+                self.fds[idx] = Some(fd);
                 return true
             }
         }
@@ -120,23 +111,23 @@ impl Pcb {
     }
 
     // 找到空闲的位置插入File，或者push
-    pub fn fds_insert(&mut self, file: File) -> Option<usize> {
+    pub fn fds_insert(&mut self, fd: Fd) -> Option<usize> {
         match self.fds.iter_mut().enumerate().find(|(_, fd)| {
             fd.is_none()
         }) {
-            Some((idx, fd)) => {
-                *fd = Some(file);
+            Some((idx, pos)) => {
+                *pos = Some(fd);
                 return Some(idx)
             }
             None => {
-                self.fds.push(Some(file));
+                self.fds.push(Some(fd));
                 return Some(self.fds.len() - 1)
             }
         }
     }
 
     pub fn fds_close(&mut self, idx: usize) -> bool {
-        if let Some(_) = self.get_mut_fd(idx)  {
+        if let Some(_) = self.get_fd(idx)  {
             self.fds[idx] = None;
             true
         } else {

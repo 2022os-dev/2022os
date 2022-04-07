@@ -1,4 +1,5 @@
 use alloc::sync::Arc;
+use spin::RwLock;
 use core::convert::TryFrom;
 
 use crate::sbi::*;
@@ -41,8 +42,11 @@ pub enum FileErr {
     PipeWriteWait
 }
 
+// File descriptor
+pub type Fd = Arc<RwLock<File>>;
 pub type Inode = Arc<dyn _Inode + Send + Sync + 'static>;
 
+// File description
 pub struct File {
     pos: usize,
     flags: OpenFlags,
@@ -50,13 +54,13 @@ pub struct File {
 }
 
 impl File {
-    pub fn open(inode: Inode, flags: OpenFlags) -> Result<Self, FileErr> {
+    pub fn open(inode: Inode, flags: OpenFlags) -> Result<Fd, FileErr> {
         inode.file_open(flags);
-        Ok(Self {
+        Ok(Arc::new(RwLock::new(Self {
             pos: 0,
             flags,
             inode
-        })
+        })))
     }
 
     pub fn lseek(&mut self, whence: usize, off: isize) -> Result<usize, FileErr> {
@@ -140,7 +144,7 @@ pub trait _Inode {
     }
 
     // 打开子文件，可能为普通文件或目录
-    fn open_child(&self, _: &str, _: OpenFlags) -> Result<File, FileErr> {
+    fn open_child(&self, _: &str, _: OpenFlags) -> Result<Fd, FileErr> {
         unimplemented!("open_child")
     }
 
@@ -165,12 +169,12 @@ pub trait _Inode {
     }
     
     // File打开时通知Inode，可以方便Inode记录引用
-    fn file_open(&self, flags: OpenFlags) {
+    fn file_open(&self, _: OpenFlags) {
         log!("vfs":"inode">"file open");
     }
 
     // File关闭时通知Inode
-    fn file_close(&self, file: &File) {
+    fn file_close(&self, _: &File) {
         log!("vfs":"inode">"file close");
     }
 
@@ -186,6 +190,8 @@ pub trait _Inode {
 
 lazy_static!{
     pub static ref CONSOLE: Inode = Arc::new(Console::new());
+    pub static ref STDIN: Fd = File::open(CONSOLE.clone(), OpenFlags::RDONLY).unwrap();
+    pub static ref STDOUT: Fd = File::open(CONSOLE.clone(), OpenFlags::WRONLY).unwrap();
 }
 
 #[cfg(feature = "read_buffer")]

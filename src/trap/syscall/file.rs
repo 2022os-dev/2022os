@@ -162,8 +162,8 @@ pub(super) fn sys_lseek (
     offset: isize,
     whence: usize
 ) -> isize {
-    if let Some(file) = pcb.get_mut_fd(fd) {
-        if let Ok(pos) = file.lseek(whence, offset) {
+    if let Some(file) = pcb.get_fd(fd) {
+        if let Ok(pos) = file.write().lseek(whence, offset) {
             pos as isize
         } else {
             -1
@@ -181,8 +181,8 @@ pub(super) fn sys_write(
 ) -> isize {
     let mut buf: PhysAddr = buf.into();
     let buf: &[u8] = buf.as_slice_mut(len);
-    if let Some(file) = pcb.get_mut_fd(fd) {
-        match file.write(buf) {
+    if let Some(file) = pcb.get_fd(fd) {
+        match file.write().write(buf) {
             Ok(size) => {
                 size as isize
             }
@@ -213,8 +213,8 @@ pub(super) fn sys_read(
 ) -> isize {
     let mut buf: PhysAddr = buf.into();
     let buf: &mut [u8] = buf.as_slice_mut(len);
-    if let Some(file) = pcb.get_mut_fd(fd) {
-        match file.read(buf) {
+    if let Some(file) = pcb.get_fd(fd) {
+        match file.write().read(buf) {
             Ok(size) => {
                 size as isize
             }

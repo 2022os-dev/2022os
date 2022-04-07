@@ -107,7 +107,7 @@ impl _Inode for PipeInode {
     }
 }
 
-pub fn make_pipe() -> Result<(File, File), FileErr> {
+pub fn make_pipe() -> Result<(Fd, Fd), FileErr> {
     let pipe = Arc::new(PipeInode::default());
     let reader = File::open(pipe.clone(), OpenFlags::RDONLY)?;
     let writer = File::open(pipe, OpenFlags::WRONLY)?;
