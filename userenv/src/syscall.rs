@@ -119,6 +119,27 @@ pub fn syscall_openat(fd: usize, filename: &str, flags: OpenFlags, mode: FileMod
     a0 as isize
 }
 
+pub fn syscall_dup(fd: usize) -> isize {
+    let mut a0 = fd;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x17") SYSCALL_DUP
+        )
+    }
+    a0 as isize
+}
+
+pub fn syscall_dup3(oldfd: usize, newfd: usize) -> isize {
+    let mut a0 = oldfd;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") newfd,
+            in("x17") SYSCALL_DUP3
+        )
+    }
+    a0 as isize
+}
+
 pub fn syscall_close(fd: usize) -> isize {
     let mut a0 = fd;
     unsafe {

@@ -14,9 +14,10 @@ static NANOSLEEP: &'static [u8] = include_bytes!("bin/nanosleep");
 static READ: &'static [u8] = include_bytes!("bin/read");
 static OPENAT: &'static [u8] = include_bytes!("bin/openat");
 static PIPE: &'static [u8] = include_bytes!("bin/pipe");
+static DUP : &'static [u8] = include_bytes!("bin/dup");
 
 lazy_static! {
     pub static ref APP: Box<[&'static [u8]]> = Box::new([
-       PIPE 
+        DUP
     ]);
 }
