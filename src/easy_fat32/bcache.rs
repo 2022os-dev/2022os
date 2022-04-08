@@ -1,6 +1,10 @@
-
+use std::fs::OpenOptions;
+use std::io::prelude::*;
+use std::fs::File;
+use std::io::SeekFrom;
 
 const BLOCK_SIZE : usize = 512;
+#[allow(unused)]
 const DEV : u8 = 1;
 const DATA_BLOCK_BUFFER_SIZE: u32 = 1024;
 const INFO_BUFFER_SIZE: u32 = 20;
@@ -12,6 +16,7 @@ use alloc::sync::Arc;
 use lazy_static::*;
 use spin::RwLock;
 
+#[allow(unused)]
 pub struct Buffer {
     
     block_id: Ino,
@@ -24,8 +29,7 @@ pub struct Buffer {
 impl Buffer {
     pub fn new(block_id: Ino, dev: u8) -> Self {
         let mut data = [0; BLOCK_SIZE];
-        //待实现
-        // block_device.read_block(block_id, &mut data);
+        read_block(block_id, &mut data);
         Self {
             block_id,
             dev,
@@ -71,7 +75,7 @@ impl Buffer {
         if self.modified {
             self.modified = false;
             // 待实现
-            // self.block_device.write_block(self.block_id, &self.data);
+            write_block(self.block_id, &self.data);
         }
     }
 }
@@ -141,18 +145,20 @@ impl BufferManager {
     //     }
     // }
 
+    #[allow(unused)]
     pub fn set_start_sector(&mut self , new_start_sector: u32) {
         self.start_sector = new_start_sector;
     }
 
+    #[allow(unused)]
     pub fn get_start_sector(&self) -> u32{
         self.start_sector 
     }
 
     //测试
-    pub fn add(&mut self ,id: Ino) {
-        self.queue.push_back((id, Arc::new(RwLock::new(Buffer::new(id, DEV)))));
-    }
+    // pub fn add(&mut self ,id: Ino) {
+    //     self.queue.push_back((id, Arc::new(RwLock::new(Buffer::new(id, DEV)))));
+    // }
 
 }
 
@@ -208,6 +214,7 @@ pub fn set_start_sector(new_start_sector: u32) {
 }
 
 
+#[allow(unused)]
 pub fn block_cache_sync_all() {
     let manager = DATA_BLOCK_BUFFER_MANAGER.write();
     for (_, cache) in manager.queue.iter() {
@@ -216,5 +223,27 @@ pub fn block_cache_sync_all() {
     let manager = INFO_BUFFER_MANAGER.write();
     for (_, cache) in manager.queue.iter() {
         cache.write().sync();
+    }
+}
+
+#[allow(unused)]
+pub fn read_block(id: Ino, buf: &mut [u8]) {
+    let mut f = File::open("D:/gittest/disk").unwrap();
+    let off = id * 512;
+    f.seek(SeekFrom::Start(off as u64));
+    let n = f.read(&mut buf[..]).unwrap();
+    if n !=BLOCK_SIZE {
+        panic!("do not read 512 bytes from disk!");
+    }
+}
+
+#[allow(unused)]
+pub fn write_block(id: Ino, buf: &[u8]) {
+    let mut f = OpenOptions::new().read(true).write(true).open("D:/gittest/disk").unwrap();
+    let off = id * 512;
+    f.seek(SeekFrom::Start(off as u64));
+    let n = f.write(& buf[..]).unwrap();
+    if n !=BLOCK_SIZE {
+        panic!("do not write 512 bytes from disk!");
     }
 }

@@ -1,6 +1,9 @@
+#[allow(unused)]
 use alloc::sync::Arc;
+#[allow(unused)]
 use spin::RwLock;
 
+#[allow(unused)]
 use super::{
     BLOCK_SIZE,
     DEV,
@@ -39,6 +42,7 @@ impl FAT {
         (self.fat1 + cluster / FAT_ENTRY_PER_SECTOR, self.fat2 + cluster / FAT_ENTRY_PER_SECTOR, cluster % FAT_ENTRY_PER_SECTOR * FAT32_ENTRY_SIZE)
     }
 
+    #[allow(unused)]
     // 注意，caller必须保证有足够的free_cluster!!!
     pub fn get_next_free_cluster(&self, current_cluster: u32, dev: u8) -> u32 {
         let mut current = current_cluster + 1;
@@ -58,6 +62,7 @@ impl FAT {
         current                                
     }
 
+    #[allow(unused)]
     pub fn get_next_cluster(&self, current: u32, dev: u8) -> u32 {
         let (fat1, fat2, off) = self.get_position(current);
         let res = get_info_buffer(fat1, dev).read().read(off as usize,|&fat32_entry: &u32| {
@@ -72,6 +77,7 @@ impl FAT {
         }                                   
     }
 
+    #[allow(unused)]
     pub fn set_next_cluster(&self, current: u32, next: u32, dev: u8) {
         let (fat1, fat2, off) = self.get_position(current);
         let res = get_info_buffer(fat1, dev).write().modify(off as usize,|fat32_entry: &mut u32| {
@@ -82,6 +88,7 @@ impl FAT {
         });                               
     }
 
+    #[allow(unused)]
     pub fn get_cluster_num(&self, current: u32, dev: u8) -> u32 {
         let mut cnt = 0;
         let (fat1, fat2, off) = self.get_position(current);
@@ -105,6 +112,7 @@ impl FAT {
         cnt                           
     }
 
+    #[allow(unused)]
     pub fn get_file_last_cluster(&self, current: u32, dev: u8) -> u32 {
         
         let (fat1, fat2, off) = self.get_position(current);

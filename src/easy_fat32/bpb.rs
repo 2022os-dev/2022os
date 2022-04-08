@@ -1,3 +1,5 @@
+
+#[allow(unused)]
 #[repr(packed)]
 #[derive(Clone, Copy, Debug)]
 pub struct BPB {
@@ -29,6 +31,9 @@ pub struct BPB {
     hidden_sector_num: u32,
     // 文件系统总扇区数
     total_sector: u32,
+
+
+    
     // 每个fat表所占用扇区数
     sectors_per_fat: u32,
     // 标记
@@ -68,7 +73,7 @@ impl BPB {
     pub fn get_root_cluster_number(&self) -> u32 {
         self.root_cluster_number
     }
-
+    
     pub fn get_fsinfo_sector_num(&self) -> u16 {
         self.fsinfo_sector_num
     }
@@ -85,7 +90,7 @@ impl BPB {
 }
 
 #[allow(unused)]
-//这东西可能用不到
+//这东西用不到
 pub struct ExtendBPB {
     physical_drive_number: u8,
     reserved: u8,

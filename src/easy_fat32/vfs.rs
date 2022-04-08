@@ -3,6 +3,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use spin::RwLock;
 
+#[allow(unused)]
 use super::{
     //未加入
     // println,
@@ -16,9 +17,13 @@ use super::{
     BufferManager,
 };
 
+#[allow(unused)]
 const LONG_DIR_ENTRY: u8 = 0b00001111;
+#[allow(unused)]
 const SUB_DIRECTORY: u8 = 0b00010000;
 
+
+#[allow(unused)]
 #[derive(Clone)]
 pub struct VFSFile {
     // 设备号，待实现
@@ -61,8 +66,9 @@ impl VFSFile {
         }
 
 
+    #[allow(unused)]
     // 读取磁盘中短目录项
-    fn read_ShortDirEntry<V>(&self, f: impl FnOnce(&ShortDirEntry) -> V) -> V {
+    fn read_short_dir_entry<V>(&self, f: impl FnOnce(&ShortDirEntry) -> V) -> V {
         //如果是根目录，即self.sector==0，单独处理
         if self.sector == 0 {
             let root_dirent = self.fs.read().get_root();
@@ -78,8 +84,9 @@ impl VFSFile {
         
     }
 
+    #[allow(unused)]
     // 修改磁盘中短目录项
-    fn modify_ShortDirEntry<V>(&self, f: impl FnOnce(&mut ShortDirEntry) -> V) -> V {
+    fn modify_short_dir_entry<V>(&self, f: impl FnOnce(&mut ShortDirEntry) -> V) -> V {
         //如果是根目录，即self.sector==0，单独处理
         if self.sector == 0 {
             let root_dirent = self.fs.read().get_root();
@@ -95,74 +102,86 @@ impl VFSFile {
         
     }
 
+    #[allow(unused)]
     // 修改磁盘中长目录项，读取根本用不到，所以暂时不实现
-    fn modify_LongDirEntry<V>(&self, idx: usize, f: impl FnOnce(&mut LongDirEntry) -> V) -> V {
+    fn modify_long_dir_entry<V>(&self, idx: usize, f: impl FnOnce(&mut LongDirEntry) -> V) -> V {
         get_info_buffer(
             self.long_dir_location[idx].0,
             self.dev
         ).write().modify(self.long_dir_location[idx].1 as usize, f)
     }
 
+    #[allow(unused)]
     pub fn get_name(&self) -> &str {
         self.name.as_str()
     }
 
+    #[allow(unused)]
     // 判断是否是长目录项
     pub fn is_long_dir(&self) -> bool {
         self.flag == LONG_DIR_ENTRY
     }
 
+    #[allow(unused)]
     // 判断是否是目录项
     pub fn is_dir(&self) -> bool {
         self.flag & SUB_DIRECTORY == SUB_DIRECTORY
     }
 
+    #[allow(unused)]
     //和时间相关的方法暂时通通不实现
     pub fn get_creation_time(&self) {
-        self.read_ShortDirEntry(|sd: &ShortDirEntry| {
+        self.read_short_dir_entry(|sd: &ShortDirEntry| {
             sd.get_creation_time()
         })
     }
 
 
+    #[allow(unused)]
     pub fn get_last_modify_time(&self) {
-        self.read_ShortDirEntry(|sd: &ShortDirEntry| {
+        self.read_short_dir_entry(|sd: &ShortDirEntry| {
             sd.get_last_modify_time()
         })
     }
 
+    #[allow(unused)]
     pub fn get_last_access_time(&self) {
-        self.read_ShortDirEntry(|sd: &ShortDirEntry| {
+        self.read_short_dir_entry(|sd: &ShortDirEntry| {
             sd.get_last_access_time()
         })
     }
 
+    #[allow(unused)]
     pub fn get_start_cluster(&self) -> u32 {
-        self.read_ShortDirEntry(|sd: &ShortDirEntry| {
+        self.read_short_dir_entry(|sd: &ShortDirEntry| {
             sd.get_start_cluster()
         })
     }
 
+    #[allow(unused)]
     pub fn set_start_cluster(&self, cluster: u32) {
-        self.modify_ShortDirEntry(|sd: &mut ShortDirEntry| {
+        self.modify_short_dir_entry(|sd: &mut ShortDirEntry| {
             sd.set_start_cluster(cluster)
         })
     }
 
+    #[allow(unused)]
     pub fn get_file_length(&self,) -> u32 {
-        self.read_ShortDirEntry(|sd: &ShortDirEntry| {
+        self.read_short_dir_entry(|sd: &ShortDirEntry| {
             sd.get_file_length()
         })
     }
 
+    #[allow(unused)]
     pub fn set_file_length(&self, length: u32) {
-        self.modify_ShortDirEntry(|sd: &mut ShortDirEntry| {
+        self.modify_short_dir_entry(|sd: &mut ShortDirEntry| {
             sd.set_file_length(length)
         })
     }
 
+    #[allow(unused)]
     pub fn get_dir_length(&self) -> u32 {
-        self.read_ShortDirEntry(|sd: &ShortDirEntry| {
+        self.read_short_dir_entry(|sd: &ShortDirEntry| {
             sd.get_dir_length(
                 self.dev,
                 &self.fs.read().get_fat(), 
@@ -170,23 +189,25 @@ impl VFSFile {
         })
     }
 
-
+    #[allow(unused)]
     pub fn is_delete(&self) -> bool {
-        self.read_ShortDirEntry(|sd: &ShortDirEntry| {
+        self.read_short_dir_entry(|sd: &ShortDirEntry| {
             sd.is_delete()
         })
     }
 
+    #[allow(unused)]
     pub fn set_delete(&mut self) {
-        self.modify_ShortDirEntry(|sd: &mut ShortDirEntry| {
+        self.modify_short_dir_entry(|sd: &mut ShortDirEntry| {
             sd.set_delete()
         })
     }
 
 
+    #[allow(unused)]
     // 获取该偏移量所在的块号与块内偏移
     pub fn get_sector_offset(&self, offset: u32,) -> (u32, u32) {
-        self.read_ShortDirEntry(|sd: &ShortDirEntry| {
+        self.read_short_dir_entry(|sd: &ShortDirEntry| {
             let sectors_per_cluster: u32 = self.fs.read().get_sectors_per_cluster() as u32;
             let (current, sector_in_cluster, byte_offset) = 
             sd.get_offset_position(offset, sectors_per_cluster, self.dev, &self.fs.read().get_fat(),);
@@ -194,8 +215,10 @@ impl VFSFile {
         })
     }
 
+    #[allow(unused)]
     pub fn find_next_free_dirent(&mut self) -> Option<u32> {
-        self.modify_ShortDirEntry(|short_ent: &mut ShortDirEntry|{
+        
+        self.modify_short_dir_entry(|short_ent: &mut ShortDirEntry|{
             short_ent.find_next_free_dirent(
                 self.dev,
                 &self.fs.read().get_fat(), 
@@ -205,8 +228,9 @@ impl VFSFile {
     }
 
 
+    #[allow(unused)]
     pub fn read_at(&self, offset: u32, buf: &mut [u8]) -> u32{
-        self.read_ShortDirEntry(|short_ent: &ShortDirEntry|{
+        self.read_short_dir_entry(|short_ent: &ShortDirEntry|{
             short_ent.read_at(
                 offset, 
                 buf, 
@@ -217,8 +241,9 @@ impl VFSFile {
         })
     }   
 
+    #[allow(unused)]
     pub fn increase(&self, need_bytes: u32) {
-        self.modify_ShortDirEntry(|short_ent: &mut ShortDirEntry|{
+        self.modify_short_dir_entry(|short_ent: &mut ShortDirEntry|{
             short_ent.increase(
                 need_bytes,
                 self.dev,
@@ -228,13 +253,17 @@ impl VFSFile {
         })
     }
 
+    #[allow(unused)]
     pub fn write_at(&self, offset: u32, buf: & [u8]) -> u32 {
         //注意，目录项文件大小恒0，用get_dir_length()判断
+        if !self.is_dir() && self.get_file_length() == 0 {
+            self.increase(offset + buf.len() as u32 - self.get_file_length());
+        }
         if self.get_file_length() < offset + buf.len() as u32 && self.get_dir_length() < offset + buf.len() as u32{
             self.increase(offset + buf.len() as u32 - self.get_file_length());
         }
 
-        self.modify_ShortDirEntry(|short_ent: &mut ShortDirEntry|{
+        self.modify_short_dir_entry(|short_ent: &mut ShortDirEntry|{
             short_ent.write_at(
                 offset, 
                 buf, 
@@ -245,6 +274,7 @@ impl VFSFile {
         })
     }
     
+    #[allow(unused)]
     // 在dir目录中找名字为name的短目录项，可能找不到
     pub fn find_short_name(&self, name: &str, dir: &ShortDirEntry) -> Option<VFSFile> {
         let mut entry = ShortDirEntry::empty();
@@ -281,6 +311,7 @@ impl VFSFile {
         }
     }
 
+    #[allow(unused)]
     // 在dir目录中找名字为name的长目录项
     pub fn find_long_name(&self, name: &str, dir: &ShortDirEntry) -> Option<VFSFile> {
         let mut entry = ShortDirEntry::empty();
@@ -334,6 +365,8 @@ impl VFSFile {
         }
     }
 
+
+    #[allow(unused)]
     // 当前目录中找名字为name的目录项
     pub fn find_name(&self, name: &str,) -> Option<VFSFile> {
         // 检查是否是目录，以后可能用断言实现,或许不panic只println更好
@@ -352,7 +385,7 @@ impl VFSFile {
         // else {
         //     self.find_short_name(name, *self.read_ShortDirEntry(|sd : &ShortDirEntry|{ sd }))
         // } 
-        self.read_ShortDirEntry(|short_ent:&ShortDirEntry|{
+        self.read_short_dir_entry(|short_ent:&ShortDirEntry|{
             if file_name_byte_arr.len() > 8 || extension_name_byte_arr.len() > 3 { //长文件名
                 return self.find_long_name(name, short_ent)
             } else { // 短文件名
@@ -361,6 +394,8 @@ impl VFSFile {
         })
     }
 
+
+    #[allow(unused)]
     // 通过路径path在当前目录中开始寻找该目录项
     pub fn find_name_by_path(&self, path: &str) -> Option<Arc<VFSFile>> {
         let pos :Vec<&str> = path.split("/").collect();
@@ -384,6 +419,7 @@ impl VFSFile {
     }
 
 
+    #[allow(unused)]
     // 返回值注意，加arc要
     pub fn create(&mut self, name: &str, flag: u8) -> Option<VFSFile> {
         // 判断该文件是否合法
@@ -402,7 +438,7 @@ impl VFSFile {
         let mut long_dir_location = Vec::new();
         let mut short_sector: u32;
         let mut short_off: u32;
-
+        
         if file_name.as_bytes().len() > 8 || extension_name.as_bytes().len() > 3 {
             
             let short_dir_entry_name = Fat32Manager::long_name_to_short(name);
@@ -451,6 +487,7 @@ impl VFSFile {
                 dir_offset = offset;
                 
             } else {
+                
                 return None
             } 
             (short_sector, short_off) = self.get_sector_offset(dir_offset);
@@ -498,6 +535,7 @@ impl VFSFile {
     }
 
 
+    #[allow(unused)]
     pub fn delete(&mut self) {
         if self.is_dir() {
             self.delete_dirent()
@@ -507,6 +545,7 @@ impl VFSFile {
         }
     }
     
+    #[allow(unused)]
     //将自身文件内容删除(必须是普通文件)
     pub fn delete_file(&mut self) {
         if self.is_dir() {
@@ -522,13 +561,14 @@ impl VFSFile {
         self.set_delete();
 
         for i in (0..self.long_dir_location.len()) {
-            self.modify_LongDirEntry(i, |ld : &mut LongDirEntry|{
+            self.modify_long_dir_entry(i, |ld : &mut LongDirEntry|{
                 ld.set_delete();
             })
         }
 
     }
 
+    #[allow(unused)]
     //将自身文件内容删除(必须是目录文件),注意，删除目录文件时内部目录项所代表的所有文件都要被删除！！！(日后实现)
     pub fn delete_dirent(&mut self) {
         if !self.is_dir() {
@@ -537,10 +577,13 @@ impl VFSFile {
 
     }
 
+    #[allow(unused)]
     //罗列目录中所有文件
     pub fn ls(&self) {
 
     }
+
+    #[allow(unused)]
     //获取相关文件信息
     pub fn stat(&self) {
 

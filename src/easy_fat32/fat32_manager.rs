@@ -9,7 +9,6 @@ use super::{
     DEV,
     get_info_buffer,
     get_data_block_buffer,
-    block_cache_sync_all,
     set_start_sector,
     fsinfo::FsInfo, 
     bpb::BPB, 
@@ -21,12 +20,12 @@ use super::{
 
 
 
-const FAT32_ENTRY_SIZE: u32 = 4;
-const FAT_ENTRY_PER_SECTOR: u32 = BLOCK_SIZE as u32 / FAT32_ENTRY_SIZE;
+
 const LAST_CLUSTER: u32 = 0x0fffffff;
 const FREE_CLUSTER_ENTRY: u32 = 0x00000000;
 const SUB_DIRECTORY: u8 = 0b00010000;
 
+#[allow(unused)]
 pub struct Fat32Manager {
     // 每扇区字节数
     bytes_per_sector: u16,
@@ -60,13 +59,14 @@ impl Fat32Manager {
             let mut i = 0;
             let mut start_sector = 0;
             while i < 4 {
-                let mut add = start_sector_arr[i] as u32;
-                let add = add<<(8*i);
-                start_sector += add;
+                let add = start_sector_arr[i] as u32;
+                let toadd = add<<(8*i);
+                start_sector += toadd;
                 i += 1;
             }
             start_sector
         });
+        println!("start sector {}",start_sec);
         
         set_start_sector(start_sec as u32);
 
@@ -128,9 +128,9 @@ impl Fat32Manager {
         let first_sector: u32 = reserved_sector_num as u32 + sectors_per_fat * fat_num as u32;
         // 注意，先写1，等下实现
         // ox2f（47）是/的ascii码，用这个来命名根目录
-        let mut root_dir = ShortDirEntry::new(&[0x2F,0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20],
+        let root_dir = ShortDirEntry::new(&[0x2F,0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20],
                                               &[0x20, 0x20, 0x20],
-                                              0b00010000,);
+                                              SUB_DIRECTORY,);
         // let mut root_dir = ShortDirEntry::new(&[0x46,0x41, 0x54, 0x33, 0x32, 0x20, 0x20, 0x20],
         //     &[0x74, 0x78, 0x74],
         //     0b00010000,);
@@ -150,7 +150,7 @@ impl Fat32Manager {
         Arc::new(RwLock::new(fat32_manager))
                     
     }
-
+    #[allow(unused)]
     pub fn get_root_vfsfile(&self, fs: Arc<RwLock<Fat32Manager>>,) -> VFSFile {
         VFSFile::new(
             DEV, 
@@ -161,13 +161,21 @@ impl Fat32Manager {
             String::from("/"), 
             SUB_DIRECTORY,)
     }
-
+    #[allow(unused)]
     pub fn get_root(&self) -> Arc<RwLock<ShortDirEntry>> {
         self.root_dir.clone()
     }
 
+    // 给根目录
+    #[allow(unused)]
+    pub fn initialize_root_dirent(&self) {
+        let head = self.alloc_cluster(1, DEV).unwrap();
+        self.get_root().write().set_start_cluster(head);
+    }
 
 
+
+    #[allow(unused)]
     // 分配need个簇，会进行越界检查
     pub fn alloc_cluster(&self ,need :usize, dev: u8) -> Option<u32>{
         let mut fsinfo_write = self.fsinfo.write();
@@ -205,6 +213,7 @@ impl Fat32Manager {
         }
     }
 
+    #[allow(unused)]
     // 注意，调用此方法是从传入的start参数开始依次释放所有后面的簇，故一般要释放簇时只有当要删除整个文件时，暂时不支持在不删除文件的情况下动态减小该文件大小
     pub fn dealloc_cluster(&self ,start :u32, dev: u8) {
         let mut start = start;
@@ -225,6 +234,7 @@ impl Fat32Manager {
         }
     }
 
+    #[allow(unused)]
     pub fn clean_cluster(&self, current_cluster: u32, dev: u8) {
         let start_sector : u32 = self.first_sector + (current_cluster - 2) * self.sectors_per_cluster as u32;
         let mut i: u32 = 0;
@@ -241,26 +251,32 @@ impl Fat32Manager {
         }
     }
 
+    #[allow(unused)]
     pub fn get_bytes_per_sector(&self) -> u16 {
         self.bytes_per_sector
     }
 
+    #[allow(unused)]
     pub fn get_sectors_per_cluster(&self) -> u8 {
         self.sectors_per_cluster
     }
 
+    #[allow(unused)]
     pub fn get_fat(&self) -> Arc<RwLock<FAT>> {
         Arc::clone(&self.fat)
     }
 
+    #[allow(unused)]
     pub fn get_fsinfo(&self) -> Arc<RwLock<FsInfo>> {
         Arc::clone(&self.fsinfo)
     }
 
+    #[allow(unused)]
     pub fn get_first_sector(&self) -> u32 {
         self.first_sector
     }
 
+    #[allow(unused)]
     pub fn split_long_name(long_name :&str) -> Vec<String> {
         let name_byte = long_name.as_bytes();
         let mut name_vec:Vec<String> = Vec::new();
@@ -284,6 +300,7 @@ impl Fat32Manager {
         name_vec
     }
 
+    #[allow(unused)]
     pub fn split_name_extension<'a>(name: &'a str) -> (&'a str, &'a str) {
         let mut name_extension: Vec<&str> = name.split(".").collect();
         let file_name = name_extension[0];
@@ -295,6 +312,7 @@ impl Fat32Manager {
 
     }
 
+    #[allow(unused)]
     //此方法需要更改，返回值为文件全名
     pub fn long_name_to_short(long_name :&str) -> String {
         // 取长文件名的前6个字符加上”~1”形成短文件名，扩展名不变。若一旦产生同名，后续处理暂时不实现
@@ -324,7 +342,8 @@ impl Fat32Manager {
         }
         
     }
-    
+   
+    #[allow(unused)]
     pub fn short_name_to_byte_arr(name: & str) -> ([u8;8], [u8;3]) {
         let (mut file_name, mut extension_name);
         if name == "." || name == ".." {

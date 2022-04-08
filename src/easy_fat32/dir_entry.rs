@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
 use alloc::string::String;
+#[allow(unused)]
 use alloc::vec::Vec;
 use spin::RwLock;
 
@@ -14,13 +15,19 @@ use super::{
     fat::FAT,
 };
 
-
+#[allow(unused)]
 const READ_AND_WRITE: u8 = 0b00000000;
+#[allow(unused)]
 const READ_ONLY: u8 = 0b00000001;
+#[allow(unused)]
 const HIDDEN: u8 = 0b00000010;
+#[allow(unused)]
 const SYSTEM: u8 = 0b00000100;
+#[allow(unused)]
 const LABLE: u8 = 0b00001000;
+#[allow(unused)]
 const SUB_DIRECTORY: u8 = 0b00010000;
+#[allow(unused)]
 const FILING: u8 = 0b00100000;
 const LONG_DIR_ENTRY: u8 = 0b00001111;
 
@@ -97,6 +104,7 @@ impl ShortDirEntry {
         }
     }
 
+    #[allow(unused)]
     pub fn empty() -> Self{
         Self {
             file_name: [0;8],
@@ -115,23 +123,28 @@ impl ShortDirEntry {
         }
     }
 
+    #[allow(unused)]
     pub fn get_flag(&self) -> u8 {
         self.flag
     }
 
+    #[allow(unused)]
     //和时间相关的方法暂时通通不实现
     pub fn get_creation_time(&self) {
 
     }
 
+    #[allow(unused)]
     pub fn get_last_modify_time(&self) {
         
     }
 
+    #[allow(unused)]
     pub fn get_last_access_time(&self) {
 
     }
 
+    #[allow(unused)]
     // 获取文件名，不包括扩展名，caller调用前必须保证该文件没有被删除，否则返回的文件名不一定正确
     pub fn get_file_name(&self) -> String {
         let mut name = String::new();
@@ -146,6 +159,7 @@ impl ShortDirEntry {
         name
     }
 
+    #[allow(unused)]
     // 获取文件扩展名，caller调用前必须保证该文件有文件扩展名，否则返回扩展名可能是空
     pub fn get_extension_name(&self) -> String {
         let mut name = String::new();
@@ -160,6 +174,7 @@ impl ShortDirEntry {
         name
     }
 
+    #[allow(unused)]
     // 获取文件名
     pub fn get_name(&self) -> String{
         let mut name = String::new();
@@ -185,33 +200,38 @@ impl ShortDirEntry {
         name
     }
 
+    #[allow(unused)]
     // 判断文件是否被删除
     pub fn is_delete(&self) -> bool {
         self.file_name[0] == 0xe5
     }
 
-    
+    #[allow(unused)]
     pub fn set_delete(&mut self) {
         self.file_name[0] = 0xe5
     }
 
+    #[allow(unused)]
     // 判断目录项是否为空
     pub fn is_empty(&self) -> bool {
         self.file_name[0] ==0x00
     }
 
 
+    #[allow(unused)]
     // 判断是否是长目录项
     pub fn is_long_dir(&self) -> bool {
         self.flag == LONG_DIR_ENTRY
     }
 
+    #[allow(unused)]
     // 设置文件的起始簇
     pub fn set_start_cluster(&mut self, start: u32) {
         self.start_cluster_low = (start & 0x0000ffff) as u16;
         self.start_cluster_high = (start >>16) as u16;
     }
 
+    #[allow(unused)]
     // 获取文件起始簇
     pub fn get_start_cluster(&self) -> u32 {
         let mut high: u32 = (self.start_cluster_high) as u32;
@@ -219,22 +239,26 @@ impl ShortDirEntry {
         high + self.start_cluster_low as u32
     }
 
+    #[allow(unused)]
     // 判断是否是目录项
     pub fn is_dir(&self) -> bool {
         self.flag & SUB_DIRECTORY == SUB_DIRECTORY
     }
 
+    #[allow(unused)]
     // 设置文件长度，单位字节
     pub fn set_file_length(&mut self, file_length: u32) {
         self.file_length = file_length;
     }
 
 
+    #[allow(unused)]
     // 设置文件长度，单位字节
     pub fn get_file_length(&self) -> u32 {
         self.file_length
     }
 
+    #[allow(unused)]
     // 获取文件所占簇数
     pub fn get_cluster_num(&self, bytes_per_cluster: u32) -> u32 {
         let mut res: u32 = 0;
@@ -242,6 +266,7 @@ impl ShortDirEntry {
         res
     }
 
+    #[allow(unused)]
     // 获取该文件偏移量所在簇号,簇内偏移量块号,块内偏移量,注意,该方法特别单纯,不会进行越界检查,caller必须负责,否则可能导致结果错误!!!
     pub fn get_offset_position(&self, offset: u32 ,sector_per_cluster: u32, dev: u8, fat: &Arc<RwLock<FAT>>,) -> (u32, u32, u32) {
         let cluster_num = offset / (sector_per_cluster * BLOCK_SIZE as u32);
@@ -258,6 +283,7 @@ impl ShortDirEntry {
         (current, sector_in_cluster, byte_offset)
     }
 
+    #[allow(unused)]
     // 重头戏1,从该文件偏移量为offset开始处读取长度为buffer数组长度的数据到buffer数组
     pub fn read_at(&self, offset: u32, buffer: &mut [u8], dev :u8, fat: &Arc<RwLock<FAT>>, fat32_manager: &Arc<RwLock<Fat32Manager>>) -> u32{
         // 1.前期准备工作
@@ -342,13 +368,16 @@ impl ShortDirEntry {
     }
 
 
+    #[allow(unused)]
     pub fn get_dir_length(&self, dev: u8, fat: &Arc<RwLock<FAT>>, fat32_manager: &Arc<RwLock<Fat32Manager>>) -> u32 {
+        
         let fat32_manager_read = fat32_manager.read();
         let sector_per_cluster = fat32_manager_read.get_sectors_per_cluster();
         let bytes_per_sector = fat32_manager_read.get_bytes_per_sector();
         sector_per_cluster as u32 * bytes_per_sector as u32 * fat.read().get_cluster_num(self.get_start_cluster(),DEV)
     }
 
+    #[allow(unused)]
     // 切记，使用增长目录大小时length长度恒为0，故只能获取簇个数来获取目录大小
     pub fn increase(&mut self, need_bytes: u32, dev :u8, fat: &Arc<RwLock<FAT>>, fat32_manager: &Arc<RwLock<Fat32Manager>>) {
         
@@ -373,6 +402,7 @@ impl ShortDirEntry {
         }
     }
 
+    #[allow(unused)]
     // 重头戏2,将buffer数组内容写入该文件偏移量为offset处,注意，此方法必须在调用之前进行越界检查，切记一定！！！
     pub fn write_at(&self, offset: u32, buffer: & [u8], dev :u8, fat: &Arc<RwLock<FAT>>, fat32_manager: &Arc<RwLock<Fat32Manager>>) -> u32{
         // 1.前期准备工作
@@ -461,6 +491,7 @@ impl ShortDirEntry {
         have_write_length
     }
 
+    #[allow(unused)]
     pub fn trans_to_bytes(&self) -> &[u8] {
         unsafe {
             core::slice::from_raw_parts(
@@ -470,6 +501,7 @@ impl ShortDirEntry {
         }
     }
 
+    #[allow(unused)]
     pub fn trans_to_mut_bytes(&mut self) -> &mut [u8] {
         unsafe {
             core::slice::from_raw_parts_mut(
@@ -479,6 +511,7 @@ impl ShortDirEntry {
         }
     }
 
+    #[allow(unused)]
     pub fn get_check_sum(&self) -> u8 {
         let mut check_sum: u16 = 0;
 
@@ -502,6 +535,7 @@ impl ShortDirEntry {
     }
 
 
+    #[allow(unused)]
     pub fn find_next_free_dirent(&mut self, dev: u8, fat: &Arc<RwLock<FAT>>, fat32_manager: &Arc<RwLock<Fat32Manager>>) -> Option<u32> {
         
         if !self.is_dir() {
@@ -513,7 +547,6 @@ impl ShortDirEntry {
         let mut read_length = 0;
         
         read_length = self.read_at(offset, short_dir_entry.trans_to_mut_bytes(), dev, fat, fat32_manager,);
-        
         loop {
             
             if read_length == 0 {
@@ -580,6 +613,7 @@ pub struct LongDirEntry {
 }
 
 impl LongDirEntry {
+    #[allow(unused)]
     pub fn new(flag: u8, name: &[u8], check_sum: u8) -> Self {
         let mut name1: [u8;10] = [0;10];
         let mut name2: [u8;12] = [0;12];
@@ -634,6 +668,8 @@ impl LongDirEntry {
             name3,
         }
     }
+
+    #[allow(unused)]
     pub fn empty() -> Self {
         Self{
             flag: 0,      
@@ -646,36 +682,45 @@ impl LongDirEntry {
             name3: [0;4],  
         }
     }
+
+    #[allow(unused)]
     // 判断文件是否被删除
     pub fn is_delete(&self) -> bool {
         self.flag == 0xe5
     }
 
+    #[allow(unused)]
     pub fn set_delete(&mut self) {
         self.flag = 0xe5
     }
 
+    #[allow(unused)]
     // 判断目录项是否为空
     pub fn is_empty(&self) -> bool {
         self.flag ==0b00
     }
 
+    #[allow(unused)]
     pub fn is_last(&self) -> bool {
         self.flag & 0b01000000 == 1
     }
 
+    #[allow(unused)]
     pub fn set_last(&mut self) {
         self.flag |= 0b01000000
     }
 
+    #[allow(unused)]
     pub fn get_serial(&self) -> u8 {
         self.flag & 0b00011111
     }
 
+    #[allow(unused)]
     pub fn get_checksum(&self) -> u8 {
         self.check_sum
     }
 
+    #[allow(unused)]
     pub fn get_name(&self) -> String {
         let mut name = String::new();
         for i in (0..5) {
@@ -704,6 +749,8 @@ impl LongDirEntry {
         }
         name
     }
+
+    #[allow(unused)]
     pub fn trans_to_bytes(&self) -> &[u8] {
         unsafe {
             core::slice::from_raw_parts(
@@ -713,6 +760,7 @@ impl LongDirEntry {
         }
     }
 
+    #[allow(unused)]
     pub fn trans_to_mut_bytes(&mut self) -> &mut [u8] {
         unsafe {
             core::slice::from_raw_parts_mut(

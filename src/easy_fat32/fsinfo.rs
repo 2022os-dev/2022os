@@ -1,4 +1,4 @@
-const LEADING_SIGNATURE: u32 = 0x41625252;
+const LEADING_SIGNATURE: u32 = 0x41615252;
 const STRUCT_SIGNATURE: u32 = 0x61417272;
 const TRAILING_SIGNATURE: u32 = 0xaa550000;
 
@@ -9,7 +9,7 @@ const TRAILING_SIGNATURE: u32 = 0xaa550000;
 #[repr(packed)]
 #[derive(Clone, Copy)]
 pub struct FsInfo {
-    // 固定值0x41625252
+    // 固定值0x41615252
     lead_sig: u32,
     // 保留使用
     reserved1: [u8;480],
