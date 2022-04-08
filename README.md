@@ -47,7 +47,9 @@
 - [ ] 文件系统调用
   - [ ] execve
     - [ ] 处理O_CLOEXEC
-  - [x] getcwd
+  - [ ] getcwd
+    - [ ] 当buf为0表示由内核分配内存
+    - [x] pcb结构保存cwd
   - [ ] pipe2
     - [x] 管道Inode结构
     - [ ] 没有数据时阻塞等待另一方读/写
