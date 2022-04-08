@@ -64,9 +64,16 @@ impl _Inode for MemInode {
 
     fn create(&self, subname: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
         log!("vfs":"mem_create">"({})", subname);
+        if subname.len() == 0 {
+            // 文件名不正确
+            return Err(FileErr::NotDefine)
+        }
         match itype {
             InodeType::Directory |
             InodeType::File => {
+                if let Some(_) = self.inner.read().children.get(&String::from(subname)) {
+                    return Err(FileErr::InodeChildExist)
+                }
                 let inode = alloc_inode();
                 if let Err(_) = inode {
                     return Err(FileErr::NotDefine)

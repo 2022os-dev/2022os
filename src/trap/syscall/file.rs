@@ -7,6 +7,7 @@ use crate::sbi::sbi_legacy_call;
 use spin::MutexGuard;
 use crate::vfs::*;
 
+const AT_FDCWD: isize = -100;
 fn get_str(pa: &PhysAddr) -> &str {
     let mut len = 0;
     // Fixme: 假设路径最长为512
@@ -45,25 +46,38 @@ pub(super) fn sys_mkdirat(
     let phys: PhysAddr = path.into();
     let path = get_str(&phys);
     let mode = FileMode::from_bits(mode).unwrap();
-    if is_absolute_path(path) {
+    let root = if is_absolute_path(path) {
         // 绝对路径,忽略fd
-        let (rest, name) = rsplit_path(path);
-        match rest.and_then(|rest| {
-            parse_path(&pcb.root, rest).and_then(|inode| {
-                inode.create(name, mode, InodeType::Directory)
-            }).ok()
-        }) {
-            Some(_) => {
-                log!("syscall":"mkdirat">"success");
-                0
+        log!("syscall":"mkdirat">"absolute path: {}", path);
+        pcb.root.clone()
+    } else if fd == AT_FDCWD {
+        // 使用dirfd作为父节点
+        log!("syscall":"mkdirat">"relative path: {}", path);
+        match parse_path(&pcb.root, pcb.cwd.as_str()) {
+            Ok(inode) => {
+                inode
             }
-            None => {
-                -1
+            Err(_) => {
+                log!("syscall":"mkdirat">"invalid cwd {}", pcb.cwd);
+                return -1
             }
         }
     } else {
-        // todo: 暂时不支持相对路径
-        // path是fd的相对路径
+        return -1
+    };
+    let (rest, name) = rsplit_path(path);
+    if let Some(_) = match rest {
+        Some(rest) => {
+            parse_path(&root, rest).and_then(|inode| {
+                inode.create(name, mode, InodeType::Directory)
+            }).ok()
+        }
+        None => {
+            root.create(name, mode, InodeType::Directory).ok()
+        }
+    } {
+        0
+    } else {
         -1
     }
 }
@@ -141,7 +155,7 @@ pub(super) fn sys_chdir (
 
 pub(super) fn sys_openat (
     pcb: &mut MutexGuard<Pcb>,
-    fd: isize,
+    dirfd: isize,
     path: VirtualAddr,
     flags: usize,
     mode: usize
@@ -150,54 +164,65 @@ pub(super) fn sys_openat (
     let path = get_str(&path);
     let flags = OpenFlags::from_bits(flags).unwrap();
     let mode = FileMode::from_bits(mode).unwrap();
-    if is_absolute_path(path) {
+    // 判断path使用的父节点
+    let root = if is_absolute_path(path) {
         log!("syscall":"openat">"absolute path: {}", path);
-        match parse_path(&pcb.root, path) {
+        pcb.root.clone()
+    } else if dirfd == AT_FDCWD {
+        // 使用cwd作为父节点
+        log!("syscall":"openat">"relative path: {}", path);
+        match parse_path(&pcb.root, pcb.cwd.as_str()) {
             Ok(inode) => {
-                log!("syscall":"openat">"path exists: {}", path);
-                if let Ok(_) = File::open(inode, flags).and_then(|file| {
-                    if pcb.fds_add(fd, file) {
-                        Ok(())
-                    } else {
-                        Err(FileErr::FdInvalid)
-                    }
-                }) {
-                    return fd as isize
-                } else {
-                    return -1
-                }
+                inode
             }
-            Err(FileErr::InodeNotChild) if flags.contains(OpenFlags::CREATE) => {
-                log!("syscall":"openat">"path not exists, create: {}", path);
-                let (rest, comp) = rsplit_path(path);
-                if let Some(rest) = rest {
-                    // 解析Path中除去最后一个节点的剩余节点
-                    if let Ok(_) = parse_path(&pcb.root, rest).and_then(|inode| {
-                        inode.create(comp, mode, InodeType::File)
-                    }).and_then(|inode| {
-                        File::open(inode, flags)
-                    }).and_then(|file| {
-                        if pcb.fds_add(fd, file) {
-                            Ok(())
-                        } else {
-                            Err(FileErr::FdInvalid)
-                        }
-                    }) {
-                        return fd as isize
-                    }
-                }
-                return -1
-            }
-            _ => {
-                log!("syscall":"openat">"path not exists: {}", path);
+            Err(_) => {
+                log!("syscall":"openat">"invalid cwd {}", pcb.cwd);
                 return -1
             }
         }
     } else {
-        log!("syscall":"openat">"relative path: {}", path);
-        // 目前暂时不支持相对路径
+        log!("syscall":"openat">"invalid combination of dirfd and path: {}, {}", dirfd, path);
         return -1
+    };
+    // 1. 首先尝试直接解析
+    match parse_path(&root, path) {
+        Ok(inode) => {
+            // 2. 解析成功，直接打开
+            log!("syscall":"openat">"path exists: {}", path);
+            if let Ok(fd) = File::open(inode, flags).and_then(|file| {
+                pcb.fds_insert(file).ok_or(FileErr::NotDefine)
+            }) {
+                return fd as isize
+            }
+        }
+        // 3. 解析失败，目录内没有该path，如果flags包含create，尝试创建文件
+        Err(FileErr::InodeNotChild) if flags.contains(OpenFlags::CREATE) => {
+            log!("syscall":"openat">"path not exists, create: {}", path);
+            let (rest, comp) = rsplit_path(path);
+            let parent = if let Some(rest) = rest {
+                // 4. 解析Path中除去最后一个节点的剩余节点
+                parse_path(&root, rest)
+            } else {
+                Ok(root.clone())
+            };
+            if let Ok(addedfd) = parent.and_then(|inode| {
+                // 5. 存在则新建文件
+                inode.create(comp, mode, InodeType::File)
+            }).and_then(|inode| {
+                File::open(inode, flags)
+            }).and_then(|file| {
+                // 6. 将打开的文件加入指定的fd中
+                pcb.fds_insert(file).ok_or(FileErr::FdInvalid)
+            }) {
+                // 7. 成功，返回新的fd
+                return addedfd as isize
+            }
+        }
+        _ => {
+            log!("syscall":"openat">"path not exists: {}", path);
+        }
     }
+    -1
 }
 
 pub(super) fn sys_close (

@@ -41,12 +41,16 @@ pub enum FileErr {
     FileNotWrite,
     // File没有写权限
     FileNotRead,
+    // 读到末尾
+    FileEOF,
     // Fixme: 未定义的错误
     NotDefine,
     // Directory中找不到Child
     InodeNotChild,
     // Inode不是Directory
     InodeNotDir,
+    // 目录Inode中已经存在同名的child
+    InodeChildExist,
     // Fd不正确
     FdInvalid,
     // Pipe需要等待另一端写入
@@ -124,9 +128,16 @@ impl File {
         self.flags
     }
 
+    pub fn get_inode(&self) -> Inode {
+        self.inode.clone()
+    }
+
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, FileErr> {
         if !self.flags.readable() {
             return Err(FileErr::FileNotRead)
+        }
+        if self.pos >= self.inode.len() {
+            return Err(FileErr::FileEOF)
         }
         self.inode.read_offset(self.pos, buf).and_then(|size| {
             self.pos += size;
@@ -177,10 +188,8 @@ pub trait _Inode {
         unimplemented!("write")
     }
 
-    // Inode表示的文件都长度
-    fn len(&self) -> usize {
-        unimplemented!("len")
-    }
+    // Inode表示的文件都长度, 必须实现，用于read检测EOF
+    fn len(&self) -> usize;
     
     // File打开时通知Inode，可以方便Inode记录引用
     fn file_open(&self, _: OpenFlags) {
@@ -259,6 +268,9 @@ impl Console {
 }
 
 impl _Inode for Console {
+    fn len(&self) -> usize {
+        usize::MAX
+    }
     fn write_offset(&self, _: usize, buf: &[u8]) -> Result<usize, FileErr> {
         unsafe {
             log!("user_log":>"{}", core::str::from_utf8_unchecked(buf));

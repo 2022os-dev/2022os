@@ -11,7 +11,7 @@ use core::mem::size_of;
 use core::assert;
 
 fn main() {
-    let mut fds: [usize; 2] = [0,0];
+    let mut fds: [isize; 2] = [0,0];
     let hello = "hello world, it is a good day";
     let mut buf: [u8; 29] = [0; 29];
     assert!(syscall_pipe(&mut fds) == 0);
@@ -30,7 +30,7 @@ fn main() {
     // 管道写入
     syscall_write(fds[1], hello.as_bytes());
     // 把fd[0]关闭，新建fd
-    assert!(syscall_dup3(10, fds[0]) == fds[0] as isize);
+    assert!(syscall_dup3(10, fds[0]) == fds[0]);
     // 另一端读出
     syscall_read(fds[0], &mut buf);
     let s = unsafe {core::str::from_utf8_unchecked(&buf)};

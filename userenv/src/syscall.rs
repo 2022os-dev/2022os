@@ -95,7 +95,7 @@ impl OpenFlags {
 
 }
 
-pub fn syscall_pipe(pipe: &mut [usize; 2]) -> isize {
+pub fn syscall_pipe(pipe: &mut [isize; 2]) -> isize {
     let mut a0 = pipe as *const _ as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -106,8 +106,8 @@ pub fn syscall_pipe(pipe: &mut [usize; 2]) -> isize {
 
 }
 
-pub fn syscall_openat(fd: usize, filename: &str, flags: OpenFlags, mode: FileMode) -> isize {
-    let mut a0 = fd;
+pub fn syscall_openat(fd: isize, filename: &str, flags: OpenFlags, mode: FileMode) -> isize {
+    let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x11") filename.as_ptr() as usize,
@@ -119,8 +119,8 @@ pub fn syscall_openat(fd: usize, filename: &str, flags: OpenFlags, mode: FileMod
     a0 as isize
 }
 
-pub fn syscall_dup(fd: usize) -> isize {
-    let mut a0 = fd;
+pub fn syscall_dup(fd: isize) -> isize {
+    let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x17") SYSCALL_DUP
@@ -129,8 +129,8 @@ pub fn syscall_dup(fd: usize) -> isize {
     a0 as isize
 }
 
-pub fn syscall_dup3(oldfd: usize, newfd: usize) -> isize {
-    let mut a0 = oldfd;
+pub fn syscall_dup3(oldfd: isize, newfd: isize) -> isize {
+    let mut a0 = oldfd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x11") newfd,
@@ -140,8 +140,8 @@ pub fn syscall_dup3(oldfd: usize, newfd: usize) -> isize {
     a0 as isize
 }
 
-pub fn syscall_mkdirat(fd: usize, path: &str, mode: FileMode) -> isize {
-    let mut a0 = fd;
+pub fn syscall_mkdirat(fd: isize, path: &str, mode: FileMode) -> isize {
+    let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x11") path.as_ptr() as usize,
@@ -152,8 +152,8 @@ pub fn syscall_mkdirat(fd: usize, path: &str, mode: FileMode) -> isize {
     a0 as isize
 }
 
-pub fn syscall_close(fd: usize) -> isize {
-    let mut a0 = fd;
+pub fn syscall_close(fd: isize) -> isize {
+    let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x17") SYSCALL_CLOSE
@@ -166,8 +166,8 @@ pub fn syscall_close(fd: usize) -> isize {
 pub const SEEK_SET: usize = 0;
 pub const SEEK_CUR : usize = 1;
 pub const SEEK_END : usize = 2;
-pub fn syscall_lseek(fd: usize, offset: isize, whence: usize) -> isize {
-    let mut a0 = fd;
+pub fn syscall_lseek(fd: isize, offset: isize, whence: usize) -> isize {
+    let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x11") offset as usize,
@@ -178,8 +178,8 @@ pub fn syscall_lseek(fd: usize, offset: isize, whence: usize) -> isize {
     a0 as isize
 }
 
-pub fn syscall_write(fd: usize, buf: &[u8]) -> isize {
-    let mut a0 = fd;
+pub fn syscall_write(fd: isize, buf: &[u8]) -> isize {
+    let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x11") buf.as_ptr() as usize,
@@ -189,8 +189,8 @@ pub fn syscall_write(fd: usize, buf: &[u8]) -> isize {
     }
     a0 as isize
 }
-pub fn syscall_read(fd: usize, buf: &mut [u8]) -> isize {
-    let mut a0 = fd;
+pub fn syscall_read(fd: isize, buf: &mut [u8]) -> isize {
+    let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x11") buf.as_ptr() as usize,

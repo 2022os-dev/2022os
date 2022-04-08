@@ -15,6 +15,7 @@ static READ: &'static [u8] = include_bytes!("bin/read");
 static OPENAT: &'static [u8] = include_bytes!("bin/openat");
 static PIPE: &'static [u8] = include_bytes!("bin/pipe");
 static DUP : &'static [u8] = include_bytes!("bin/dup");
+static MKDIRAT: &'static [u8] = include_bytes!("bin/mkdirat");
 
 lazy_static! {
     pub static ref APP: Box<[&'static [u8]]> = Box::new([

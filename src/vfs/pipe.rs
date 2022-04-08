@@ -39,6 +39,11 @@ impl Default for PipeInner {
 }
 
 impl _Inode for PipeInode {
+
+    fn len(&self) -> usize {
+        usize::MAX
+    }
+
     fn read_offset(&self, _: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
         // 管道读时忽略offset参数
         let mut inner = self.inner.lock();
