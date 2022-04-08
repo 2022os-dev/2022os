@@ -11,9 +11,13 @@ use core::mem::size_of;
 use core::assert;
 
 fn main() {
-    let name = "/gg\0";
-    let flags = OpenFlags::CREATE | OpenFlags::RDWR;
     let mode = FileMode::empty();
+    assert!(syscall_mkdirat(0, "/a/c\0", mode) == -1);
+    assert!(syscall_mkdirat(0, "/a\0", mode) == 0);
+    assert!(syscall_mkdirat(0, "/aa/c\0", mode) == -1);
+    assert!(syscall_mkdirat(0, "/a/c\0", mode) == 0);
+    let name = "/a/c/gg\0";
+    let flags = OpenFlags::CREATE | OpenFlags::RDWR;
     // 创建文件
     let fd = syscall_openat(10, name, flags, mode);
     println!{"fd is {}", fd};

@@ -62,14 +62,22 @@ impl _Inode for MemInode {
         Ok(i)
     }
 
-    fn create(&self, subname: &str, _: FileMode) -> Result<Inode, FileErr> {
+    fn create(&self, subname: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
         log!("vfs":"mem_create">"({})", subname);
-        let inode = alloc_inode();
-        if let Err(_) = inode {
-            return Err(FileErr::NotDefine)
+        match itype {
+            InodeType::Directory |
+            InodeType::File => {
+                let inode = alloc_inode();
+                if let Err(_) = inode {
+                    return Err(FileErr::NotDefine)
+                }
+                self.inner.write().children.insert(String::from(subname), inode.clone().unwrap());
+                Ok(inode.unwrap())
+            }
+            _ => {
+                Err(FileErr::NotDefine)
+            }
         }
-        self.inner.write().children.insert(String::from(subname), inode.clone().unwrap());
-        Ok(inode.unwrap())
     }
 
     fn open_child(&self, name: &str, flags: OpenFlags) -> Result<Fd, FileErr> {

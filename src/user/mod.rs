@@ -18,6 +18,6 @@ static DUP : &'static [u8] = include_bytes!("bin/dup");
 
 lazy_static! {
     pub static ref APP: Box<[&'static [u8]]> = Box::new([
-        DUP
+        OPENAT
     ]);
 }

@@ -4,7 +4,11 @@ use core::convert::TryFrom;
 
 use crate::sbi::*;
 
-
+pub enum InodeType {
+    File,
+    Directory,
+    SymbolLink
+}
 bitflags! {
     // 表示openat(2) 中的flags
     pub struct OpenFlags: usize {
@@ -33,12 +37,21 @@ impl OpenFlags {
 
 #[derive(Debug)]
 pub enum FileErr {
-    NotWrite,
-    NotRead,
+    // File没有读权限
+    FileNotWrite,
+    // File没有写权限
+    FileNotRead,
+    // Fixme: 未定义的错误
     NotDefine,
+    // Directory中找不到Child
     InodeNotChild,
-    InvalidFd,
+    // Inode不是Directory
+    InodeNotDir,
+    // Fd不正确
+    FdInvalid,
+    // Pipe需要等待另一端写入
     PipeReadWait,
+    // Pipe需要等待另一端读出
     PipeWriteWait
 }
 
@@ -113,7 +126,7 @@ impl File {
 
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, FileErr> {
         if !self.flags.readable() {
-            return Err(FileErr::NotRead)
+            return Err(FileErr::FileNotRead)
         }
         self.inode.read_offset(self.pos, buf).and_then(|size| {
             self.pos += size;
@@ -122,7 +135,7 @@ impl File {
     }
     pub fn write(&mut self, buf: &[u8]) -> Result<usize, FileErr> {
         if !self.flags.writable() {
-            return Err(FileErr::NotWrite)
+            return Err(FileErr::FileNotWrite)
         }
         self.inode.write_offset(self.pos, buf).and_then(|size| {
             self.pos += size;
@@ -139,6 +152,7 @@ impl Drop for File {
 }
 pub trait _Inode {
 
+    // 如果Inode不是目录，返回Err(FileErr::NotDir)
     fn get_child(&self, _: &str) -> Result<Inode, FileErr> {
         unimplemented!("get_child")
     }
@@ -148,9 +162,9 @@ pub trait _Inode {
         unimplemented!("open_child")
     }
 
-    // 在当前目录创建一个文件（普通文件或者目录文件，由FileMode指定）
-    fn create(&self, _: &str, _: FileMode) -> Result<Inode, FileErr> {
-        unimplemented!("write")
+    // 在当前目录创建一个普通文件
+    fn create(&self, _: &str, _: FileMode, _: InodeType) -> Result<Inode, FileErr> {
+        unimplemented!("create")
     }
 
     // 从Inode的某个偏移量读出

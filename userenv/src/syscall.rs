@@ -140,6 +140,18 @@ pub fn syscall_dup3(oldfd: usize, newfd: usize) -> isize {
     a0 as isize
 }
 
+pub fn syscall_mkdirat(fd: usize, path: &str, mode: FileMode) -> isize {
+    let mut a0 = fd;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") path.as_ptr() as usize,
+            in("x12") mode.bits(),
+            in("x17") SYSCALL_MKDIRAT
+        )
+    }
+    a0 as isize
+}
+
 pub fn syscall_close(fd: usize) -> isize {
     let mut a0 = fd;
     unsafe {

@@ -114,6 +114,14 @@ pub fn syscall_handler() {
             log!("syscall":"dup3" > "pid({}) ({}, {})", pcblock.pid, oldfd, newfd);
             pcblock.trapframe()["a0"] = sys_dup3(&mut pcblock, oldfd, newfd) as usize;
         }
+        SYSCALL_MKDIRAT => {
+            let fd = trapframe["a0"];
+            let path = VirtualAddr(trapframe["a1"]);
+            let mode = trapframe["a2"];
+            log!("syscall":"mkdirat" > "pid({}) ({}, 0x{:x})", pcblock.pid, fd, mode);
+            pcblock.trapframe()["a0"] = sys_mkdirat(&mut pcblock, fd, path, mode) as usize;
+
+        }
         SYSCALL_CHDIR => {
             let path = VirtualAddr(trapframe["a0"]);
             log!("syscall":"chdir" > "pid({}) (0x{:x})", pcblock.pid, path.0);

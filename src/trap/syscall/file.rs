@@ -7,6 +7,19 @@ use crate::sbi::sbi_legacy_call;
 use spin::MutexGuard;
 use crate::vfs::*;
 
+fn get_str(pa: &PhysAddr) -> &str {
+    let mut len = 0;
+    // Fixme: 假设路径最长为512
+    while len < 512 {
+        if unsafe { *(pa.0 as *const u8).add(len) } != 0 {
+            len += 1;
+        } else {
+            break
+        }
+    }
+    unsafe { core::str::from_utf8_unchecked(pa.as_slice(len)) }
+}
+
 pub(super) fn sys_getcwd (
     pcb: &mut MutexGuard<Pcb>,
     buf: VirtualAddr,
@@ -20,6 +33,38 @@ pub(super) fn sys_getcwd (
         // Fixme: 考虑 len长度限制
         buf.write(pcb.cwd.as_bytes());
         VirtualAddr(buf.0)
+    }
+}
+
+pub(super) fn sys_mkdirat(
+    pcb: &mut MutexGuard<Pcb>,
+    fd: usize,
+    path: VirtualAddr,
+    mode: usize
+) -> isize {
+    let phys: PhysAddr = path.into();
+    let path = get_str(&phys);
+    let mode = FileMode::from_bits(mode).unwrap();
+    if is_absolute_path(path) {
+        // 绝对路径,忽略fd
+        let (rest, name) = rsplit_path(path);
+        match rest.and_then(|rest| {
+            parse_path(&ROOT, rest).and_then(|inode| {
+                inode.create(name, mode, InodeType::Directory)
+            }).ok()
+        }) {
+            Some(_) => {
+                log!("syscall":"mkdirat">"success");
+                0
+            }
+            None => {
+                -1
+            }
+        }
+    } else {
+        // todo: 暂时不支持相对路径
+        // path是fd的相对路径
+        -1
     }
 }
 
@@ -101,17 +146,8 @@ pub(super) fn sys_openat (
     flags: usize,
     mode: usize
 ) -> isize {
-    let filename: PhysAddr = path.into();
-    let mut len = 0;
-    // Fixme: 假设路径最长为512
-    while len < 512 {
-        if unsafe { *(filename.0 as *const u8).add(len) } != 0 {
-            len += 1;
-        } else {
-            break
-        }
-    }
-    let path = unsafe { core::str::from_utf8_unchecked(filename.as_slice(len)) };
+    let path: PhysAddr = path.into();
+    let path = get_str(&path);
     let flags = OpenFlags::from_bits(flags).unwrap();
     let mode = FileMode::from_bits(mode).unwrap();
     if is_absolute_path(path) {
@@ -123,7 +159,7 @@ pub(super) fn sys_openat (
                     if pcb.fds_add(fd, file) {
                         Ok(())
                     } else {
-                        Err(FileErr::InvalidFd)
+                        Err(FileErr::FdInvalid)
                     }
                 }) {
                     return fd as isize
@@ -135,15 +171,16 @@ pub(super) fn sys_openat (
                 log!("syscall":"openat">"path not exists, create: {}", path);
                 let (rest, comp) = rsplit_path(path);
                 if let Some(rest) = rest {
+                    // 解析Path中除去最后一个节点的剩余节点
                     if let Ok(_) = parse_path(&*ROOT, rest).and_then(|inode| {
-                        inode.create(comp, mode)
+                        inode.create(comp, mode, InodeType::File)
                     }).and_then(|inode| {
                         File::open(inode, flags)
                     }).and_then(|file| {
                         if pcb.fds_add(fd, file) {
                             Ok(())
                         } else {
-                            Err(FileErr::InvalidFd)
+                            Err(FileErr::FdInvalid)
                         }
                     }) {
                         return fd as isize

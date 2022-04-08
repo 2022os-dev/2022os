@@ -69,6 +69,8 @@
   - [ ] linkat 
   - [ ] unlinkat
   - [ ] mkdirat 
+    - [x] 创建绝对路径文件夹
+    - [ ] 创建相对路径文件夹
   - [ ] umount2
   - [ ] mount
   - [ ] fstat 
