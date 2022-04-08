@@ -8,6 +8,7 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use alloc::string::String;
 use alloc::vec;
+use core::convert::TryFrom;
 use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::Ordering;
 use spin::Mutex;
@@ -46,6 +47,8 @@ pub struct Pcb {
     pub fds: Vec<Option<Fd>>,
     pub children: Vec<Arc<Mutex<Pcb>>>,
     pub sabinds: SigActionBinds,
+    // 进程文件系统根目录
+    pub root: Inode,
 
     // times()
     utimes: usize,
@@ -70,6 +73,8 @@ impl Pcb {
             fds: vec![Some(STDIN.clone()), Some(STDOUT.clone())],
             children: Vec::new(),
             sabinds: SigActionBinds::new(),
+            // 默认根目录
+            root: ROOT.clone(),
 
             utimes: 0,
             stimes: 0,
@@ -86,25 +91,29 @@ impl Pcb {
         pcb
     }
 
-    pub fn get_fd(&self, idx: usize) -> Option<Fd> {
-        if let Some(fd) = self.fds.get(idx) {
-            fd.clone()
-        } else {
-            None
+    pub fn get_fd(&self, idx: isize) -> Option<Fd> {
+        if let Ok(idx) = usize::try_from(idx) {
+            if let Some(fd) = self.fds.get(idx) {
+                return fd.clone()
+            }
         }
+        None
     }
 
-    pub fn fds_add(&mut self, idx: usize, fd: Fd) -> bool {
-        if self.fds.len() <= idx && idx < MAX_FDS {
-            for _ in 0..idx - self.fds.len() {
-                self.fds.push(None)
-            }
-            self.fds.push(Some(fd));
-            return true
-        } else if self.fds.len() > idx {
-            if let None = self.get_fd(idx) {
-                self.fds[idx] = Some(fd);
+    // 在指定的fd处插入
+    pub fn fds_add(&mut self, idx: isize, fd: Fd) -> bool {
+        if let Ok(fd_ind) = usize::try_from(idx) {
+            if self.fds.len() <= fd_ind && fd_ind < MAX_FDS {
+                for _ in 0..fd_ind- self.fds.len() {
+                    self.fds.push(None)
+                }
+                self.fds.push(Some(fd));
                 return true
+            } else if self.fds.len() > fd_ind {
+                if let None = self.get_fd(idx) {
+                    self.fds[fd_ind] = Some(fd);
+                    return true
+                }
             }
         }
         false
@@ -126,13 +135,15 @@ impl Pcb {
         }
     }
 
-    pub fn fds_close(&mut self, idx: usize) -> bool {
-        if let Some(_) = self.get_fd(idx)  {
-            self.fds[idx] = None;
-            true
-        } else {
-            false
+    pub fn fds_close(&mut self, idx: isize) -> bool {
+        if let Ok(fd_ind) = usize::try_from(idx) {
+            if let Some(_) = self.get_fd(idx)  {
+                self.fds[fd_ind] = None;
+                return true
+            }
         }
+        false
+
     }
 
     pub fn state(&self) -> PcbState {

@@ -104,18 +104,18 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_pipe(&mut pcblock, pipe) as usize;
         }
         SYSCALL_DUP => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             log!("syscall":"dup" > "pid({}) ({})", pcblock.pid, fd);
             pcblock.trapframe()["a0"] = sys_dup(&mut pcblock, fd) as usize;
         }
         SYSCALL_DUP3 => {
-            let oldfd = trapframe["a0"];
-            let newfd = trapframe["a1"];
+            let oldfd = trapframe["a0"] as isize;
+            let newfd = trapframe["a1"] as isize;
             log!("syscall":"dup3" > "pid({}) ({}, {})", pcblock.pid, oldfd, newfd);
             pcblock.trapframe()["a0"] = sys_dup3(&mut pcblock, oldfd, newfd) as usize;
         }
         SYSCALL_MKDIRAT => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             let path = VirtualAddr(trapframe["a1"]);
             let mode = trapframe["a2"];
             log!("syscall":"mkdirat" > "pid({}) ({}, 0x{:x})", pcblock.pid, fd, mode);
@@ -128,7 +128,7 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_chdir(&mut pcblock, path) as usize;
         }
         SYSCALL_OPENAT => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             let filename = VirtualAddr(trapframe["a1"]);
             let flags = trapframe["a2"];
             let mode = trapframe["a3"];
@@ -136,13 +136,13 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_openat(&mut pcblock, fd, filename, flags, mode) as usize;
         }
         SYSCALL_CLOSE => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             drop(trapframe);
             log!("syscall":"close" > "pid({}) ({})", pcblock.pid, fd);
             pcblock.trapframe()["a0"] = sys_close(&mut pcblock, fd) as usize;
         }
         SYSCALL_GETDENTS64 => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             let buf = VirtualAddr(trapframe["a1"]);
             let len = trapframe["a2"];
             drop(trapframe);
@@ -150,7 +150,7 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_getdents64(&mut pcblock, fd, buf, len) as usize;
         }
         SYSCALL_LSEEK => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             let offset = trapframe["a1"] as isize;
             let whence = trapframe["a2"];
             drop(trapframe);
@@ -158,7 +158,7 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_lseek(&mut pcblock, fd, offset, whence) as usize;
         }
         SYSCALL_WRITE => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             let buf = VirtualAddr(trapframe["a1"]);
             let len = trapframe["a2"];
             drop(trapframe);
@@ -166,7 +166,7 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_write(&mut pcblock, fd, buf, len) as usize;
         }
         SYSCALL_READ => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             let buf = VirtualAddr(trapframe["a1"]);
             let len = trapframe["a2"];
             drop(trapframe);

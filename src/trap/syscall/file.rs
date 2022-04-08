@@ -38,7 +38,7 @@ pub(super) fn sys_getcwd (
 
 pub(super) fn sys_mkdirat(
     pcb: &mut MutexGuard<Pcb>,
-    fd: usize,
+    fd: isize,
     path: VirtualAddr,
     mode: usize
 ) -> isize {
@@ -49,7 +49,7 @@ pub(super) fn sys_mkdirat(
         // 绝对路径,忽略fd
         let (rest, name) = rsplit_path(path);
         match rest.and_then(|rest| {
-            parse_path(&ROOT, rest).and_then(|inode| {
+            parse_path(&pcb.root, rest).and_then(|inode| {
                 inode.create(name, mode, InodeType::Directory)
             }).ok()
         }) {
@@ -92,7 +92,7 @@ pub(super) fn sys_pipe (
 
 pub(super) fn sys_dup (
     pcb: &mut MutexGuard<Pcb>,
-    fd: usize,
+    fd: isize,
 ) -> isize {
     match pcb.get_fd(fd).and_then(|fd| {
         pcb.fds_insert(fd)
@@ -108,8 +108,8 @@ pub(super) fn sys_dup (
 
 pub(super) fn sys_dup3 (
     pcb: &mut MutexGuard<Pcb>,
-    oldfd: usize,
-    newfd: usize
+    oldfd: isize,
+    newfd: isize
 ) -> isize {
     // Fixme: 2021初赛中没有指定flags选项
     if oldfd == newfd {
@@ -141,7 +141,7 @@ pub(super) fn sys_chdir (
 
 pub(super) fn sys_openat (
     pcb: &mut MutexGuard<Pcb>,
-    fd: usize,
+    fd: isize,
     path: VirtualAddr,
     flags: usize,
     mode: usize
@@ -152,7 +152,7 @@ pub(super) fn sys_openat (
     let mode = FileMode::from_bits(mode).unwrap();
     if is_absolute_path(path) {
         log!("syscall":"openat">"absolute path: {}", path);
-        match parse_path(&*ROOT, path) {
+        match parse_path(&pcb.root, path) {
             Ok(inode) => {
                 log!("syscall":"openat">"path exists: {}", path);
                 if let Ok(_) = File::open(inode, flags).and_then(|file| {
@@ -172,7 +172,7 @@ pub(super) fn sys_openat (
                 let (rest, comp) = rsplit_path(path);
                 if let Some(rest) = rest {
                     // 解析Path中除去最后一个节点的剩余节点
-                    if let Ok(_) = parse_path(&*ROOT, rest).and_then(|inode| {
+                    if let Ok(_) = parse_path(&pcb.root, rest).and_then(|inode| {
                         inode.create(comp, mode, InodeType::File)
                     }).and_then(|inode| {
                         File::open(inode, flags)
@@ -202,7 +202,7 @@ pub(super) fn sys_openat (
 
 pub(super) fn sys_close (
     pcb: &mut MutexGuard<Pcb>,
-    fd: usize,
+    fd: isize,
 ) -> isize {
     if pcb.fds_close(fd) {
         0
@@ -213,7 +213,7 @@ pub(super) fn sys_close (
 
 pub(super) fn sys_getdents64 (
     pcb: &mut MutexGuard<Pcb>,
-    fd: usize,
+    fd: isize,
     buf: VirtualAddr,
     len: usize
 ) -> isize {
@@ -222,7 +222,7 @@ pub(super) fn sys_getdents64 (
 
 pub(super) fn sys_lseek (
     pcb: &mut MutexGuard<Pcb>,
-    fd: usize,
+    fd: isize,
     offset: isize,
     whence: usize
 ) -> isize {
@@ -239,7 +239,7 @@ pub(super) fn sys_lseek (
 
 pub(super) fn sys_write(
     pcb: &mut MutexGuard<Pcb>,
-    fd: usize,
+    fd: isize,
     buf: VirtualAddr,
     len: usize,
 ) -> isize {
@@ -271,7 +271,7 @@ pub(super) fn sys_write(
 
 pub(super) fn sys_read(
     pcb: &mut MutexGuard<Pcb>,
-    fd: usize,
+    fd: isize,
     buf: VirtualAddr,
     len: usize,
 ) -> isize {
