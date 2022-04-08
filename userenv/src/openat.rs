@@ -58,6 +58,8 @@ fn main() {
     assert!(unsafe {core::str::from_utf8_unchecked(&buf)} == name);
 
 
+    println!("..........................");
+
     // 相对路径创建文件
     let flags = OpenFlags::CREATE | OpenFlags::RDWR;
     let name = "rfile\0";
@@ -101,4 +103,27 @@ fn main() {
     assert!(syscall_read(oldfd, &mut buf) == name.len() as isize);
     assert!(unsafe {core::str::from_utf8_unchecked(&buf)} == name);
 
+
+    let flags = OpenFlags::CREATE | OpenFlags::RDWR;
+    let name = "/a/b\0";
+    let fd = syscall_openat(0, name, flags, mode);
+    assert!(fd == -1);
+
+    assert!(syscall_mkdirat(-100, "./dir1\0", mode) == 0);
+    assert!(syscall_mkdirat(-100, "./dir1/dir2\0", mode) == 0);
+    assert!(syscall_mkdirat(-100, "./dir1/dir2/dir3\0", mode) == 0);
+
+    // 打开文件夹
+    assert!(syscall_openat(0, "/dir1\0", flags, mode) > 0);
+    assert!(syscall_openat(-100, "./dir1\0", flags, mode) > 0);
+    assert!(syscall_openat(0, "/dir1/dir2/dir3\0", flags, mode) > 0);
+    assert!(syscall_openat(-100, "./dir1/dir2/dir3\0", flags, mode) > 0);
+
+    // 错误搭配
+    assert!(syscall_openat(0, "hello\0", flags, mode) == -1);
+
+    // 使用"..“和"."
+    assert!(syscall_openat(0, "/dir1/../dir1/dir2/file2\0", flags, mode) > 0);
+    assert!(syscall_openat(0, "/dir1/./dir2/file2\0", flags, mode) > 0);
+    assert!(syscall_openat(0, "/dir1/../dir1/dir2/../dir2/file2\0", flags, mode) > 0);
 }

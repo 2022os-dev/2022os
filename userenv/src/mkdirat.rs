@@ -44,4 +44,29 @@ fn main() {
     // 创建重复文件夹
     assert!(syscall_mkdirat(-100, "relative\0", mode) == -1);
 
+    // 特殊路径
+    assert!(syscall_mkdirat(0, "/dir/\0", mode) == 0);
+    // Linux下应该出错，但是这里会去掉多余的/后缀
+    assert!(syscall_mkdirat(0, "/dir2//\0", mode) == 0);
+
+    // 使用".."和"."
+    assert!(syscall_mkdirat(0, "/absolute/.\0", mode) == -1);
+    assert!(syscall_mkdirat(0, "/absolute/..\0", mode) == -1);
+    assert!(syscall_mkdirat(0, "/absolute/dir\0", mode) == 0);
+
+    assert!(syscall_mkdirat(0, "/absolute/dir/../test\0", mode) == 0);
+    // 如果成功会重复创建导致失败
+    assert!(syscall_mkdirat(0, "/absolute/test\0", mode) == -1);
+
+    assert!(syscall_mkdirat(0, "/absolute/dir/./test\0", mode) == 0);
+    // 如果成功会重复创建导致失败
+    assert!(syscall_mkdirat(0, "/absolute/dir/test\0", mode) == -1);
+
+    assert!(syscall_mkdirat(0, "/absolute/dir/../../test\0", mode) == 0);
+    // 如果成功会重复创建导致失败
+    assert!(syscall_mkdirat(-100, "test\0", mode) == -1);
+
+    // 超过根目录
+    assert!(syscall_mkdirat(0, "/absolute/dir/../../../test\0", mode) == -1);
+
 }

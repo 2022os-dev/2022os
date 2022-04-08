@@ -32,7 +32,7 @@ impl MemInode {
 
 impl _Inode for MemInode {
     fn read_offset(&self, mut offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
-        log!("vfs":"mem_read">"({})", offset);
+        log!("vfs":"mem_read">"offset ({})", offset);
         let mut i = 0;
         while i < buf.len() {
             if offset >= 512 {
@@ -46,7 +46,7 @@ impl _Inode for MemInode {
     }
 
     fn write_offset(&self, mut offset: usize, buf: &[u8]) -> Result<usize, FileErr> {
-        log!("vfs":"mem_write">"({})", offset);
+        log!("vfs":"mem_write">"offset ({})", offset);
         let mut i = 0;
         while i < buf.len() {
             if offset >= 512 {
@@ -63,9 +63,9 @@ impl _Inode for MemInode {
     }
 
     fn create(&self, subname: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
-        log!("vfs":"mem_create">"({})", subname);
         if subname.len() == 0 {
             // 文件名不正确
+            log!("vfs":"mem_create">"invalid name ({})", subname);
             return Err(FileErr::NotDefine)
         }
         match itype {
@@ -79,30 +79,34 @@ impl _Inode for MemInode {
                     return Err(FileErr::NotDefine)
                 }
                 self.inner.write().children.insert(String::from(subname), inode.clone().unwrap());
+                log!("vfs":"mem_create">"child name ({})", subname);
                 Ok(inode.unwrap())
             }
             _ => {
+                log!("vfs":"mem_create">"failed child name ({})", subname);
                 Err(FileErr::NotDefine)
             }
         }
     }
 
     fn open_child(&self, name: &str, flags: OpenFlags) -> Result<Fd, FileErr> {
-        log!("vfs":"mem_open">"({})", name);
         if let Ok(file) = self.get_child(name).and_then(|inode| {
             File::open(inode, flags)
         }) {
+            log!("vfs":"mem_open">"child ({})", name);
             Ok(file)
         } else {
+            log!("vfs":"mem_open">"failed child ({})", name);
             Err(FileErr::NotDefine)
         }
     }
 
     fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
-        log!("vfs":"mem_getchild">"({})", name);
         if let Some(child) = self.inner.read().children.get(name) {
+            log!("vfs":"mem_getchild">"got child name ({})", name);
             Ok(child.clone())
         } else {
+            log!("vfs":"mem_getchild">"not got child name ({})", name);
             Err(FileErr::InodeNotChild)
         }
     }

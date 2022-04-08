@@ -57,22 +57,22 @@
     - [x] 复制fd
     - [ ] 处理flags
   - [ ] chdir
-  - [ ] openat
+  - [x] openat
     - [x] 解析绝对路径
     - [x] 解析相对路径
     - [x] 创建文件
     - [x] 在指定的文件描述符打开文件
-    - [ ] 路径解析".."、"."
+    - [x] 路径解析".."、"."
   - [x] close
   - [ ] getdents
   - [x] read
   - [x] write
   - [ ] linkat 
   - [ ] unlinkat
-  - [ ] mkdirat 
+  - [x] mkdirat 
     - [x] 创建绝对路径文件夹
     - [x] 创建相对路径文件夹
-    - [ ] 处理".."、"."
+    - [x] 处理".."、"."
   - [ ] umount2
   - [ ] mount
   - [ ] fstat 

@@ -1,5 +1,6 @@
 use core::ops::Add;
 use alloc::sync::Arc;
+use alloc::string::String;
 
 use crate::mm::*;
 use crate::process::*;
@@ -46,34 +47,29 @@ pub(super) fn sys_mkdirat(
     let phys: PhysAddr = path.into();
     let path = get_str(&phys);
     let mode = FileMode::from_bits(mode).unwrap();
-    let root = if is_absolute_path(path) {
+    let fullpath = if is_absolute_path(path) {
         // 绝对路径,忽略fd
         log!("syscall":"mkdirat">"absolute path: {}", path);
-        pcb.root.clone()
+        String::from(path)
     } else if fd == AT_FDCWD {
-        // 使用dirfd作为父节点
+        // 使用cwd作为父节点
         log!("syscall":"mkdirat">"relative path: {}", path);
-        match parse_path(&pcb.root, pcb.cwd.as_str()) {
-            Ok(inode) => {
-                inode
-            }
-            Err(_) => {
-                log!("syscall":"mkdirat">"invalid cwd {}", pcb.cwd);
-                return -1
-            }
-        }
+        pcb.cwd.clone() + path
     } else {
         return -1
     };
-    let (rest, name) = rsplit_path(path);
+    let (rest, name) = rsplit_path(fullpath.as_str());
+    if name == "." || name == ".." {
+        return -1
+    }
     if let Some(_) = match rest {
         Some(rest) => {
-            parse_path(&root, rest).and_then(|inode| {
+            parse_path(&pcb.root, rest).and_then(|inode| {
                 inode.create(name, mode, InodeType::Directory)
             }).ok()
         }
         None => {
-            root.create(name, mode, InodeType::Directory).ok()
+            pcb.root.create(name, mode, InodeType::Directory).ok()
         }
     } {
         0
@@ -165,30 +161,22 @@ pub(super) fn sys_openat (
     let flags = OpenFlags::from_bits(flags).unwrap();
     let mode = FileMode::from_bits(mode).unwrap();
     // 判断path使用的父节点
-    let root = if is_absolute_path(path) {
+    let fullpath = if is_absolute_path(path) {
         log!("syscall":"openat">"absolute path: {}", path);
-        pcb.root.clone()
+        String::from(path)
     } else if dirfd == AT_FDCWD {
         // 使用cwd作为父节点
         log!("syscall":"openat">"relative path: {}", path);
-        match parse_path(&pcb.root, pcb.cwd.as_str()) {
-            Ok(inode) => {
-                inode
-            }
-            Err(_) => {
-                log!("syscall":"openat">"invalid cwd {}", pcb.cwd);
-                return -1
-            }
-        }
+        pcb.cwd.clone() + path
     } else {
         log!("syscall":"openat">"invalid combination of dirfd and path: {}, {}", dirfd, path);
         return -1
     };
     // 1. 首先尝试直接解析
-    match parse_path(&root, path) {
+    match parse_path(&pcb.root, fullpath.as_str()) {
         Ok(inode) => {
             // 2. 解析成功，直接打开
-            log!("syscall":"openat">"path exists: {}", path);
+            log!("syscall":"openat">"path exists: {}", fullpath);
             if let Ok(fd) = File::open(inode, flags).and_then(|file| {
                 pcb.fds_insert(file).ok_or(FileErr::NotDefine)
             }) {
@@ -197,13 +185,16 @@ pub(super) fn sys_openat (
         }
         // 3. 解析失败，目录内没有该path，如果flags包含create，尝试创建文件
         Err(FileErr::InodeNotChild) if flags.contains(OpenFlags::CREATE) => {
-            log!("syscall":"openat">"path not exists, create: {}", path);
-            let (rest, comp) = rsplit_path(path);
+            log!("syscall":"openat">"path not exists, create: {}", fullpath);
+            let (rest, comp) = rsplit_path(fullpath.as_str());
+            if comp == "." || comp == ".." {
+                return -1
+            }
             let parent = if let Some(rest) = rest {
                 // 4. 解析Path中除去最后一个节点的剩余节点
-                parse_path(&root, rest)
+                parse_path(&pcb.root, rest)
             } else {
-                Ok(root.clone())
+                Ok(pcb.root.clone())
             };
             if let Ok(addedfd) = parent.and_then(|inode| {
                 // 5. 存在则新建文件
@@ -219,7 +210,7 @@ pub(super) fn sys_openat (
             }
         }
         _ => {
-            log!("syscall":"openat">"path not exists: {}", path);
+            log!("syscall":"openat">"path not exists: {}", fullpath);
         }
     }
     -1
