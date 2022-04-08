@@ -162,7 +162,7 @@ pub trait _Inode {
         unimplemented!("open_child")
     }
 
-    // 在当前目录创建一个普通文件
+    // 在当前目录创建一个文件，文件类型由InodeType指定
     fn create(&self, _: &str, _: FileMode, _: InodeType) -> Result<Inode, FileErr> {
         unimplemented!("create")
     }
