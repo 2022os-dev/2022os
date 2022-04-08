@@ -50,6 +50,7 @@ impl _Inode for PipeInode {
         let mut i = inner.last_read;
         while i < len {
             if inner.nread == inner.nwrite {
+                // 需要等待另一端写入才能读出，记录这次未完成的读位置，下次读时继续
                 inner.last_read = i;
                 log!("pipe":"read">"remain (len: {}, i: {}, nread: {})", len, i, inner.nread);
                 return Err(FileErr::PipeReadWait)
@@ -73,6 +74,7 @@ impl _Inode for PipeInode {
         let mut i = inner.last_write;
         while i < len {
             if inner.nwrite == inner.nread + PIPE_INODE_SIZE {
+                // 需要等待另一端读出才能写入，记录这次未完成的写位置，下次写时继续
                 inner.last_write = i;
                 log!("pipe":"write">"remain (len: {}, i: {}, nwrite: {})", len, i, inner.nwrite);
                 return Err(FileErr::PipeWriteWait)
