@@ -216,6 +216,7 @@ pub(super) fn sys_openat (
             if let Ok(fd) = File::open(inode, flags).and_then(|file| {
                 pcb.fds_insert(file).ok_or(FileErr::NotDefine)
             }) {
+                // todo: O_TRUNC截断
                 return fd as isize
             }
         }
@@ -232,16 +233,21 @@ pub(super) fn sys_openat (
             } else {
                 Ok(pcb.root.clone())
             };
+            // 5. 判断节点是否解析成功
             if let Ok(addedfd) = parent.and_then(|inode| {
-                // 5. 存在则新建文件
-                inode.create(comp, mode, InodeType::File)
+                // 6. 解析成功则新建文件
+                if flags.contains(OpenFlags::DIRECTROY) {
+                    inode.create(comp, mode, InodeType::Directory)
+                } else {
+                    inode.create(comp, mode, InodeType::File)
+                }
             }).and_then(|inode| {
                 File::open(inode, flags)
             }).and_then(|file| {
-                // 6. 将打开的文件加入指定的fd中
+                // 7. 将打开的文件加入指定的fd中
                 pcb.fds_insert(file).ok_or(FileErr::FdInvalid)
             }) {
-                // 7. 成功，返回新的fd
+                // 8. 成功，返回新的fd
                 return addedfd as isize
             }
         }
