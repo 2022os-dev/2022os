@@ -59,8 +59,6 @@ pub struct Pcb {
     cstimes: usize,
 
     pub block_fn: Option<Arc<dyn Fn(&mut Pcb) -> bool>>,
-    // for nanosleep
-    pub wakeup_time: Option<usize>,
 }
 
 unsafe impl Send for Pcb {}
@@ -79,13 +77,12 @@ impl Pcb {
             // 默认根目录
             root: ROOT.clone(),
 
-            block_fn: None,
             utimes: 0,
             stimes: 0,
             cutimes: 0,
             cstimes: 0,
 
-            wakeup_time: None,
+            block_fn: None,
         };
         #[cfg(feature = "pcb")]
         unsafe {

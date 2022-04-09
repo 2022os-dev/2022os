@@ -274,11 +274,9 @@ pub fn syscall_handler() {
             let timespec: &TimeSpec = timespec.as_ref();
             let current_time = get_time();
             trapframe["a0"] = 0;
-            pcblock.wakeup_time = Some(
-                get_time() + timespec.tv_sec * RTCLK_FREQ + timespec.tv_nsec * RTCLK_FREQ / 1000,
-            );
+            let wakeup_time = get_time() + timespec.tv_sec * RTCLK_FREQ + timespec.tv_nsec * RTCLK_FREQ / 1000;
             pcblock.block_fn = Some(Arc::new(move |pcb| {
-                if pcb.wakeup_time.unwrap() <= get_time() {
+                if  wakeup_time <= get_time() {
                     return true;
                 }
                 false
