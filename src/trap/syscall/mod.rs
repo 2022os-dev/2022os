@@ -206,19 +206,17 @@ pub fn syscall_handler() {
                 // 回退上一条ecall指针，等待子进程信号
                 pcblock.trapframe()["sepc"] -= 4;
                 // 进入阻塞态，如果某个子进程退出则恢复
-                pcblock.set_state(PcbState::Blocking(|pcb| {
-                    let pcblock = pcb.try_lock();
-                    if let Some(pcblock) = pcblock {
-                        for i in pcblock.children.iter() {
-                            if let Some(childlock) = i.try_lock() {
-                                if let PcbState::Zombie(_) = childlock.state {
-                                    return true;
-                                }
+                pcblock.block_fn = Some(Arc::new(move |pcb| {
+                    for i in pcb.children.iter() {
+                        if let Some(childlock) = i.try_lock() {
+                            if let PcbState::Zombie(_) = childlock.state {
+                                return true;
                             }
                         }
                     }
                     false
                 }));
+                pcblock.set_state(PcbState::Blocking);
                 log!("syscall":"wait4" > "blocking pid({})", pcblock.pid);
             }
         }
@@ -279,14 +277,13 @@ pub fn syscall_handler() {
             pcblock.wakeup_time = Some(
                 get_time() + timespec.tv_sec * RTCLK_FREQ + timespec.tv_nsec * RTCLK_FREQ / 1000,
             );
-            pcblock.set_state(PcbState::Blocking(move |pcb| {
-                if let Some(pcb) = pcb.try_lock() {
-                    if pcb.wakeup_time.unwrap() <= get_time() {
-                        return true;
-                    }
+            pcblock.block_fn = Some(Arc::new(move |pcb| {
+                if pcb.wakeup_time.unwrap() <= get_time() {
+                    return true;
                 }
                 false
             }));
+            pcblock.set_state(PcbState::Blocking);
         }
         SYSCALL_FORK => {
             drop(trapframe);

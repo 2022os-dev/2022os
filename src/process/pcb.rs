@@ -29,13 +29,15 @@ pub fn alloc_pid() -> usize {
 #[cfg(feature = "pcb")]
 pub static mut DROPPCBS: Mutex<usize> = Mutex::new(0);
 
+use core::ops::Fn;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PcbState {
     Running,
     Zombie(isize),
     // 保持信号处理前的trapframe和signal mask
     SigHandling(PageNum, Signal),
-    Blocking(fn(Arc<Mutex<Pcb>>) -> bool),
+    // Blocking(fn(Arc<Mutex<Pcb>>) -> bool),
+    Blocking,
 }
 
 pub struct Pcb {
@@ -56,6 +58,7 @@ pub struct Pcb {
     cutimes: usize,
     cstimes: usize,
 
+    pub block_fn: Option<Arc<dyn Fn(&mut Pcb) -> bool>>,
     // for nanosleep
     pub wakeup_time: Option<usize>,
 }
@@ -76,6 +79,7 @@ impl Pcb {
             // 默认根目录
             root: ROOT.clone(),
 
+            block_fn: None,
             utimes: 0,
             stimes: 0,
             cutimes: 0,
@@ -117,6 +121,11 @@ impl Pcb {
             }
         }
         false
+    }
+
+    // 表明进程可以从阻塞态变为就绪态
+    pub fn non_block(&mut self) -> bool {
+        self.block_fn.clone().unwrap()(self)
     }
 
     // 找到空闲的位置插入File，或者push

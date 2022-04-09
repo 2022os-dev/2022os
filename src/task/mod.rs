@@ -74,12 +74,12 @@ pub fn schedule() -> ! {
                         panic!("Invalid state");
                     }
                 },
-                PcbState::Blocking(testfn) => {
-                    if !testfn(pcb.clone()) {
-                        log!("scheduler":"block">"still blocking");
-                    } else {
+                PcbState::Blocking => {
+                    if pcb.lock().non_block() {
                         log!("scheduler":"unblock">"");
                         pcb.lock().set_state(PcbState::Running);
+                    } else {
+                        log!("scheduler":"block">"still blocking");
                     }
                     scheduler_ready_pcb(pcb);
                     continue;
