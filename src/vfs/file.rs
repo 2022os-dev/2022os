@@ -1,8 +1,11 @@
 use alloc::sync::Arc;
 use spin::RwLock;
 use core::convert::TryFrom;
+use core::mem::size_of;
+use core::slice::from_raw_parts_mut;
 
 use crate::sbi::*;
+use super::LinuxDirent;
 
 pub enum InodeType {
     File,
@@ -51,6 +54,7 @@ pub enum FileErr {
     InodeNotDir,
     // 目录Inode中已经存在同名的child
     InodeChildExist,
+    InodeEndOfDir,
     // Fd不正确
     FdInvalid,
     // Pipe需要等待另一端写入
@@ -124,6 +128,33 @@ impl File {
         Ok(self.pos)
     }
 
+    // 成功则返回读写的字节数, 若读到目录结尾返回0
+    pub fn get_dirents(&mut self, buf: &mut [u8]) -> Result<usize, FileErr> {
+        if !self.flags().readable() {
+            return Err(FileErr::FileNotRead)
+        }
+        let mut dirent = LinuxDirent::new();
+        let nums = buf.len() / size_of::<LinuxDirent>();
+        let buf = unsafe {from_raw_parts_mut(buf.as_mut_ptr() as *mut LinuxDirent, nums)};
+        for i in 0..nums {
+            match self.inode.get_dirent(self.pos, &mut dirent) {
+                Ok(off) => {
+                    buf[i].fill(&dirent);
+                    self.pos += off;
+                }
+                Err(e) => {
+                    if i == 0 {
+                        return Err(e)
+                    } else {
+                        return Ok(i * size_of::<LinuxDirent>())
+                    }
+                }
+            };
+        }
+        Ok(nums * size_of::<LinuxDirent>())
+
+    }
+
     pub fn flags(&self) -> OpenFlags {
         self.flags
     }
@@ -166,6 +197,12 @@ pub trait _Inode {
     // 如果Inode不是目录，返回Err(FileErr::NotDir)
     fn get_child(&self, _: &str) -> Result<Inode, FileErr> {
         unimplemented!("get_child")
+    }
+
+    // 获取一个目录项, offset用于供inode判断读取哪个dirent 返回需要File更新的offset量
+    //     读到目录结尾返回InodeEndOfDir
+    fn get_dirent(&self, _: usize, _: &mut LinuxDirent) -> Result<usize, FileErr> {
+        unimplemented!("get_dirents")
     }
 
     // 打开子文件，可能为普通文件或目录
@@ -316,175 +353,3 @@ impl _Inode for Console {
         Ok(buf.len())
     }
 }
-
-/*
-pub struct TestBlk {}
-impl fatfs::IoBase for TestBlk {
-    type Error = ();
-}
-impl fatfs::Read for TestBlk {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        Ok(buf.len())
-    }
-}
-impl fatfs::Write for TestBlk {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> Result<(), Self::Error> {
-        Ok(())
-    }
-}
-
-impl fatfs::Seek for TestBlk {
-    fn seek(&mut self, _: fatfs::SeekFrom) -> Result<u64, ()> {
-        Ok(0)
-    }
-}
-lazy_static!{
-        static ref FAT: Arc<RwLock<fatfs::FileSystem<TestBlk, fatfs::DefaultTimeProvider, fatfs::LossyOemCpConverter>>> = Arc::new(RwLock::new(fatfs::FileSystem::new(TestBlk{}, fatfs::FsOptions::new()).unwrap()));
-}
-
-
-fn fpos_add(fpos: usize, offset: isize) -> usize {
-    if offset < 0 {
-        fpos - (-offset) as usize
-    } else {
-        fpos + offset as usize
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct RegularFileOp {}
-
-impl FileOp for RegularFileOp {
-    fn lseek(&self, fp: *mut File, offset: isize) -> Result<(), FileOpErr> {
-        unsafe {
-            (*fp).f_pos = fpos_add((*fp).f_pos, offset);
-        }
-        Ok(())
-    }
-    fn read(&self, fp: *mut File, buf: &mut [u8]) -> Result<(), FileOpErr> {
-        unsafe {
-            if let FileType::File = (*fp).f_type {
-                let mut size = buf.len();
-                if let Some(inode) = (*fp).f_inode.clone() {
-                    if inode.read().i_size < (*fp).f_pos + size {
-                        // Out of file's size
-                        return Err(FileOpErr {});
-                    }
-                    let mut readed = 0;
-                    while size > 0 {
-                        let read_size = min(BLOCK_BUFFER_SIZE, size);
-                        let block = inode.read().i_op.bmap(inode.clone(), (*fp).f_pos).unwrap();
-                        let buffer = get_block(0, block);
-                        let data = buffer.data();
-                        core::ptr::copy(
-                            data.as_ptr(),
-                            buf.split_at_mut(readed).1.as_mut_ptr(),
-                            read_size,
-                        );
-                        size -= read_size;
-                        readed += read_size;
-                        (*fp).f_pos += read_size;
-                    }
-                    return Ok(());
-                }
-                return Err(FileOpErr {});
-            } else {
-                return Err(FileOpErr {});
-            }
-        }
-    }
-    fn write(&self, fp: *mut File, buf: &[u8]) -> Result<(), FileOpErr> {
-        println!("[kernel]: call write: {}", core::str::from_utf8(buf).unwrap());
-        unsafe {
-            if let FileType::File = (*fp).f_type {
-                let mut size = buf.len();
-                if let Some(inode) = (*fp).f_inode.clone() {
-                    if inode.read().i_size < (*fp).f_pos + size {
-                        // Out of file's size
-                        return Err(FileOpErr {});
-                    }
-                    let mut writed = 0;
-                    while size > 0 {
-                        let write_size = min(BLOCK_BUFFER_SIZE, size);
-                        let block = inode.write().i_op.bmap(inode.clone(), (*fp).f_pos).unwrap();
-                        let buffer = get_block(0, block);
-                        let mut data = buffer.data();
-                        core::ptr::copy(
-                            buf.split_at(writed).1.as_ptr(),
-                            data.as_mut_ptr(),
-                            write_size,
-                        );
-                        size -= write_size;
-                        writed += write_size;
-                        (*fp).f_pos += write_size;
-                    }
-                    Ok(())
-                } else {
-                    Err(FileOpErr {})
-                }
-            } else {
-                Err(FileOpErr {})
-            }
-        }
-    }
-    fn readdir(&self, fp: *mut File) -> Result<Dentry, FileOpErr> {
-        // Regular file don't support readdir
-        Err(FileOpErr {})
-    }
-
-    fn open(&self, fp: *mut File, inode: Arc<RwLock<Inode>>) -> Result<(), FileOpErr> {
-        unsafe {
-            (*fp).f_inode = Some(inode);
-            Ok(())
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct ConsoleFileOp {}
-
-impl FileOp for ConsoleFileOp {
-    fn lseek(&self, _: *mut File, _: isize) -> Result<(), FileOpErr> {
-        // Console file don't support lseek
-        Err(FileOpErr{})
-    }
-    fn read(&self, fp: *mut File, buf: &mut [u8]) -> Result<(), FileOpErr> {
-        // Fixme: add read
-        unsafe {
-            if let FileOpenMode::Write = (*fp).f_mode {
-                // can't read
-                return Err(FileOpErr{})
-            }
-
-        }
-        Ok(())
-    }
-    fn write(&self, fp: *mut File, buf: &[u8]) -> Result<(), FileOpErr> {
-        unsafe {
-            if let FileOpenMode::Read = (*fp).f_mode {
-                // can't write
-                return Err(FileOpErr{})
-            }
-
-        }
-        for i in buf.iter() {
-            sbi_call(PUT_CHAR, [*i as usize, 0, 0]);
-        }
-        Ok(())
-    }
-    fn readdir(&self, fp: *mut File) -> Result<Dentry, FileOpErr> {
-        // Regular file don't support readdir
-        Err(FileOpErr {})
-    }
-
-    fn open(&self, fp: *mut File, inode: Arc<RwLock<Inode>>) -> Result<(), FileOpErr> {
-        // Console file don't support open
-        Err(FileOpErr {})
-    }
-
-}
-*/

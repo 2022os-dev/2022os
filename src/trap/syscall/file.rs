@@ -2,6 +2,7 @@ use core::ops::Add;
 use alloc::sync::Arc;
 use alloc::string::String;
 
+use crate::config::PATH_LIMITS;
 use crate::mm::*;
 use crate::process::*;
 use crate::sbi::sbi_legacy_call;
@@ -11,8 +12,7 @@ use crate::vfs::*;
 const AT_FDCWD: isize = -100;
 fn get_str(pa: &PhysAddr) -> &str {
     let mut len = 0;
-    // Fixme: 假设路径最长为512
-    while len < 512 {
+    while len < PATH_LIMITS {
         if unsafe { *(pa.0 as *const u8).add(len) } != 0 {
             len += 1;
         } else {
@@ -54,7 +54,11 @@ pub(super) fn sys_mkdirat(
     } else if fd == AT_FDCWD {
         // 使用cwd作为父节点
         log!("syscall":"mkdirat">"relative path: {}", path);
-        pcb.cwd.clone() + "/" + path
+        if let Some('/') = pcb.cwd.chars().last() {
+            pcb.cwd.clone() + path
+        } else {
+            pcb.cwd.clone() + "/" + path
+        }
     } else {
         return -1
     };
@@ -153,7 +157,11 @@ pub(super) fn sys_chdir (
     } else {
         match parse_path(&pcb.root, pcb.cwd.as_str()) {
             Ok(_) => {
-                pcb.cwd.clone() + "/" + path
+                if let Some('/') = pcb.cwd.chars().last() {
+                    pcb.cwd.clone() + path
+                } else {
+                    pcb.cwd.clone() + "/" + path
+                }
             }
             Err(e) => {
                 log!("syscall":"chdir">"error {:?}", e);
@@ -191,7 +199,11 @@ pub(super) fn sys_openat (
     } else if dirfd == AT_FDCWD {
         // 使用cwd作为父节点
         log!("syscall":"openat">"relative path: {}", path);
-        pcb.cwd.clone() + "/" + path
+        if let Some('/') = pcb.cwd.chars().last() {
+            pcb.cwd.clone() + path
+        } else {
+            pcb.cwd.clone() + "/" + path
+        }
     } else {
         log!("syscall":"openat">"invalid combination of dirfd and path: {}, {}", dirfd, path);
         return -1
@@ -257,7 +269,29 @@ pub(super) fn sys_getdents64 (
     buf: VirtualAddr,
     len: usize
 ) -> isize {
-    unimplemented!();
+    let mut buf: PhysAddr = buf.into();
+    let mut buf = buf.as_slice_mut(len);
+    let file = pcb.get_fd(fd);
+    match file {
+        Some(file) => {
+            match file.write().get_dirents(&mut buf) {
+                Ok(size) => {
+                    return size as isize
+                }
+                Err(FileErr::InodeEndOfDir) => {
+                    log!("syscall":"getdents64">"dirent eof");
+                    return 0
+                }
+                Err(_) => {
+                    return -1
+                }
+            }
+        }
+        None => {
+            log!("syscall":"getdents64">"invalid fd {}", fd);
+            -1
+        }
+    }
 }
 
 pub(super) fn sys_lseek (

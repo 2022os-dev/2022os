@@ -2,7 +2,10 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
+use core::convert::TryFrom;
 use spin::RwLock;
+use crate::config::PATH_LIMITS;
+
 use super::*;
 
 pub struct MemInode {
@@ -29,8 +32,49 @@ impl MemInode {
     }
 }
 
-
 impl _Inode for MemInode {
+
+    fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
+        // memfs不存在".."和"."
+        let inner = self.inner.write();
+
+        let child = inner.children.iter().skip(offset).next();
+        if let None = child {
+            log!("vfs":"get_dirents">"inode end of dir: len({}), offset({})", inner.children.len(), offset);
+            return Err(FileErr::InodeEndOfDir)
+        }
+        let (name, _) = child.unwrap();
+
+        // memfs不设置inode号
+        dirent.d_ino = 0;
+        dirent.d_reclen = match u16::try_from(core::mem::size_of::<LinuxDirent>()) {
+            Ok(size) => {
+                size
+            }
+            Err(_) => {
+                log!("vfs":"get_dirents">"invalid reclen");
+                return Err(FileErr::NotDefine)
+            }
+        };
+        dirent.d_off = match isize::try_from(offset + 1) {
+            Ok(size) => {
+                size
+            }
+            Err(_) => {
+                log!("vfs":"get_dirents">"invalid d_off");
+                return Err(FileErr::NotDefine)
+            }
+        };
+
+        // 不区分文件夹和普通文件
+        dirent.d_type = DT_REG;
+        if name.len() > PATH_LIMITS {
+            return Err(FileErr::NotDefine)
+        }
+        dirent.d_name[0..name.len()].copy_from_slice(name.as_bytes());
+        Ok(1)
+    }
+
     fn read_offset(&self, mut offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
         log!("vfs":"mem_read">"offset ({})", offset);
         let mut i = 0;

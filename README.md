@@ -44,6 +44,9 @@
 - [ ] 文件系统挂载管理
 - [ ] 异步处理IO系统调用
 - [ ] fat32文件系统集成
+- [ ] 处理文件mode
+- [ ] 设置出错码errno
+- [ ] 实现dentry缓存
 - [ ] 文件系统调用
   - [ ] execve
     - [ ] 处理O_CLOEXEC
@@ -71,6 +74,9 @@
     - [x] 路径解析".."、"."
   - [x] close
   - [ ] getdents
+    - [x] 返回目录项
+    - [x] 判断fd的open flags能否读取目录
+    - [ ] 构造".."和"."目录项
   - [x] read
   - [x] write
   - [ ] linkat 

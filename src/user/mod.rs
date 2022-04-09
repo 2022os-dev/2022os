@@ -17,9 +17,10 @@ static PIPE: &'static [u8] = include_bytes!("bin/pipe");
 static DUP : &'static [u8] = include_bytes!("bin/dup");
 static MKDIRAT: &'static [u8] = include_bytes!("bin/mkdirat");
 static CHDIR: &'static [u8] = include_bytes!("bin/chdir");
+static GET_DIRENTS: &'static [u8] = include_bytes!("bin/get_dirents");
 
 lazy_static! {
     pub static ref APP: Box<[&'static [u8]]> = Box::new([
-        CHDIR
+        GET_DIRENTS
     ]);
 }

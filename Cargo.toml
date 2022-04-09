@@ -12,7 +12,7 @@ overflow-check = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["multicore", "input_echo", "init_clock", "user_log", "print_lock", "pcb", "vfs", "pipe", "path_resolve", "syscall"]
+default = ["multicore", "input_echo", "init_clock", "user_log", "print_lock", "pcb", "vfs", "pipe", "path_resolve" ]
 
 board_unleashed = []    # 使用unleashed开发板
 init_clock = ["board_unleashed"]    # 配置系统时钟，使用1G Hz
