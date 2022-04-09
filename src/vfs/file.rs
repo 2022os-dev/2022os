@@ -246,6 +246,15 @@ pub trait _Inode {
         0
     }
 
+    // 判断Inode是否准备好读，由于协助异步IO
+    fn read_ready(&self) -> bool {
+        unimplemented!("ready_read")
+    }
+
+    // 判断Inode是否准备好，由于协助异步IO
+    fn write_ready(&self) -> bool {
+        unimplemented!("ready_read")
+    }
 }
 
 lazy_static!{

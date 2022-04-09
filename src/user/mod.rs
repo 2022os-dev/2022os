@@ -21,7 +21,6 @@ static GET_DIRENTS: &'static [u8] = include_bytes!("bin/get_dirents");
 
 lazy_static! {
     pub static ref APP: Box<[&'static [u8]]> = Box::new([
-        SYS_WAIT4,
-        NANOSLEEP
+        PIPE,
     ]);
 }

@@ -325,8 +325,20 @@ pub(super) fn sys_write(
                 size as isize
             }
             Err(FileErr::PipeWriteWait) => {
-                // 管道需要等待另一端读出，回退到ecall
+                // 管道需要等待另一端，回退到ecall
                 pcb.trapframe()["sepc"] -= 4;
+                pcb.block_fn = Some(Arc::new(move |pcb| {
+                    if let Some(_) = pcb.get_fd(fd).and_then(|file| {
+                        file.try_write().and_then(|file| {
+                            // 通过read_ready判断是否可以写
+                            Some(file.get_inode().write_ready())
+                        })
+                    }) {
+                        return true
+                    }
+                    false
+                }));
+                pcb.set_state(PcbState::Blocking);
                 // 返回fd用于修改trapframe["a0"]，保证下次调用正确
                 fd as isize
             }
@@ -355,6 +367,18 @@ pub(super) fn sys_read(
             Err(FileErr::PipeReadWait) => {
                 // 管道需要等待另一端，回退到ecall
                 pcb.trapframe()["sepc"] -= 4;
+                pcb.block_fn = Some(Arc::new(move |pcb| {
+                    if let Some(_) = pcb.get_fd(fd).and_then(|file| {
+                        file.try_write().and_then(|file| {
+                            // 通过read_ready判断是否可以读
+                            Some(file.get_inode().read_ready())
+                        })
+                    }) {
+                        return true
+                    }
+                    false
+                }));
+                pcb.set_state(PcbState::Blocking);
                 // 返回fd用于修改trapframe["a0"]，保证下次调用正确
                 fd as isize
             }

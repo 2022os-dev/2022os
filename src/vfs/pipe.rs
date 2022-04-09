@@ -9,6 +9,8 @@ struct PipeInode {
 
 const PIPE_INODE_SIZE: usize = 512;
 struct PipeInner {
+    read_ready: bool,
+    write_ready: bool,
     // 记录有几个文件读该Inode
     reader: usize,
     // 记录有几个文件写该Inode
@@ -27,6 +29,8 @@ struct PipeInner {
 impl Default for PipeInner {
     fn default() -> Self {
         Self {
+            read_ready: true,
+            write_ready: true,
             reader: 0,
             writer: 0,
             last_read: 0,
@@ -58,12 +62,14 @@ impl _Inode for PipeInode {
                 // 需要等待另一端写入才能读出，记录这次未完成的读位置，下次读时继续
                 inner.last_read = i;
                 log!("pipe":"read">"remain (len: {}, i: {}, nread: {})", len, i, inner.nread);
+                inner.read_ready = false;
                 return Err(FileErr::PipeReadWait)
             }
             buf[i] = inner.data[inner.nread % PIPE_INODE_SIZE];
             inner.nread += 1;
             i += 1;
         }
+        inner.write_ready = true;
         inner.last_read = 0;
         return Ok(i)
     }
@@ -82,6 +88,7 @@ impl _Inode for PipeInode {
                 // 需要等待另一端读出才能写入，记录这次未完成的写位置，下次写时继续
                 inner.last_write = i;
                 log!("pipe":"write">"remain (len: {}, i: {}, nwrite: {})", len, i, inner.nwrite);
+                inner.write_ready = false;
                 return Err(FileErr::PipeWriteWait)
             }
             let off = inner.nwrite % PIPE_INODE_SIZE;
@@ -89,6 +96,7 @@ impl _Inode for PipeInode {
             inner.nwrite += 1;
             i += 1;
         }
+        inner.read_ready = true;
         inner.last_write = 0;
         return Ok(i)
     }
