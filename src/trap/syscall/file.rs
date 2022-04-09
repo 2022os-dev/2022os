@@ -54,7 +54,7 @@ pub(super) fn sys_mkdirat(
     } else if fd == AT_FDCWD {
         // 使用cwd作为父节点
         log!("syscall":"mkdirat">"relative path: {}", path);
-        pcb.cwd.clone() + path
+        pcb.cwd.clone() + "/" + path
     } else {
         return -1
     };
@@ -146,7 +146,31 @@ pub(super) fn sys_chdir (
     pcb: &mut MutexGuard<Pcb>,
     path: VirtualAddr
 ) -> isize {
-    unimplemented!();
+    let path: PhysAddr = path.into();
+    let path = get_str(&path);
+    let fullpath = if is_absolute_path(path) {
+        String::from(path)
+    } else {
+        match parse_path(&pcb.root, pcb.cwd.as_str()) {
+            Ok(_) => {
+                pcb.cwd.clone() + "/" + path
+            }
+            Err(e) => {
+                log!("syscall":"chdir">"error {:?}", e);
+                return -1
+            }
+        }
+    };
+    match parse_path(&pcb.root, fullpath.as_str()) {
+        Ok(_) => {
+            pcb.cwd = fullpath;
+            0
+        }
+        Err(e) => {
+            log!("syscall":"chdir">"error {:?}", e);
+            -1
+        }
+    }
 }
 
 pub(super) fn sys_openat (
@@ -167,7 +191,7 @@ pub(super) fn sys_openat (
     } else if dirfd == AT_FDCWD {
         // 使用cwd作为父节点
         log!("syscall":"openat">"relative path: {}", path);
-        pcb.cwd.clone() + path
+        pcb.cwd.clone() + "/" + path
     } else {
         log!("syscall":"openat">"invalid combination of dirfd and path: {}, {}", dirfd, path);
         return -1

@@ -95,6 +95,28 @@ impl OpenFlags {
 
 }
 
+pub fn syscall_getcwd(buf: &mut [u8]) -> isize {
+    let mut a0 = buf.as_ptr() as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") buf.len(),
+            in("x17") SYSCALL_GETCWD
+        )
+    }
+    a0 as isize
+}
+
+pub fn syscall_chdir(buf: &str) -> isize {
+    let mut a0 = buf.as_ptr() as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x17") SYSCALL_CHDIR
+        )
+    }
+    a0 as isize
+}
+
+
 pub fn syscall_pipe(pipe: &mut [isize; 2]) -> isize {
     let mut a0 = pipe as *const _ as usize;
     unsafe {

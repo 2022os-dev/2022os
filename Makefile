@@ -13,7 +13,7 @@ qemu:
 		-nographic
 
 apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
-	  	forkboom signal_chld times nanosleep openat pipe dup mkdirat
+	  	forkboom signal_chld times nanosleep openat pipe dup mkdirat chdir
 
 user_apps:
 	@cat userenv/cargo.toml.template > userenv/cargo.toml
