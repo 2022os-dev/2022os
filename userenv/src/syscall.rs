@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 use core::arch::asm;
+use crate::println;
+use core::mem::size_of;
+use core::slice::from_raw_parts_mut;
 
 const SYSCALL_GETCWD: usize = 17;
 const SYSCALL_DUP: usize = 23;
@@ -92,6 +95,32 @@ impl OpenFlags {
     pub fn writable(&self) -> bool {
         *self & OpenFlags::RDWR != OpenFlags::empty() || 
             *self & OpenFlags::WRONLY != OpenFlags::empty()
+    }
+
+}
+
+pub fn ls(path: &str) {
+    let mut buf: [u8; 1024] = [0; 1024];
+    let fd = syscall_openat(AT_FDCWD, path, OpenFlags::RDONLY, FileMode::empty());
+    if fd < 0 {
+        println!("invalid path {}", path);
+        return;
+    }
+    while true {
+        let nread = syscall_getdirents64(fd, &mut buf, 1024);
+        if nread == 0 {
+            println!("EOF");
+            return;
+        }
+        if nread == -1 {
+            println!("error");
+            return ;
+        }
+        let nread = nread as usize;
+        let dirents = unsafe {from_raw_parts_mut(&mut buf as *mut _ as *mut LinuxDirent, nread / size_of::<LinuxDirent>())};
+        for i in 0..(nread/size_of::<LinuxDirent>()) {
+            println!("dirent: {}", unsafe { core::str::from_utf8_unchecked(&dirents[i].d_name)});
+        }
     }
 
 }

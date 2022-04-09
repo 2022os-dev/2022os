@@ -13,6 +13,8 @@ pub struct MemInode {
 }
 
 struct InodeInner {
+    // 设置一个名字方便调试
+    name: String,
     children: BTreeMap<String, Arc<MemInode>>,
     data: [u8; 512],
     used: bool,
@@ -23,6 +25,7 @@ impl MemInode {
     fn new() -> Self {
         Self {
             inner: RwLock::new(InodeInner{
+                name: String::from(""),
                 children: BTreeMap::new(),
                 data: [0; 512],
                 used: false,
@@ -78,11 +81,12 @@ impl _Inode for MemInode {
     fn read_offset(&self, mut offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
         log!("vfs":"mem_read">"offset ({})", offset);
         let mut i = 0;
+        let inner = self.inner.read();
         while i < buf.len() {
             if offset >= 512 {
                 break
             }
-            buf[i] = self.inner.read().data[offset];
+            buf[i] = inner.data[offset];
             i += 1;
             offset += 1;
         }
@@ -92,42 +96,46 @@ impl _Inode for MemInode {
     fn write_offset(&self, mut offset: usize, buf: &[u8]) -> Result<usize, FileErr> {
         log!("vfs":"mem_write">"offset ({})", offset);
         let mut i = 0;
+        let mut inner = self.inner.write();
         while i < buf.len() {
             if offset >= 512 {
                 break
             }
-            self.inner.write().data[offset] = buf[i];
+            inner.data[offset] = buf[i];
             i += 1;
             offset += 1;
         }
-        if self.inner.read().len <= offset {
-            self.inner.write().len = offset
+        if inner.len <= offset {
+            inner.len = offset
         }
         Ok(i)
     }
 
     fn create(&self, subname: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
+        let mut inner = self.inner.write();
         if subname.len() == 0 {
             // 文件名不正确
-            log!("vfs":"mem_create">"invalid name ({})", subname);
+            log!("vfs":"mem_create""{}">"invalid name \"{}\"", inner.name, subname);
             return Err(FileErr::NotDefine)
         }
         match itype {
             InodeType::Directory |
             InodeType::File => {
-                if let Some(_) = self.inner.read().children.get(&String::from(subname)) {
+                if let Some(_) = inner.children.get(&String::from(subname)) {
+                    log!("vfs":"mem_create""{}">" exists {}", inner.name, subname);
                     return Err(FileErr::InodeChildExist)
                 }
                 let inode = alloc_inode();
                 if let Err(_) = inode {
                     return Err(FileErr::NotDefine)
                 }
-                self.inner.write().children.insert(String::from(subname), inode.clone().unwrap());
-                log!("vfs":"mem_create">"child name ({})", subname);
+                inode.clone().unwrap().inner.write().name = String::from(subname);
+                inner.children.insert(String::from(subname), inode.clone().unwrap());
+                log!("vfs":"mem_create""{}">"child name ({})", inner.name, subname);
                 Ok(inode.unwrap())
             }
             _ => {
-                log!("vfs":"mem_create">"failed child name ({})", subname);
+                log!("vfs":"mem_create""{}">"failed child name ({})",inner.name, subname);
                 Err(FileErr::NotDefine)
             }
         }
@@ -170,17 +178,20 @@ fn alloc_inode() -> Result<Arc<MemInode>, ()> {
     if MEMINODES.read().len() == 0 {
         memfs_init();
     }
-    for i in 0..MEMINODES.read().len() {
-        if MEMINODES.read()[i].inner.read().used == false {
-            MEMINODES.read()[i].inner.write().used = true;
-            return Ok(MEMINODES.read()[i].clone())
+    loop {
+        for i in 0..MEMINODES.read().len() {
+            if let Some(mut inode) = MEMINODES.read()[i].inner.try_write() {
+                if inode.used == false {
+                    inode.used = true;
+                    return Ok(MEMINODES.read()[i].clone())
+                }
+            }
         }
     }
-    Err(())
 }
 
 pub fn memfs_init() {
-    for _ in 0..10 {
+    for _ in 0..20 {
         MEMINODES.write().push(Arc::new(MemInode::new()));
     }
 }

@@ -48,6 +48,7 @@ pub fn parse_path(from: &Inode, path: &str) -> Result<Inode, FileErr> {
     }
     match nodes.last() {
         Some(inode) => {
+            log!("path_resolve":"success">"{}", path);
             Ok(inode.clone())
         }
         None => {
