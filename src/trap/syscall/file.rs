@@ -330,7 +330,7 @@ pub(super) fn sys_write(
                 pcb.block_fn = Some(Arc::new(move |pcb| {
                     if let Some(_) = pcb.get_fd(fd).and_then(|file| {
                         file.try_write().and_then(|file| {
-                            // 通过read_ready判断是否可以写
+                            // 通过write_ready判断是否可以写
                             Some(file.get_inode().write_ready())
                         })
                     }) {
