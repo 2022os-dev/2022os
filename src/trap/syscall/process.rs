@@ -44,39 +44,43 @@ pub(super) fn sys_wait4(
     wstatus: VirtualAddr,
     _: usize,
     _: VirtualAddr,
-) -> Result<usize, ()> {
+) {
     // 阻塞直到某个子进程退出
-    // 如果找不到退出的子进程，返回Err
-    let mut xcode = 0;
-    let mut childutimes = 0;
-    let mut childstimes = 0;
-    let res = pcb.children.iter().enumerate().find(|(_idx, child)| {
-        let child = child.lock();
-        if pid == -1 || child.pid == pid.abs() as usize {
-            if let PcbState::Zombie(_xcode) = child.state() {
-                xcode = _xcode;
-                childutimes = child.utimes();
-                childstimes = child.stimes();
-                return true;
+    // 找到pid指定的退出的子进程
+    let find_child_exit = move |_pcb: &mut Pcb| -> Option<usize> {
+        if let Some((idx, child)) = _pcb.children.iter().enumerate().find(|(_idx, child)| {
+            let child = child.lock();
+            if pid == -1 || child.pid == pid.abs() as usize {
+                if let PcbState::Zombie(_) = child.state() {
+                    return true
+                }
             }
-            return false;
-        } else {
-            return false;
+            false
+        }) {
+            return Some(idx)
         }
-    });
-    if let Some((idx, child)) = res {
-        let child_pid = child.lock().pid;
-        // wstatus = xcode
-        let mut wstatus: PhysAddr = wstatus.into();
-        let wstatus: &mut usize = wstatus.as_mut();
-        *wstatus = xcode as usize;
-        pcb.cutimes_add(childutimes);
-        pcb.cstimes_add(childstimes);
-        // 清理子进程
-        pcb.children.remove(idx);
-        Ok(child_pid)
+        None
+    };
+    // 如果找到
+    if let Some(idx) = find_child_exit(pcb) {
+        let child = pcb.children.remove(idx);
+        let child = child.lock();
+        if let PcbState::Zombie(xcode) = child.state() {
+            pcb.trapframe()["a0"] = child.pid;
+            pcb.cutimes_add(child.utimes());
+            pcb.cstimes_add(child.stimes());
+            let mut wstatus: PhysAddr = wstatus.into();
+            let wstatus: &mut usize = wstatus.as_mut();
+            *wstatus = xcode as usize;
+        }
     } else {
-        Err(())
+        // 如果找不到，退回这条系统调用指令
+        pcb.trapframe()["sepc"] -= 4;
+        // 进程进入阻塞，知道指定子进程退出
+        pcb.block_fn = Some(Arc::new(move |pcb| {
+            find_child_exit(pcb).is_some()
+        }));
+        pcb.set_state(PcbState::Blocking);
     }
 }
 #[repr(C)]

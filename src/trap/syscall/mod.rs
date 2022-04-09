@@ -198,27 +198,7 @@ pub fn syscall_handler() {
             let rusage = VirtualAddr(trapframe["a3"]);
             drop(trapframe);
             log!("syscall":"wait4" > "pid({}) ({}, 0x{:x}, 0x{:x})", pcblock.pid, waitpid, wstatus.0, options);
-            let ret = sys_wait4(&mut pcblock, waitpid, wstatus, options, rusage);
-            if let Ok(child_pid) = ret {
-                log!("syscall":"wait4">"got child pid({})", child_pid);
-                pcblock.trapframe()["a0"] = child_pid;
-            } else {
-                // 回退上一条ecall指针，等待子进程信号
-                pcblock.trapframe()["sepc"] -= 4;
-                // 进入阻塞态，如果某个子进程退出则恢复
-                pcblock.block_fn = Some(Arc::new(move |pcb| {
-                    for i in pcb.children.iter() {
-                        if let Some(childlock) = i.try_lock() {
-                            if let PcbState::Zombie(_) = childlock.state {
-                                return true;
-                            }
-                        }
-                    }
-                    false
-                }));
-                pcblock.set_state(PcbState::Blocking);
-                log!("syscall":"wait4" > "blocking pid({})", pcblock.pid);
-            }
+            sys_wait4(&mut pcblock, waitpid, wstatus, options, rusage);
         }
         SYSCALL_SBRK => {
             let inc = trapframe["a0"];
