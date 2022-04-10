@@ -98,7 +98,7 @@ pub fn syscall_handler() {
             log!("syscall":"getcwd" > "pid({}) (0x{:x})", pcblock.pid, buf.0);
             pcblock.trapframe()["a0"] = sys_getcwd(&mut pcblock, buf, size).0;
         }
-        SYSCALL_PIPE=> {
+        SYSCALL_PIPE => {
             let pipe = VirtualAddr(trapframe["a0"]);
             log!("syscall":"pipe" > "pid({}) (0x{:x})", pcblock.pid, pipe.0);
             pcblock.trapframe()["a0"] = sys_pipe(&mut pcblock, pipe) as usize;
@@ -120,7 +120,6 @@ pub fn syscall_handler() {
             let mode = trapframe["a2"];
             log!("syscall":"mkdirat" > "pid({}) ({}, 0x{:x})", pcblock.pid, fd, mode);
             pcblock.trapframe()["a0"] = sys_mkdirat(&mut pcblock, fd, path, mode) as usize;
-
         }
         SYSCALL_CHDIR => {
             let path = VirtualAddr(trapframe["a0"]);
@@ -133,7 +132,8 @@ pub fn syscall_handler() {
             let flags = trapframe["a2"];
             let mode = trapframe["a3"];
             log!("syscall":"openat" > "pid({}) ({}, 0x{:x})", pcblock.pid, fd, filename.0);
-            pcblock.trapframe()["a0"] = sys_openat(&mut pcblock, fd, filename, flags, mode) as usize;
+            pcblock.trapframe()["a0"] =
+                sys_openat(&mut pcblock, fd, filename, flags, mode) as usize;
         }
         SYSCALL_CLOSE => {
             let fd = trapframe["a0"] as isize;
@@ -220,8 +220,8 @@ pub fn syscall_handler() {
             let newtls = trapframe["a4"];
             drop(trapframe);
             log!("syscall":"clone" > "pid({}) flags({:?}), stack(0x{:x})", pcblock.pid, flags, stack_top.0);
-            pcblock.trapframe()["a0"] = sys_clone(&mut pcblock, flags, stack_top, ptid, ctid, newtls) as usize;
-
+            pcblock.trapframe()["a0"] =
+                sys_clone(&mut pcblock, flags, stack_top, ptid, ctid, newtls) as usize;
         }
         SYSCALL_KILL => {
             let pid = trapframe["a0"];
@@ -265,9 +265,10 @@ pub fn syscall_handler() {
             let timespec: &TimeSpec = timespec.as_ref();
             let current_time = get_time();
             trapframe["a0"] = 0;
-            let wakeup_time = get_time() + timespec.tv_sec * RTCLK_FREQ + timespec.tv_nsec * RTCLK_FREQ / 1000;
+            let wakeup_time =
+                get_time() + timespec.tv_sec * RTCLK_FREQ + timespec.tv_nsec * RTCLK_FREQ / 1000;
             pcblock.block_fn = Some(Arc::new(move |pcb| {
-                if  wakeup_time <= get_time() {
+                if wakeup_time <= get_time() {
                     return true;
                 }
                 false

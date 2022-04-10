@@ -1,16 +1,16 @@
 use alloc::sync::Arc;
-use spin::RwLock;
 use core::convert::TryFrom;
 use core::mem::size_of;
 use core::slice::from_raw_parts_mut;
+use spin::RwLock;
 
-use crate::sbi::*;
 use super::LinuxDirent;
+use crate::sbi::*;
 
 pub enum InodeType {
     File,
     Directory,
-    SymbolLink
+    SymbolLink,
 }
 bitflags! {
     // 表示openat(2) 中的flags
@@ -35,7 +35,6 @@ impl OpenFlags {
     pub fn writable(&self) -> bool {
         self.bits() & 1 == 1 || self.contains(OpenFlags::RDWR)
     }
-
 }
 
 #[derive(Debug)]
@@ -60,7 +59,7 @@ pub enum FileErr {
     // Pipe需要等待另一端写入
     PipeReadWait,
     // Pipe需要等待另一端读出
-    PipeWriteWait
+    PipeWriteWait,
 }
 
 // File descriptor
@@ -71,7 +70,7 @@ pub type Inode = Arc<dyn _Inode + Send + Sync + 'static>;
 pub struct File {
     pos: usize,
     flags: OpenFlags,
-    inode: Inode
+    inode: Inode,
 }
 
 impl File {
@@ -80,7 +79,7 @@ impl File {
         Ok(Arc::new(RwLock::new(Self {
             pos: 0,
             flags,
-            inode
+            inode,
         })))
     }
 
@@ -90,7 +89,7 @@ impl File {
             if let Ok(off) = usize::try_from(off) {
                 self.pos = off;
             } else {
-                return Err(FileErr::NotDefine)
+                return Err(FileErr::NotDefine);
             }
         } else if whence == 1 {
             // SEEK_CUR
@@ -98,13 +97,13 @@ impl File {
                 if let Some(i) = self.pos.checked_add(off as usize) {
                     self.pos = i;
                 } else {
-                    return Err(FileErr::NotDefine)
+                    return Err(FileErr::NotDefine);
                 }
             } else {
                 if let Some(i) = self.pos.checked_sub((-off) as usize) {
                     self.pos = i;
                 } else {
-                    return Err(FileErr::NotDefine)
+                    return Err(FileErr::NotDefine);
                 }
             }
         } else if whence == 2 {
@@ -113,17 +112,17 @@ impl File {
                 if let Some(i) = self.inode.len().checked_add(off as usize) {
                     self.pos = i
                 } else {
-                    return Err(FileErr::NotDefine)
+                    return Err(FileErr::NotDefine);
                 }
             } else {
                 if let Some(i) = self.inode.len().checked_sub((-off) as usize) {
                     self.pos = i
                 } else {
-                    return Err(FileErr::NotDefine)
+                    return Err(FileErr::NotDefine);
                 }
             }
         } else {
-            return Err(FileErr::NotDefine)
+            return Err(FileErr::NotDefine);
         }
         Ok(self.pos)
     }
@@ -131,11 +130,11 @@ impl File {
     // 成功则返回读写的字节数, 若读到目录结尾返回0
     pub fn get_dirents(&mut self, buf: &mut [u8]) -> Result<usize, FileErr> {
         if !self.flags().readable() {
-            return Err(FileErr::FileNotRead)
+            return Err(FileErr::FileNotRead);
         }
         let mut dirent = LinuxDirent::new();
         let nums = buf.len() / size_of::<LinuxDirent>();
-        let buf = unsafe {from_raw_parts_mut(buf.as_mut_ptr() as *mut LinuxDirent, nums)};
+        let buf = unsafe { from_raw_parts_mut(buf.as_mut_ptr() as *mut LinuxDirent, nums) };
         for i in 0..nums {
             match self.inode.get_dirent(self.pos, &mut dirent) {
                 Ok(off) => {
@@ -144,15 +143,14 @@ impl File {
                 }
                 Err(e) => {
                     if i == 0 {
-                        return Err(e)
+                        return Err(e);
                     } else {
-                        return Ok(i * size_of::<LinuxDirent>())
+                        return Ok(i * size_of::<LinuxDirent>());
                     }
                 }
             };
         }
         Ok(nums * size_of::<LinuxDirent>())
-
     }
 
     pub fn flags(&self) -> OpenFlags {
@@ -165,10 +163,10 @@ impl File {
 
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, FileErr> {
         if !self.flags.readable() {
-            return Err(FileErr::FileNotRead)
+            return Err(FileErr::FileNotRead);
         }
         if self.pos >= self.inode.len() {
-            return Err(FileErr::FileEOF)
+            return Err(FileErr::FileEOF);
         }
         self.inode.read_offset(self.pos, buf).and_then(|size| {
             self.pos += size;
@@ -177,7 +175,7 @@ impl File {
     }
     pub fn write(&mut self, buf: &[u8]) -> Result<usize, FileErr> {
         if !self.flags.writable() {
-            return Err(FileErr::FileNotWrite)
+            return Err(FileErr::FileNotWrite);
         }
         self.inode.write_offset(self.pos, buf).and_then(|size| {
             self.pos += size;
@@ -193,7 +191,6 @@ impl Drop for File {
     }
 }
 pub trait _Inode {
-
     // 如果Inode不是目录，返回Err(FileErr::NotDir)
     fn get_child(&self, _: &str) -> Result<Inode, FileErr> {
         unimplemented!("get_child")
@@ -227,7 +224,7 @@ pub trait _Inode {
 
     // Inode表示的文件都长度, 必须实现，用于read检测EOF
     fn len(&self) -> usize;
-    
+
     // File打开时通知Inode，可以方便Inode记录引用
     fn file_open(&self, _: OpenFlags) {
         log!("vfs":"inode">"file open");
@@ -257,7 +254,7 @@ pub trait _Inode {
     }
 }
 
-lazy_static!{
+lazy_static! {
     pub static ref CONSOLE: Inode = Arc::new(Console::new());
     pub static ref STDIN: Fd = File::open(CONSOLE.clone(), OpenFlags::RDONLY).unwrap();
     pub static ref STDOUT: Fd = File::open(CONSOLE.clone(), OpenFlags::WRONLY).unwrap();
@@ -272,18 +269,18 @@ pub struct Console {
     #[cfg(feature = "read_buffer")]
     line_end: usize,
     #[cfg(feature = "read_buffer")]
-    line_pos: usize
+    line_pos: usize,
 }
 
 impl Console {
-    pub fn new() -> Self{
+    pub fn new() -> Self {
         Self {
             #[cfg(feature = "read_buffer")]
             line_buf: [0; INPUT_BUF_SIZE],
             #[cfg(feature = "read_buffer")]
             line_end: 0,
             #[cfg(feature = "read_buffer")]
-            line_pos: 0
+            line_pos: 0,
         }
     }
 
@@ -328,35 +325,35 @@ impl _Inode for Console {
         while i < buf.len() {
             #[cfg(feature = "read_buffer")]
             {
-            if self.line_pos >= self.line_end {
-                self.read_line();
-            }
-            while i < buf.len() && self.line_pos < self.line_end {
-                buf[i] = self.line_buf[self.line_pos];
-                self.line_pos += 1;
-                i += 1;
-            }
+                if self.line_pos >= self.line_end {
+                    self.read_line();
+                }
+                while i < buf.len() && self.line_pos < self.line_end {
+                    buf[i] = self.line_buf[self.line_pos];
+                    self.line_pos += 1;
+                    i += 1;
+                }
             }
             #[cfg(not(feature = "read_buffer"))]
             {
-            let mut ch;
-            while i <  buf.len() {
-                ch = sbi_legacy_call(GET_CHAR, [0, 0, 0]);
-                if ch < 0 {
-                    // 阻塞读入
-                    continue;
+                let mut ch;
+                while i < buf.len() {
+                    ch = sbi_legacy_call(GET_CHAR, [0, 0, 0]);
+                    if ch < 0 {
+                        // 阻塞读入
+                        continue;
+                    }
+                    buf[i] = ch as u8;
+                    // 回显
+                    #[cfg(feature = "input_echo")]
+                    if ch == 13 {
+                        // 回车
+                        print!("\n");
+                    } else {
+                        print!("{}", ch as u8 as char);
+                    }
+                    i += 1;
                 }
-                buf[i] = ch as u8;
-                // 回显
-                #[cfg(feature = "input_echo")]
-                if ch == 13 {
-                    // 回车
-                    print!("\n");
-                } else {
-                    print!("{}", ch as u8 as char);
-                }
-                i += 1;
-            }
             }
         }
         Ok(buf.len())

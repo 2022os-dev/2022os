@@ -14,14 +14,12 @@ static NANOSLEEP: &'static [u8] = include_bytes!("bin/nanosleep");
 static READ: &'static [u8] = include_bytes!("bin/read");
 static OPENAT: &'static [u8] = include_bytes!("bin/openat");
 static PIPE: &'static [u8] = include_bytes!("bin/pipe");
-static DUP : &'static [u8] = include_bytes!("bin/dup");
+static DUP: &'static [u8] = include_bytes!("bin/dup");
 static MKDIRAT: &'static [u8] = include_bytes!("bin/mkdirat");
 static CHDIR: &'static [u8] = include_bytes!("bin/chdir");
 static GET_DIRENTS: &'static [u8] = include_bytes!("bin/get_dirents");
 static SYS_CLONE: &'static [u8] = include_bytes!("bin/sys_clone");
 
 lazy_static! {
-    pub static ref APP: Box<[&'static [u8]]> = Box::new([
-        SYS_CLONE
-    ]);
+    pub static ref APP: Box<[&'static [u8]]> = Box::new([SYS_CLONE]);
 }

@@ -1,10 +1,10 @@
+use super::*;
 use alloc::sync::Arc;
 use spin::Mutex;
-use super::*;
 
 #[derive(Default)]
 struct PipeInode {
-    inner: Mutex<PipeInner>
+    inner: Mutex<PipeInner>,
 }
 
 const PIPE_INODE_SIZE: usize = 512;
@@ -23,7 +23,7 @@ struct PipeInner {
     nread: usize,
     // 记录总共已写字节数
     nwrite: usize,
-    data: [u8; PIPE_INODE_SIZE]
+    data: [u8; PIPE_INODE_SIZE],
 }
 
 impl Default for PipeInner {
@@ -37,13 +37,12 @@ impl Default for PipeInner {
             last_write: 0,
             nread: 0,
             nwrite: 0,
-            data: [0; PIPE_INODE_SIZE]
+            data: [0; PIPE_INODE_SIZE],
         }
     }
 }
 
 impl _Inode for PipeInode {
-
     fn len(&self) -> usize {
         usize::MAX
     }
@@ -59,12 +58,12 @@ impl _Inode for PipeInode {
                     // 另一端已经关闭，不再等待
                     let read_size = inner.last_read;
                     inner.last_read = 0;
-                    return Ok(read_size)
+                    return Ok(read_size);
                 }
                 inner.write_ready = true;
                 inner.read_ready = false;
                 // 返回PipeReadWait，使进程陷入阻塞，见src/trap/syscall/file.rs:sys_read
-                return Err(FileErr::PipeReadWait)
+                return Err(FileErr::PipeReadWait);
             }
             buf[inner.last_read] = inner.data[inner.nread % PIPE_INODE_SIZE];
             inner.nread += 1;
@@ -73,7 +72,7 @@ impl _Inode for PipeInode {
         inner.write_ready = true;
         // 成功读取到buf.len()字节，恢复last_read
         inner.last_read = 0;
-        return Ok(buf.len())
+        return Ok(buf.len());
     }
 
     fn write_offset(&self, _: usize, buf: &[u8]) -> Result<usize, FileErr> {
@@ -87,12 +86,12 @@ impl _Inode for PipeInode {
                     // 另一端已经关闭，不再等待
                     let write_size = inner.last_write;
                     inner.last_write = 0;
-                    return Ok(write_size)
+                    return Ok(write_size);
                 }
                 inner.read_ready = true;
                 inner.write_ready = false;
                 // 返回PipeWriteWait，使进程陷入阻塞，见src/trap/syscall/file.rs:sys_write
-                return Err(FileErr::PipeWriteWait)
+                return Err(FileErr::PipeWriteWait);
             }
             let off = inner.nwrite % PIPE_INODE_SIZE;
             inner.data[off] = buf[inner.last_write];

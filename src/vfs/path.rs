@@ -27,23 +27,21 @@ pub fn parse_path(from: &Inode, path: &str) -> Result<Inode, FileErr> {
 
             log!("path_resolve":>"item name {}", name);
             if name.len() == 0 {
-
             } else if name == "." {
                 continue;
             } else if name == ".." {
                 nodes.pop();
                 continue;
-
             } else {
                 if let Ok(child) = inode.get_child(name) {
                     nodes.push(child);
                 } else {
-                    return Err(FileErr::InodeNotChild)
+                    return Err(FileErr::InodeNotChild);
                 }
             }
         } else {
             // ".." 超过根目录，比如"/dir/../.."
-            return Err(FileErr::NotDefine)
+            return Err(FileErr::NotDefine);
         }
     }
     match nodes.last() {
@@ -51,16 +49,13 @@ pub fn parse_path(from: &Inode, path: &str) -> Result<Inode, FileErr> {
             log!("path_resolve":"success">"{}", path);
             Ok(inode.clone())
         }
-        None => {
-            Err(FileErr::NotDefine)
-        }
+        None => Err(FileErr::NotDefine),
     }
 }
-
 
 pub fn is_absolute_path(path: &str) -> bool {
     match path.chars().next() {
         Some('/') => true,
-        _ => false
+        _ => false,
     }
 }
