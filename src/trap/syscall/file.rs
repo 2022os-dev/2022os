@@ -331,7 +331,7 @@ pub(super) fn sys_write(
                 size as isize
             }
             Err(FileErr::PipeWriteWait) => {
-                // 管道需要等待另一端，回退到ecall
+                // 需要等待另一端，回退到ecall
                 log!("vfs":"sys_write">"waiting fd({})", fd);
                 pcb.trapframe()["sepc"] -= 4;
                 pcb.block_fn = Some(Arc::new(move |pcb| {
@@ -353,11 +353,13 @@ pub(super) fn sys_write(
                 // 返回fd用于修改trapframe["a0"]，保证下次调用正确
                 fd as isize
             }
-            _ => {
+            Err(e) => {
+                log!("syscall":"sys_write">"error {:?}", e);
                 -1
             }
         }
     } else {
+        log!("syscall":"sys_write">"fd invalid");
         -1
     }
 }
@@ -376,7 +378,8 @@ pub(super) fn sys_read(
                 size as isize
             }
             Err(FileErr::PipeReadWait) => {
-                // 管道需要等待另一端，回退到ecall
+                // 需要等待另一端，回退到ecall
+                log!("vfs":"sys_read">"waiting fd({})", fd);
                 pcb.trapframe()["sepc"] -= 4;
                 pcb.block_fn = Some(Arc::new(move |pcb| {
                     if let Some(_) = pcb.get_fd(fd).and_then(|file| {
@@ -397,11 +400,13 @@ pub(super) fn sys_read(
                 // 返回fd用于修改trapframe["a0"]，保证下次调用正确
                 fd as isize
             }
-            _ => {
+            Err(e) => {
+                log!("syscall":"sys_read">"error {:?}", e);
                 -1
             }
         }
     } else {
+        log!("syscall":"sys_read">"fd invalid");
         -1
     }
 

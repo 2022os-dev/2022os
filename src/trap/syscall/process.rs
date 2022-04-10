@@ -11,14 +11,32 @@ use core::mem::size_of;
 use spin::{Mutex, MutexGuard};
 
 pub(super) fn sys_fork(pcb: &mut MutexGuard<Pcb>) -> isize {
-    // Fixme: 复制文件描述符
-    let child_ms = pcb.memory_space.copy();
-    let child = Arc::new(Mutex::new(Pcb::new(child_ms, pcb.pid)));
-    let mut childlock = child.lock();
-    let childpid = childlock.pid;
-    childlock.trapframe()["a0"] = 0;
-    drop(childlock);
-    pcb.children.push(child.clone());
+    return sys_clone(pcb, CloneFlags::empty(), VirtualAddr(0), 0, 0, 0);
+}
+
+bitflags! {
+    pub struct CloneFlags: usize{
+        const SIGCHLD = 17;
+        const CLONE_CHILD_CLEARTID = 0x00200000;
+        const CLONE_CHILD_SETTID = 0x01000000;
+    }
+}
+
+pub(super) fn sys_clone(
+    pcb: &mut MutexGuard<Pcb>,
+    flags: CloneFlags,
+    stack_top: VirtualAddr,
+    ptid: usize,
+    ctid: usize,
+    newtls: usize,
+) -> isize {
+    // Note: 与Linux的clone不同，参考于UltraOs
+    let child = pcb.clone_child();
+    let childpid = child.lock().pid;
+    // 设置栈
+    if stack_top.0 != 0 {
+        child.lock().trapframe()["sp"] = stack_top.0;
+    }
     scheduler_ready_pcb(child);
     childpid as isize
 }
@@ -32,7 +50,6 @@ pub(super) fn sys_yield() -> isize {
 }
 
 pub(super) fn sys_exit(pcb: &mut MutexGuard<Pcb>, xstate: isize) {
-    log!("syscall":"exit"> "pid({})", pcb.pid);
     pcb.exit(xstate);
     sigqueue_send(pcb.parent, Signal::SIGCHLD);
 }
@@ -52,12 +69,12 @@ pub(super) fn sys_wait4(
             let child = child.lock();
             if pid == -1 || child.pid == pid.abs() as usize {
                 if let PcbState::Zombie(_) = child.state() {
-                    return true
+                    return true;
                 }
             }
             false
         }) {
-            return Some(idx)
+            return Some(idx);
         }
         None
     };
@@ -77,9 +94,7 @@ pub(super) fn sys_wait4(
         // 如果找不到，退回这条系统调用指令
         pcb.trapframe()["sepc"] -= 4;
         // 进程进入阻塞，知道指定子进程退出
-        pcb.block_fn = Some(Arc::new(move |pcb| {
-            find_child_exit(pcb).is_some()
-        }));
+        pcb.block_fn = Some(Arc::new(move |pcb| find_child_exit(pcb).is_some()));
         pcb.set_state(PcbState::Blocking);
     }
 }

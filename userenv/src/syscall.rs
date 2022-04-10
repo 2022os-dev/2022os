@@ -322,6 +322,29 @@ pub fn syscall_fork() -> isize {
     ret
 }
 
+bitflags! {
+    pub struct CloneFlags: usize{
+        const SIGCHLD = 17;
+        const CLONE_CHILD_CLEARTID = 0x00200000;
+        const CLONE_CHILD_SETTID = 0x01000000;
+    }
+}
+
+pub fn syscall_clone(flags: CloneFlags, stack_top: *const u8, ptid: usize, ctid: usize, newtls: usize) -> isize {
+    let mut a0 = flags.bits() as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+         in("x11") stack_top as usize,
+         in("x12") ptid,
+         in("x13") ctid,
+         in("x14") newtls,
+         in("x17") SYSCALL_CLONE);
+    }
+    a0 as isize
+
+}
+
+
 pub fn syscall_getpid() -> usize {
     let mut ret = 0;
     unsafe {

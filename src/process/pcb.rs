@@ -1,13 +1,13 @@
 use super::signal::*;
 use super::TrapFrame;
+use crate::config::*;
 use crate::mm::MemorySpace;
 use crate::mm::PageNum;
 use crate::vfs::*;
-use crate::config::*;
-use alloc::sync::Arc;
-use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::sync::Arc;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::convert::TryFrom;
 use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::Ordering;
@@ -64,12 +64,12 @@ pub struct Pcb {
 unsafe impl Send for Pcb {}
 
 impl Pcb {
-    pub fn new(memory_space: MemorySpace, parent: Pid) -> Self {
+    pub fn new(memory_space: MemorySpace, parent: Pid, cwd: String) -> Self {
         let pcb = Self {
             parent,
             pid: alloc_pid(),
             state: PcbState::Running,
-            cwd: String::from("/"),
+            cwd,
             memory_space,
             fds: vec![Some(STDIN.clone()), Some(STDOUT.clone())],
             children: Vec::new(),
@@ -92,10 +92,36 @@ impl Pcb {
         pcb
     }
 
+    /**
+     * 进程上下文
+     */
+    pub fn trapframe(&mut self) -> &mut TrapFrame {
+        self.memory_space.trapframe()
+    }
+
+    pub fn clone_child(&mut self) -> Arc<Mutex<Pcb>> {
+        let child_ms = self.memory_space.copy();
+        let child = Arc::new(Mutex::new(Pcb::new(child_ms, self.pid, self.cwd.clone())));
+        let mut childlock = child.lock();
+        childlock.trapframe()["a0"] = 0;
+        // 先删掉STDIN、STDOUT
+        childlock.fds.clear();
+        // todo: 考虑O_CLOSEXEC，不拷贝所有fd
+        for fd in self.fds.iter() {
+            childlock.fds.push(fd.clone())
+        }
+        drop(childlock);
+        self.children.push(child.clone());
+        child
+    }
+
+    /**
+     * 进程文件描述符
+     */
     pub fn get_fd(&self, idx: isize) -> Option<Fd> {
         if let Ok(idx) = usize::try_from(idx) {
             if let Some(fd) = self.fds.get(idx) {
-                return fd.clone()
+                return fd.clone();
             }
         }
         None
@@ -105,51 +131,51 @@ impl Pcb {
     pub fn fds_add(&mut self, idx: isize, fd: Fd) -> bool {
         if let Ok(fd_ind) = usize::try_from(idx) {
             if self.fds.len() <= fd_ind && fd_ind < MAX_FDS {
-                for _ in 0..fd_ind- self.fds.len() {
+                for _ in 0..fd_ind - self.fds.len() {
                     self.fds.push(None)
                 }
                 self.fds.push(Some(fd));
-                return true
+                return true;
             } else if self.fds.len() > fd_ind {
                 if let None = self.get_fd(idx) {
                     self.fds[fd_ind] = Some(fd);
-                    return true
+                    return true;
                 }
             }
         }
         false
     }
 
-    // 表明进程可以从阻塞态变为就绪态
-    pub fn non_block(&mut self) -> bool {
-        self.block_fn.clone().unwrap()(self)
-    }
-
     // 找到空闲的位置插入File，或者push
     pub fn fds_insert(&mut self, fd: Fd) -> Option<usize> {
-        match self.fds.iter_mut().enumerate().find(|(_, fd)| {
-            fd.is_none()
-        }) {
+        match self.fds.iter_mut().enumerate().find(|(_, fd)| fd.is_none()) {
             Some((idx, pos)) => {
                 *pos = Some(fd);
-                return Some(idx)
+                return Some(idx);
             }
             None => {
                 self.fds.push(Some(fd));
-                return Some(self.fds.len() - 1)
+                return Some(self.fds.len() - 1);
             }
         }
     }
 
     pub fn fds_close(&mut self, idx: isize) -> bool {
         if let Ok(fd_ind) = usize::try_from(idx) {
-            if let Some(_) = self.get_fd(idx)  {
+            if let Some(_) = self.get_fd(idx) {
                 self.fds[fd_ind] = None;
-                return true
+                return true;
             }
         }
         false
+    }
 
+    /**
+     * 进程状态相关
+     */
+    // 表明进程可以从阻塞态变为就绪态
+    pub fn non_block(&mut self) -> bool {
+        self.block_fn.clone().unwrap()(self)
     }
 
     pub fn state(&self) -> PcbState {
@@ -162,26 +188,15 @@ impl Pcb {
         old_state
     }
 
-    pub fn trapframe(&mut self) -> &mut TrapFrame {
-        self.memory_space.trapframe()
-    }
-
     pub fn exit(&mut self, xcode: isize) {
         self.state = PcbState::Zombie(xcode);
+        // 进程退出就把打开的文件关闭
+        self.fds.clear();
     }
 
-    pub fn get_sigaction(&mut self, signal: Signal) -> SigAction {
-        let act =
-            self.sabinds
-                .iter_mut()
-                .find(|(sig, _)| if *sig == signal { true } else { false });
-        if let None = act {
-            sigactionbinds_default(signal)
-        } else {
-            act.unwrap().clone().1
-        }
-    }
-
+    /**
+     * 统计进程时间
+     */
     pub fn utimes_add(&mut self, times: usize) {
         self.utimes += times;
     }
@@ -212,6 +227,21 @@ impl Pcb {
 
     pub fn cstimes(&self) -> usize {
         self.cstimes
+    }
+
+    /**
+     * 信号处理
+     */
+    pub fn get_sigaction(&mut self, signal: Signal) -> SigAction {
+        let act = self
+            .sabinds
+            .iter_mut()
+            .find(|(sig, _)| if *sig == signal { true } else { false });
+        if let None = act {
+            sigactionbinds_default(signal)
+        } else {
+            act.unwrap().clone().1
+        }
     }
 
     pub fn sigaction_bind(&mut self, signal: Signal, act: SigAction) {
@@ -294,14 +324,3 @@ impl Drop for Pcb {
         sigqueue_clear(self.pid);
     }
 }
-
-/*
-pub fn pcb_block_slot(pcb: Arc<Mutex<Pcb>>, reason: BlockReason) {
-    log!("pcb":"slot">"pid({}) - Reason({:?})", pcb.lock().pid, reason);
-    match reason {
-        BlockReason::Wait => {
-            scheduler_ready_pcb(pcb);
-        }
-    }
-}
-*/

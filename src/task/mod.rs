@@ -2,6 +2,7 @@ use crate::mm::MemorySpace;
 use crate::process::cpu::*;
 use crate::process::*;
 use alloc::sync::Arc;
+use alloc::string::String;
 use alloc::vec::Vec;
 use spin::Mutex;
 
@@ -11,7 +12,7 @@ lazy_static! {
 }
 
 pub fn scheduler_load_pcb(memory_space: MemorySpace) {
-    let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 0)));
+    let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 0, String::from("/"))));
     scheduler_ready_pcb(pcb);
 }
 
@@ -75,12 +76,15 @@ pub fn schedule() -> ! {
                     }
                 },
                 PcbState::Blocking => {
-                    if pcb.lock().non_block() {
+                    let mut pcblock = pcb.lock();
+                    if pcblock.non_block() {
                         log!("scheduler":"unblock">"");
-                        pcb.lock().set_state(PcbState::Running);
+                        pcblock.block_fn = None;
+                        pcblock.set_state(PcbState::Running);
                     } else {
                         log!("scheduler":"block">"still blocking");
                     }
+                    drop(pcblock);
                     scheduler_ready_pcb(pcb);
                     continue;
                 }

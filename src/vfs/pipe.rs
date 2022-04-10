@@ -50,55 +50,59 @@ impl _Inode for PipeInode {
 
     fn read_offset(&self, _: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
         // 管道读时忽略offset参数
+        log!("pipe":"read_offset">"len ({})", buf.len());
         let mut inner = self.inner.lock();
-        if inner.writer == 0 {
-            // 另一端已经关闭，不会有数据写入，返回0
-            return Ok(buf.len())
-        }
-        let len = buf.len();
-        let mut i = inner.last_read;
-        while i < len {
+        while inner.last_read < buf.len() {
             if inner.nread == inner.nwrite {
-                // 需要等待另一端写入才能读出，记录这次未完成的读位置，下次读时继续
-                inner.last_read = i;
-                log!("pipe":"read">"remain (len: {}, i: {}, nread: {})", len, i, inner.nread);
+                // 读取少于buf.len()字节，可能需要等待另一端写入
+                if inner.writer == 0 {
+                    // 另一端已经关闭，不再等待
+                    let read_size = inner.last_read;
+                    inner.last_read = 0;
+                    return Ok(read_size)
+                }
+                inner.write_ready = true;
                 inner.read_ready = false;
+                // 返回PipeReadWait，使进程陷入阻塞，见src/trap/syscall/file.rs:sys_read
                 return Err(FileErr::PipeReadWait)
             }
-            buf[i] = inner.data[inner.nread % PIPE_INODE_SIZE];
+            buf[inner.last_read] = inner.data[inner.nread % PIPE_INODE_SIZE];
             inner.nread += 1;
-            i += 1;
+            inner.last_read += 1;
         }
         inner.write_ready = true;
+        // 成功读取到buf.len()字节，恢复last_read
         inner.last_read = 0;
-        return Ok(i)
+        return Ok(buf.len())
     }
 
     fn write_offset(&self, _: usize, buf: &[u8]) -> Result<usize, FileErr> {
         // 管道写时忽略offset参数
+        log!("pipe":"write_offset">"len ({})", buf.len());
         let mut inner = self.inner.lock();
-        if inner.reader == 0 {
-            // 另一端已经关闭，不会将数据读出，返回0
-            return Ok(buf.len())
-        }
-        let len = buf.len();
-        let mut i = inner.last_write;
-        while i < len {
+        while inner.last_write < buf.len() {
             if inner.nwrite == inner.nread + PIPE_INODE_SIZE {
-                // 需要等待另一端读出才能写入，记录这次未完成的写位置，下次写时继续
-                inner.last_write = i;
-                log!("pipe":"write">"remain (len: {}, i: {}, nwrite: {})", len, i, inner.nwrite);
+                // 写入少于buf.len()字节，可能需要等待另一端读取
+                if inner.reader == 0 {
+                    // 另一端已经关闭，不再等待
+                    let write_size = inner.last_write;
+                    inner.last_write = 0;
+                    return Ok(write_size)
+                }
+                inner.read_ready = true;
                 inner.write_ready = false;
+                // 返回PipeWriteWait，使进程陷入阻塞，见src/trap/syscall/file.rs:sys_write
                 return Err(FileErr::PipeWriteWait)
             }
             let off = inner.nwrite % PIPE_INODE_SIZE;
-            inner.data[off] = buf[i];
+            inner.data[off] = buf[inner.last_write];
             inner.nwrite += 1;
-            i += 1;
+            inner.last_write += 1;
         }
         inner.read_ready = true;
+        // 成功写入到buf.len()字节，恢复last_write
         inner.last_write = 0;
-        return Ok(i)
+        return Ok(buf.len());
     }
 
     fn file_open(&self, flags: OpenFlags) {
@@ -109,6 +113,7 @@ impl _Inode for PipeInode {
         if flags.writable() {
             inner.writer += 1;
         }
+        log!("pipe":"file_open">"remain reader({}), remain writer({})", inner.reader, inner.writer);
     }
 
     fn file_close(&self, file: &File) {
@@ -118,6 +123,27 @@ impl _Inode for PipeInode {
         }
         if file.flags().writable() {
             inner.writer -= 1;
+        }
+        log!("pipe":"file_close">"remain reader({}), remain writer({})", inner.reader, inner.writer);
+    }
+
+    fn read_ready(&self) -> bool {
+        let inner = self.inner.lock();
+        // 如果没有写入者时可以read
+        if inner.writer == 0 {
+            true
+        } else {
+            inner.read_ready
+        }
+    }
+
+    fn write_ready(&self) -> bool {
+        let inner = self.inner.lock();
+        // 如果没有读出者时可以write
+        if inner.reader == 0 {
+            true
+        } else {
+            inner.write_ready
         }
     }
 }

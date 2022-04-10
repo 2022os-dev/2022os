@@ -212,6 +212,17 @@ pub fn syscall_handler() {
             log!("syscall":"brk" > "pid({}) (0x{:x})", pcblock.pid, va.0);
             pcblock.trapframe()["a0"] = sys_brk(&mut pcblock, va) as usize;
         }
+        SYSCALL_CLONE => {
+            let flags = CloneFlags::from_bits(trapframe["a0"]).unwrap_or(CloneFlags::empty());
+            let stack_top = VirtualAddr(trapframe["a1"]);
+            let ptid = trapframe["a2"];
+            let ctid = trapframe["a3"];
+            let newtls = trapframe["a4"];
+            drop(trapframe);
+            log!("syscall":"clone" > "pid({}) flags({:?}), stack(0x{:x})", pcblock.pid, flags, stack_top.0);
+            pcblock.trapframe()["a0"] = sys_clone(&mut pcblock, flags, stack_top, ptid, ctid, newtls) as usize;
+
+        }
         SYSCALL_KILL => {
             let pid = trapframe["a0"];
             let sig = trapframe["a1"];
@@ -269,7 +280,7 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_fork(&mut pcblock) as usize;
         }
         _ => {
-            println!("unsupported syscall {}", trapframe["a7"]);
+            log!("syscall":>"unsupported syscall {}", trapframe["a7"]);
         }
     }
     let state = pcblock.state;

@@ -253,7 +253,7 @@ pub trait _Inode {
 
     // 判断Inode是否准备好，由于协助异步IO
     fn write_ready(&self) -> bool {
-        unimplemented!("ready_read")
+        unimplemented!("write_read")
     }
 }
 
