@@ -332,12 +332,17 @@ pub(super) fn sys_write(
             }
             Err(FileErr::PipeWriteWait) => {
                 // 管道需要等待另一端，回退到ecall
+                log!("vfs":"sys_write">"waiting fd({})", fd);
                 pcb.trapframe()["sepc"] -= 4;
                 pcb.block_fn = Some(Arc::new(move |pcb| {
                     if let Some(_) = pcb.get_fd(fd).and_then(|file| {
                         file.try_write().and_then(|file| {
                             // 通过write_ready判断是否可以写
-                            Some(file.get_inode().write_ready())
+                            if file.get_inode().write_ready() {
+                                Some(())
+                            } else {
+                                None
+                            }
                         })
                     }) {
                         return true
@@ -377,7 +382,11 @@ pub(super) fn sys_read(
                     if let Some(_) = pcb.get_fd(fd).and_then(|file| {
                         file.try_write().and_then(|file| {
                             // 通过read_ready判断是否可以读
-                            Some(file.get_inode().read_ready())
+                            if file.get_inode().read_ready() {
+                                Some(())
+                            } else {
+                                None
+                            }
                         })
                     }) {
                         return true
