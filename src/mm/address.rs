@@ -128,6 +128,13 @@ impl Add<usize> for PhysAddr {
     }
 }
 
+impl Sub<usize> for PhysAddr {
+    type Output = Self;
+    fn sub(self, rhs: usize) -> Self::Output {
+        Self(self.0 - rhs)
+    }
+}
+
 impl<T: Sized> From<&T> for PhysAddr {
     fn from(reference: &T) -> Self {
         PhysAddr(<*const T>::to_bits(reference))

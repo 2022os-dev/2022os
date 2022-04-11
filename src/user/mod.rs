@@ -21,5 +21,7 @@ static GET_DIRENTS: &'static [u8] = include_bytes!("bin/get_dirents");
 static SYS_CLONE: &'static [u8] = include_bytes!("bin/sys_clone");
 
 lazy_static! {
-    pub static ref APP: Box<[&'static [u8]]> = Box::new([SYS_CLONE]);
+    pub static ref APP: Box<[&'static [u8]]> = Box::new([
+        OPENAT,
+    ]);
 }

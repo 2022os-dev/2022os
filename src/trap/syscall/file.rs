@@ -1,8 +1,10 @@
 use alloc::string::String;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::mem::size_of;
 use core::ops::Add;
 
-use crate::config::PATH_LIMITS;
+use crate::config::*;
 use crate::mm::*;
 use crate::process::*;
 use crate::sbi::sbi_legacy_call;
@@ -12,6 +14,7 @@ use spin::MutexGuard;
 const AT_FDCWD: isize = -100;
 fn get_str(pa: &PhysAddr) -> &str {
     let mut len = 0;
+    // Note: 将从用户空间传入的字符串大小作一个限制
     while len < PATH_LIMITS {
         if unsafe { *(pa.0 as *const u8).add(len) } != 0 {
             len += 1;
@@ -20,6 +23,33 @@ fn get_str(pa: &PhysAddr) -> &str {
         }
     }
     unsafe { core::str::from_utf8_unchecked(pa.as_slice(len)) }
+}
+
+fn get_array(pa: &PhysAddr) -> &[usize] {
+    // 可能数组过大或末尾未置0导致循环无法停止
+    let mut len = 0;
+    loop {
+        if unsafe { *(pa.0 as *const u8).add(len) } != 0 {
+            len += 1;
+        } else {
+            break;
+        }
+    }
+    unsafe { core::slice::from_raw_parts(pa.0 as *const usize, len) }
+}
+
+fn concat_full_path(fd: isize, cwd: &String, path: &str) -> Option<String> {
+    if is_absolute_path(path) {
+        Some(String::from(path))
+    } else if fd == AT_FDCWD {
+        if let Some('/') = cwd.chars().last() {
+            Some(cwd.clone() + path)
+        } else {
+            Some(cwd.clone() + "/" + path)
+        }
+    } else {
+        None
+    }
 }
 
 pub(super) fn sys_getcwd(pcb: &mut MutexGuard<Pcb>, buf: VirtualAddr, len: usize) -> VirtualAddr {
@@ -43,21 +73,11 @@ pub(super) fn sys_mkdirat(
     let phys: PhysAddr = path.into();
     let path = get_str(&phys);
     let mode = FileMode::from_bits(mode).unwrap();
-    let fullpath = if is_absolute_path(path) {
-        // 绝对路径,忽略fd
-        log!("syscall":"mkdirat">"absolute path: {}", path);
-        String::from(path)
-    } else if fd == AT_FDCWD {
-        // 使用cwd作为父节点
-        log!("syscall":"mkdirat">"relative path: {}", path);
-        if let Some('/') = pcb.cwd.chars().last() {
-            pcb.cwd.clone() + path
-        } else {
-            pcb.cwd.clone() + "/" + path
-        }
-    } else {
-        return -1;
-    };
+    let fullpath = concat_full_path(fd, &pcb.cwd, path);
+    if fullpath.is_none() {
+        return -1
+    }
+    let fullpath = fullpath.unwrap();
     let (rest, name) = rsplit_path(fullpath.as_str());
     if name == "." || name == ".." {
         return -1;
@@ -119,23 +139,11 @@ pub(super) fn sys_dup3(pcb: &mut MutexGuard<Pcb>, oldfd: isize, newfd: isize) ->
 pub(super) fn sys_chdir(pcb: &mut MutexGuard<Pcb>, path: VirtualAddr) -> isize {
     let path: PhysAddr = path.into();
     let path = get_str(&path);
-    let fullpath = if is_absolute_path(path) {
-        String::from(path)
-    } else {
-        match parse_path(&pcb.root, pcb.cwd.as_str()) {
-            Ok(_) => {
-                if let Some('/') = pcb.cwd.chars().last() {
-                    pcb.cwd.clone() + path
-                } else {
-                    pcb.cwd.clone() + "/" + path
-                }
-            }
-            Err(e) => {
-                log!("syscall":"chdir">"error {:?}", e);
-                return -1;
-            }
-        }
-    };
+    let fullpath = concat_full_path(AT_FDCWD, &pcb.cwd, path);
+    if fullpath.is_none() {
+        return -1
+    }
+    let fullpath = fullpath.unwrap();
     match parse_path(&pcb.root, fullpath.as_str()) {
         Ok(_) => {
             pcb.cwd = fullpath;
@@ -159,22 +167,12 @@ pub(super) fn sys_openat(
     let path = get_str(&path);
     let flags = OpenFlags::from_bits(flags).unwrap();
     let mode = FileMode::from_bits(mode).unwrap();
-    // 判断path使用的父节点
-    let fullpath = if is_absolute_path(path) {
-        log!("syscall":"openat">"absolute path: {}", path);
-        String::from(path)
-    } else if dirfd == AT_FDCWD {
-        // 使用cwd作为父节点
-        log!("syscall":"openat">"relative path: {}", path);
-        if let Some('/') = pcb.cwd.chars().last() {
-            pcb.cwd.clone() + path
-        } else {
-            pcb.cwd.clone() + "/" + path
-        }
-    } else {
-        log!("syscall":"openat">"invalid combination of dirfd and path: {}, {}", dirfd, path);
+    // 构造绝对路径
+    let fullpath =  concat_full_path(dirfd, &pcb.cwd, path);
+    if fullpath.is_none() {
         return -1;
-    };
+    }
+    let fullpath = fullpath.unwrap();
     // 1. 首先尝试直接解析
     match parse_path(&pcb.root, fullpath.as_str()) {
         Ok(inode) => {
@@ -365,4 +363,110 @@ pub(super) fn sys_read(
         log!("syscall":"sys_read">"fd invalid");
         -1
     }
+}
+
+pub(super) fn execve(
+    pcb: &mut MutexGuard<Pcb>,
+    path: VirtualAddr,
+    argv: VirtualAddr,
+    envp: VirtualAddr,
+) {
+    let path: PhysAddr = path.into();
+    let path = get_str(&path);
+    let argv: PhysAddr = argv.into();
+    let argv = get_array(&argv);
+    let envp: PhysAddr = envp.into();
+    let envp = get_array(&envp);
+
+    // 构造一个绝对路径
+    let fullpath = concat_full_path(AT_FDCWD, &pcb.cwd, path);
+    if fullpath.is_none() {
+        log!("syscall":"execve">"invalid path {}", fullpath);
+        return;
+    }
+    let fullpath = fullpath.unwrap();
+    parse_path(&pcb.root, fullpath.as_str()).and_then(|inode| {
+        // Fixme：目前暂时的实现是将文件全部读到内存进行解析
+        let mut buf: Vec<u8> = Vec::with_capacity(inode.len());
+        if let Ok(_) = inode.read_offset(0, buf.as_mut_slice()) {
+            let mut ms = MemorySpace::from_elf(buf.as_slice());
+            // 用户栈底的物理地址(栈由上往下增长)
+            let mut user_stack = ms.user_stack.offset_phys(PAGE_SIZE);
+            // 将argv和envp数组拷贝到用户栈上
+            match copy_execve_str_array(argv, user_stack).and_then(|(argv_pa, start_pa)| {
+                copy_execve_str_array(envp, start_pa).and_then(|(envp_pa, stack_pa)| {
+                    Ok((argv_pa, envp_pa, stack_pa))
+                })
+            }) {
+                Ok((argv_pa, envp_pa, stack_pa)) => {
+                    log!("syscall":"execve""success">"copy argv, envp");
+                    // 更新栈
+                    ms.trapframe()["sp"] = stack_pa.page_offset() + USER_STACK_PAGE;
+                    // 更新args
+                    ms.trapframe()["a1"] = argv.len() - 1;
+                    // 计算argv数组的虚拟地址
+                    ms.trapframe()["a1"] = argv_pa.page_offset() + USER_STACK_PAGE;
+                    // 计算envp数组的虚拟地址
+                    ms.trapframe()["a2"] = envp_pa.page_offset() + USER_STACK_PAGE;
+
+                    // 释放了原本的用户MemorySpace，不能再读写了
+                    pcb.memory_space = ms;
+                }
+                Err(_) => {}
+            };
+        }
+        Ok(())
+    });
+}
+
+/**
+ *       |--------------| <- stack_pa
+ *       |       0      |
+ *       |--------------|
+ *       |  str_arr[-2] |
+ *       |--------------|
+ *       |  str_arr[-3] | -----\
+ *       |--------------|       \
+ *       |      ...     |       |
+ *       |--------------|       |
+ *       |  str_arr[0]  | --- \ |
+ *       |--------------|     | |
+ *       |     str[0]   |     | |
+ *       |--------------| <---- |
+ *       |     str[1]   |       |
+ *       |--------------|       |
+ *       |      ...     |       |
+ *       |--------------| <-----|
+ */
+// 将execve的argv和envp字符数组复制道新进程的栈中, 返回接下来的栈地址
+fn copy_execve_str_array(str_array: &[usize], stack_pa: PhysAddr) -> Result<(PhysAddr, PhysAddr), ()> {
+    // 计算字符串复制的地址
+    let mut str_pa = stack_pa - size_of::<usize>() * (str_array.len());
+    // 计算数组复制的地址
+    let mut arr_pa = str_pa;
+    let arr_pa_ret = arr_pa;
+    for &va in str_array {
+        // va为0，数组结尾
+        if va == 0 {
+            let arr_i: &mut usize = arr_pa.as_mut();
+            *arr_i = 0;
+            break;
+        }
+        // 获得str_array指向的字符串
+        let str_pa_orignal: PhysAddr = VirtualAddr(va).into();
+        let str_original = get_str(&str_pa_orignal);
+
+        // 通过字符串长度计算要写入的地址
+        str_pa = str_pa - str_original.len();
+        // todo: 判断str_pa是否溢出栈
+
+        // 计算虚拟地址，写入栈中
+        let arr_i: &mut usize = arr_pa.as_mut();
+        *arr_i = str_pa.page_offset() + USER_STACK_PAGE;
+        // 复制字符串
+        str_pa.write(str_original.as_bytes());
+        // 指向下一个
+        arr_pa = arr_pa + size_of::<usize>();
+    }
+    Ok((arr_pa_ret, str_pa))
 }

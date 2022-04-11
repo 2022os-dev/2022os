@@ -223,6 +223,11 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] =
                 sys_clone(&mut pcblock, flags, stack_top, ptid, ctid, newtls) as usize;
         }
+        SYSCALL_EXEC => {
+            let path = VirtualAddr(trapframe["a0"]);
+            let argv = VirtualAddr(trapframe["a1"]);
+            let envp = VirtualAddr(trapframe["a2"]);
+        }
         SYSCALL_KILL => {
             let pid = trapframe["a0"];
             let sig = trapframe["a1"];
