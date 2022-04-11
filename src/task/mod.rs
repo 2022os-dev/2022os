@@ -1,6 +1,7 @@
 use crate::mm::MemorySpace;
 use crate::process::cpu::*;
 use crate::process::*;
+use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use spin::Mutex;
@@ -10,10 +11,9 @@ lazy_static! {
     static ref READYTASKS: Mutex<Vec<Arc<Mutex<Pcb>>>> = Mutex::new(Vec::new());
 }
 
-pub fn scheduler_load_pcb(memory_space: MemorySpace) -> Arc<Mutex<Pcb>> {
-    let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 0)));
-    scheduler_ready_pcb(pcb.clone());
-    pcb
+pub fn scheduler_load_pcb(memory_space: MemorySpace) {
+    let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 0, String::from("/"))));
+    scheduler_ready_pcb(pcb);
 }
 
 /*
@@ -75,13 +75,16 @@ pub fn schedule() -> ! {
                         panic!("Invalid state");
                     }
                 },
-                PcbState::Blocking(testfn) => {
-                    if !testfn(pcb.clone()) {
-                        log!("scheduler":"block">"still blocking");
-                    } else {
+                PcbState::Blocking => {
+                    let mut pcblock = pcb.lock();
+                    if pcblock.non_block() {
                         log!("scheduler":"unblock">"");
-                        pcb.lock().set_state(PcbState::Running);
+                        pcblock.block_fn = None;
+                        pcblock.set_state(PcbState::Running);
+                    } else {
+                        log!("scheduler":"block">"still blocking");
                     }
+                    drop(pcblock);
                     scheduler_ready_pcb(pcb);
                     continue;
                 }

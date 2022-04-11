@@ -15,3 +15,8 @@ pub const RTCLK_FREQ: usize = 1000_000; // 1M Hz
 
 pub const PTE_FLAG_SIZE: usize = 8;
 pub const PTE_PPN_OFFSET: usize = 10;
+// 每个进程最多能打开的文件
+pub const MAX_FDS: usize = 1024;
+
+// 文件目录最大长度
+pub const PATH_LIMITS: usize = 512;

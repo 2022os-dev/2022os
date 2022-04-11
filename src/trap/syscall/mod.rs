@@ -98,21 +98,28 @@ pub fn syscall_handler() {
             log!("syscall":"getcwd" > "pid({}) (0x{:x})", pcblock.pid, buf.0);
             pcblock.trapframe()["a0"] = sys_getcwd(&mut pcblock, buf, size).0;
         }
-        SYSCALL_PIPE=> {
+        SYSCALL_PIPE => {
             let pipe = VirtualAddr(trapframe["a0"]);
             log!("syscall":"pipe" > "pid({}) (0x{:x})", pcblock.pid, pipe.0);
             pcblock.trapframe()["a0"] = sys_pipe(&mut pcblock, pipe) as usize;
         }
         SYSCALL_DUP => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             log!("syscall":"dup" > "pid({}) ({})", pcblock.pid, fd);
             pcblock.trapframe()["a0"] = sys_dup(&mut pcblock, fd) as usize;
         }
         SYSCALL_DUP3 => {
-            let oldfd = trapframe["a0"];
-            let newfd = trapframe["a1"];
+            let oldfd = trapframe["a0"] as isize;
+            let newfd = trapframe["a1"] as isize;
             log!("syscall":"dup3" > "pid({}) ({}, {})", pcblock.pid, oldfd, newfd);
             pcblock.trapframe()["a0"] = sys_dup3(&mut pcblock, oldfd, newfd) as usize;
+        }
+        SYSCALL_MKDIRAT => {
+            let fd = trapframe["a0"] as isize;
+            let path = VirtualAddr(trapframe["a1"]);
+            let mode = trapframe["a2"];
+            log!("syscall":"mkdirat" > "pid({}) ({}, 0x{:x})", pcblock.pid, fd, mode);
+            pcblock.trapframe()["a0"] = sys_mkdirat(&mut pcblock, fd, path, mode) as usize;
         }
         SYSCALL_CHDIR => {
             let path = VirtualAddr(trapframe["a0"]);
@@ -120,34 +127,51 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_chdir(&mut pcblock, path) as usize;
         }
         SYSCALL_OPENAT => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             let filename = VirtualAddr(trapframe["a1"]);
             let flags = trapframe["a2"];
             let mode = trapframe["a3"];
             log!("syscall":"openat" > "pid({}) ({}, 0x{:x})", pcblock.pid, fd, filename.0);
-            pcblock.trapframe()["a0"] = sys_openat(&mut pcblock, fd, filename, flags, mode) as usize;
+            pcblock.trapframe()["a0"] =
+                sys_openat(&mut pcblock, fd, filename, flags, mode) as usize;
         }
         SYSCALL_CLOSE => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             drop(trapframe);
             log!("syscall":"close" > "pid({}) ({})", pcblock.pid, fd);
             pcblock.trapframe()["a0"] = sys_close(&mut pcblock, fd) as usize;
         }
         SYSCALL_GETDENTS64 => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             let buf = VirtualAddr(trapframe["a1"]);
             let len = trapframe["a2"];
             drop(trapframe);
-            log!("syscall":"close" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
+            log!("syscall":"getdents64" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
             pcblock.trapframe()["a0"] = sys_getdents64(&mut pcblock, fd, buf, len) as usize;
         }
+        SYSCALL_LSEEK => {
+            let fd = trapframe["a0"] as isize;
+            let offset = trapframe["a1"] as isize;
+            let whence = trapframe["a2"];
+            drop(trapframe);
+            log!("syscall":"lseek" > "pid({}) ({}, {}, {})", pcblock.pid, fd, offset, whence);
+            pcblock.trapframe()["a0"] = sys_lseek(&mut pcblock, fd, offset, whence) as usize;
+        }
         SYSCALL_WRITE => {
-            let fd = trapframe["a0"];
+            let fd = trapframe["a0"] as isize;
             let buf = VirtualAddr(trapframe["a1"]);
             let len = trapframe["a2"];
             drop(trapframe);
             log!("syscall":"write" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
             pcblock.trapframe()["a0"] = sys_write(&mut pcblock, fd, buf, len) as usize;
+        }
+        SYSCALL_READ => {
+            let fd = trapframe["a0"] as isize;
+            let buf = VirtualAddr(trapframe["a1"]);
+            let len = trapframe["a2"];
+            drop(trapframe);
+            log!("syscall":"read" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
+            pcblock.trapframe()["a0"] = sys_read(&mut pcblock, fd, buf, len) as usize;
         }
         SYSCALL_EXIT => {
             let xcode = trapframe["a0"];
@@ -174,29 +198,7 @@ pub fn syscall_handler() {
             let rusage = VirtualAddr(trapframe["a3"]);
             drop(trapframe);
             log!("syscall":"wait4" > "pid({}) ({}, 0x{:x}, 0x{:x})", pcblock.pid, waitpid, wstatus.0, options);
-            let ret = sys_wait4(&mut pcblock, waitpid, wstatus, options, rusage);
-            if let Ok(child_pid) = ret {
-                log!("syscall":"wait4">"got child pid({})", child_pid);
-                pcblock.trapframe()["a0"] = child_pid;
-            } else {
-                // 回退上一条ecall指针，等待子进程信号
-                pcblock.trapframe()["sepc"] -= 4;
-                // 进入阻塞态，如果某个子进程退出则恢复
-                pcblock.set_state(PcbState::Blocking(|pcb| {
-                    let pcblock = pcb.try_lock();
-                    if let Some(pcblock) = pcblock {
-                        for i in pcblock.children.iter() {
-                            if let Some(childlock) = i.try_lock() {
-                                if let PcbState::Zombie(_) = childlock.state {
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                    false
-                }));
-                log!("syscall":"wait4" > "blocking pid({})", pcblock.pid);
-            }
+            sys_wait4(&mut pcblock, waitpid, wstatus, options, rusage);
         }
         SYSCALL_SBRK => {
             let inc = trapframe["a0"];
@@ -209,6 +211,17 @@ pub fn syscall_handler() {
             drop(trapframe);
             log!("syscall":"brk" > "pid({}) (0x{:x})", pcblock.pid, va.0);
             pcblock.trapframe()["a0"] = sys_brk(&mut pcblock, va) as usize;
+        }
+        SYSCALL_CLONE => {
+            let flags = CloneFlags::from_bits(trapframe["a0"]).unwrap_or(CloneFlags::empty());
+            let stack_top = VirtualAddr(trapframe["a1"]);
+            let ptid = trapframe["a2"];
+            let ctid = trapframe["a3"];
+            let newtls = trapframe["a4"];
+            drop(trapframe);
+            log!("syscall":"clone" > "pid({}) flags({:?}), stack(0x{:x})", pcblock.pid, flags, stack_top.0);
+            pcblock.trapframe()["a0"] =
+                sys_clone(&mut pcblock, flags, stack_top, ptid, ctid, newtls) as usize;
         }
         SYSCALL_KILL => {
             let pid = trapframe["a0"];
@@ -252,17 +265,15 @@ pub fn syscall_handler() {
             let timespec: &TimeSpec = timespec.as_ref();
             let current_time = get_time();
             trapframe["a0"] = 0;
-            pcblock.wakeup_time = Some(
-                get_time() + timespec.tv_sec * RTCLK_FREQ + timespec.tv_nsec * RTCLK_FREQ / 1000,
-            );
-            pcblock.set_state(PcbState::Blocking(move |pcb| {
-                if let Some(pcb) = pcb.try_lock() {
-                    if pcb.wakeup_time.unwrap() <= get_time() {
-                        return true;
-                    }
+            let wakeup_time =
+                get_time() + timespec.tv_sec * RTCLK_FREQ + timespec.tv_nsec * RTCLK_FREQ / 1000;
+            pcblock.block_fn = Some(Arc::new(move |pcb| {
+                if wakeup_time <= get_time() {
+                    return true;
                 }
                 false
             }));
+            pcblock.set_state(PcbState::Blocking);
         }
         SYSCALL_FORK => {
             drop(trapframe);
@@ -270,7 +281,7 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_fork(&mut pcblock) as usize;
         }
         _ => {
-            println!("unsupported syscall {}", trapframe["a7"]);
+            log!("syscall":>"unsupported syscall {}", trapframe["a7"]);
         }
     }
     let state = pcblock.state;

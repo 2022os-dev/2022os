@@ -10,9 +10,11 @@
 - [ ] 就绪队列无任务时hart休眠，有任务时唤醒
 - [ ] 系统调用
   - [ ] clone
-    - [ ] fork时复制文件描述符
+    - [x] fork时复制文件描述符
+    - [ ] 处理clone flags
   - [x] exit
   - [ ] wait4
+    - [x] 阻塞等待子进程退出
     - [ ] 处理wait4选项
   - [x] getpid
   - [x] getppid
@@ -21,6 +23,7 @@
 ## 内存管理
 - [ ] 检查用户传入的虚拟地址是否有效，若地址无效会导致内核错误
 - [ ] 将内核的堆内存分配统一为从kalloc接口分配
+- [ ] Copy on write
 - [ ] 系统调用
   - [ ] mmap
   - [ ] munmap
@@ -44,21 +47,49 @@
 - [ ] 文件系统挂载管理
 - [ ] 异步处理IO系统调用
 - [ ] fat32文件系统集成
+- [ ] 处理文件mode
+- [ ] 设置出错码errno
+- [ ] 实现dentry缓存
 - [ ] 文件系统调用
   - [ ] execve
-  - [x] getcwd
+    - [ ] 处理O_CLOEXEC
+  - [ ] getcwd
+    - [ ] 当buf为0表示由内核分配内存(malloc)
+    - [x] pcb结构保存cwd
+    - [x] 返回cwd
   - [ ] pipe2
-  - [ ] dup 
+    - [x] 管道Inode结构
+    - [x] 没有数据时阻塞等待另一方读/写
+    - [x] 多进程测试
+    - [ ] 解决单进程写入或读出大于管道缓冲大小的内容会一直阻塞的问题
+    - [x] 当另一端关闭时候不再等待
+  - [x] dup 
   - [ ] dup3
+    - [x] 复制fd
+    - [ ] 处理flags
   - [ ] chdir
-  - [ ] openat
-  - [ ] close
+    - [x] 判断目标路径是否存在
+    - [x] 更改cwd
+    - [ ] 去掉目录中的"."和".."
+  - [x] openat
+    - [x] 解析绝对路径
+    - [x] 解析相对路径
+    - [x] 创建文件
+    - [x] 在指定的文件描述符打开文件
+    - [x] 路径解析".."、"."
+  - [x] close
   - [ ] getdents
+    - [x] 返回目录项
+    - [x] 判断fd的open flags能否读取目录
+    - [ ] 构造".."和"."目录项
   - [x] read
   - [x] write
   - [ ] linkat 
   - [ ] unlinkat
-  - [ ] mkdirat 
+  - [x] mkdirat 
+    - [x] 创建绝对路径文件夹
+    - [x] 创建相对路径文件夹
+    - [x] 处理".."、"."
   - [ ] umount2
   - [ ] mount
   - [ ] fstat 

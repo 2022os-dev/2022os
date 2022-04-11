@@ -12,13 +12,18 @@ overflow-check = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["multicore", "init_clock", "user_log", "print_lock", "pcb"]
-board_unleashed = []
-init_clock = ["board_unleashed"]
-multicore = []    # 开启多核
-# log control
-print_lock = []   # 使用互斥锁防止多核打印格式混乱
+default = ["multicore", "input_echo", "init_clock", "user_log", "print_lock",
+           "pcb", "path_resolve", "pipe", "vfs"]
+
+board_unleashed = []    # 使用unleashed开发板
+init_clock = ["board_unleashed"]    # 配置系统时钟，使用1G Hz
+read_buffer = []    # read调用使用缓存区
+input_echo  = []    # 输入回显示
+multicore   = []    # 开启多核
+
+# 下面的选项用于调试内核模块的输出
 user_log = []     # 打印用户态程序输出
+print_lock = []   # 使用互斥锁防止多核打印格式混乱
 syscall = []
 trap = []
 scheduler = []
@@ -27,6 +32,9 @@ pgtbl = []
 kalloc = []
 pcb = []
 signal = []
+vfs = []
+pipe = []
+path_resolve = []
 
 
 [dependencies]

@@ -34,6 +34,7 @@ mod user;
 
 mod clock;
 mod config;
+mod vfs;
 
 #[macro_use]
 extern crate lazy_static;

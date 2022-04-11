@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 use core::arch::asm;
+use crate::println;
+use core::mem::size_of;
+use core::slice::from_raw_parts_mut;
 
 const SYSCALL_GETCWD: usize = 17;
 const SYSCALL_DUP: usize = 23;
@@ -67,15 +70,233 @@ const SYSCALL_LS: usize = 500;
 const SYSCALL_SHUTDOWN: usize = 501;
 const SYSCALL_CLEAR: usize = 502;
 
+pub const AT_FDCWD: isize = -100;
+bitflags! {
+    // 表示openat(2) 中的flags
+    pub struct OpenFlags: usize {
+        const RDONLY = 0;
+        const WRONLY = 1 << 0;
+        const RDWR = 1 << 1;
+        const CREATE = 1 << 6;
+        const TRUNC = 1 << 10;
+        const DIRECTROY = 0200000;
+        const LARGEFILE  = 0100000;
+        const CLOEXEC = 02000000;
+    }
+    // 表示openat(2) 中的mode_t
+    pub struct FileMode: usize {
+    }
+}
+impl OpenFlags {
+    pub fn readable(&self) -> bool {
+        *self & OpenFlags::RDWR != OpenFlags::empty() || 
+            *self & OpenFlags::RDONLY != OpenFlags::empty()
+    }
+    pub fn writable(&self) -> bool {
+        *self & OpenFlags::RDWR != OpenFlags::empty() || 
+            *self & OpenFlags::WRONLY != OpenFlags::empty()
+    }
 
-pub fn syscall_write(fd: usize, buf: &[u8]) {
+}
+
+pub fn ls(path: &str) {
+    let mut buf: [u8; 1024] = [0; 1024];
+    let fd = syscall_openat(AT_FDCWD, path, OpenFlags::RDONLY, FileMode::empty());
+    if fd < 0 {
+        println!("invalid path {}", path);
+        return;
+    }
+    while true {
+        let nread = syscall_getdirents64(fd, &mut buf, 1024);
+        if nread == 0 {
+            println!("EOF");
+            return;
+        }
+        if nread == -1 {
+            println!("error");
+            return ;
+        }
+        let nread = nread as usize;
+        let dirents = unsafe {from_raw_parts_mut(&mut buf as *mut _ as *mut LinuxDirent, nread / size_of::<LinuxDirent>())};
+        for i in 0..(nread/size_of::<LinuxDirent>()) {
+            println!("dirent: {}", unsafe { core::str::from_utf8_unchecked(&dirents[i].d_name)});
+        }
+    }
+
+}
+
+pub fn syscall_getcwd(buf: &mut [u8]) -> isize {
+    let mut a0 = buf.as_ptr() as usize;
     unsafe {
-        asm!("ecall", in("x10") fd,
+        asm!("ecall", inout("x10") a0,
+            in("x11") buf.len(),
+            in("x17") SYSCALL_GETCWD
+        )
+    }
+    a0 as isize
+}
+
+const PATH_LIMITS: usize = 512;
+#[repr(C)]
+pub struct LinuxDirent {
+    pub d_ino: usize,
+    pub d_off: isize,
+    pub d_reclen: u16,
+    pub d_type: u8,                // linux manual中d_type应该在d_name后面?
+    pub d_name: [u8; PATH_LIMITS]  // 使用固定的name长度
+}
+
+pub const DT_UNKNOWN:u8 = 0;
+pub const DT_DIR:u8 = 4;
+pub const DT_REG:u8 = 4; //常规文件
+
+impl LinuxDirent {
+    pub fn new() -> Self {
+        Self {
+            d_ino: 0,
+            d_off: 0,
+            d_reclen: 0,
+            d_type: 0,
+            d_name: [0; PATH_LIMITS]
+        }
+    }
+
+    pub fn fill(&mut self, other: &Self) {
+        self.d_ino = other.d_ino;
+        self.d_off= other.d_off;
+        self.d_reclen= other.d_reclen;
+        self.d_type = other.d_type;
+        self.d_name.copy_from_slice(&other.d_name);
+    }
+}
+
+pub fn syscall_getdirents64(fd: isize, buf: &mut [u8], len: usize) -> isize {
+    let mut a0 = fd as isize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") buf.as_ptr() as usize,
+            in("x12") len,
+            in("x17") SYSCALL_GETDENTS64
+        )
+    }
+    a0 as isize
+}
+
+pub fn syscall_chdir(buf: &str) -> isize {
+    let mut a0 = buf.as_ptr() as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x17") SYSCALL_CHDIR
+        )
+    }
+    a0 as isize
+}
+
+
+pub fn syscall_pipe(pipe: &mut [isize; 2]) -> isize {
+    let mut a0 = pipe as *const _ as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x17") SYSCALL_PIPE
+        )
+    }
+    a0 as isize
+
+}
+
+pub fn syscall_openat(fd: isize, filename: &str, flags: OpenFlags, mode: FileMode) -> isize {
+    let mut a0 = fd as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") filename.as_ptr() as usize,
+            in("x12") flags.bits() as usize,
+            in("x13") mode.bits() as usize,
+            in("x17") SYSCALL_OPENAT
+        )
+    }
+    a0 as isize
+}
+
+pub fn syscall_dup(fd: isize) -> isize {
+    let mut a0 = fd as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x17") SYSCALL_DUP
+        )
+    }
+    a0 as isize
+}
+
+pub fn syscall_dup3(oldfd: isize, newfd: isize) -> isize {
+    let mut a0 = oldfd as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") newfd,
+            in("x17") SYSCALL_DUP3
+        )
+    }
+    a0 as isize
+}
+
+pub fn syscall_mkdirat(fd: isize, path: &str, mode: FileMode) -> isize {
+    let mut a0 = fd as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") path.as_ptr() as usize,
+            in("x12") mode.bits(),
+            in("x17") SYSCALL_MKDIRAT
+        )
+    }
+    a0 as isize
+}
+
+pub fn syscall_close(fd: isize) -> isize {
+    let mut a0 = fd as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x17") SYSCALL_CLOSE
+        )
+    }
+    a0 as isize
+
+}
+
+pub const SEEK_SET: usize = 0;
+pub const SEEK_CUR : usize = 1;
+pub const SEEK_END : usize = 2;
+pub fn syscall_lseek(fd: isize, offset: isize, whence: usize) -> isize {
+    let mut a0 = fd as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") offset as usize,
+            in("x12") whence,
+            in("x17") SYSCALL_LSEEK
+        )
+    }
+    a0 as isize
+}
+
+pub fn syscall_write(fd: isize, buf: &[u8]) -> isize {
+    let mut a0 = fd as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
             in("x11") buf.as_ptr() as usize,
             in("x12") buf.len(),
             in("x17") SYSCALL_WRITE
         )
     }
+    a0 as isize
+}
+pub fn syscall_read(fd: isize, buf: &mut [u8]) -> isize {
+    let mut a0 = fd as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") buf.as_ptr() as usize,
+            in("x12") buf.len(),
+            in("x17") SYSCALL_READ
+        )
+    }
+    a0 as isize
 }
 
 pub fn syscall_exit(xcode: isize) -> !{
@@ -100,6 +321,29 @@ pub fn syscall_fork() -> isize {
     }
     ret
 }
+
+bitflags! {
+    pub struct CloneFlags: usize{
+        const SIGCHLD = 17;
+        const CLONE_CHILD_CLEARTID = 0x00200000;
+        const CLONE_CHILD_SETTID = 0x01000000;
+    }
+}
+
+pub fn syscall_clone(flags: CloneFlags, stack_top: *const u8, ptid: usize, ctid: usize, newtls: usize) -> isize {
+    let mut a0 = flags.bits() as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+         in("x11") stack_top as usize,
+         in("x12") ptid,
+         in("x13") ctid,
+         in("x14") newtls,
+         in("x17") SYSCALL_CLONE);
+    }
+    a0 as isize
+
+}
+
 
 pub fn syscall_getpid() -> usize {
     let mut ret = 0;

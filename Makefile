@@ -11,8 +11,10 @@ qemu:
 		-drive file=sdcard.img,if=sd,format=raw \
 		-device loader,file=kernel.bin,addr=0x80200000 \
 		-nographic
+
 apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
-	  	forkboom signal_chld times nanosleep
+	  	forkboom signal_chld times nanosleep openat pipe dup \
+		mkdirat chdir get_dirents SYS_CLONE
 
 user_apps:
 	@cat userenv/cargo.toml.template > userenv/cargo.toml
@@ -25,7 +27,6 @@ user_apps:
 	@for x in $(apps); do \
 		mv userenv/target/riscv64gc-unknown-none-elf/debug/$$x src/user/bin/$$x; \
 	done
-
 
 kernel.bin: user_apps
 	@cargo build --release
