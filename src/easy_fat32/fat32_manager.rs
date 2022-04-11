@@ -43,6 +43,7 @@ pub struct Fat32Manager {
     fat:Arc<RwLock<FAT>>,
     //第一簇（前两个簇不被使用！！！）的第一个块的块号
     first_sector: u32,
+    root_cluster_number: u32,
 }
 
 impl Fat32Manager {
@@ -87,31 +88,33 @@ impl Fat32Manager {
         println!("sectors_per_cluster {}",sectors_per_cluster);
         let total_sector: u32 = bpb.get_total_sector();
         println!("total_sector {}",total_sector);
+        let root_cluster_num: u32 = bpb.get_root_cluster_number();
         
 
         let fsinfo_sector_num: u16 = bpb.get_fsinfo_sector_num();
         println!("fsinfo_sector_num {}",fsinfo_sector_num);
 
         // 读取fsinfo数据结构！！！
-        let fsinfo = get_info_buffer(
-            fsinfo_sector_num as u32,
-            dev,
-        ).read().read(0, |fsi: &FsInfo| {
-            *fsi
-        });
+        // let fsinfo = get_info_buffer(
+        //     fsinfo_sector_num as u32,
+        //     dev,
+        // ).read().read(0, |fsi: &FsInfo| {
+        //     *fsi
+        // });
+        let fsinfo = FsInfo::new(fsinfo_sector_num as u32);
 
-        if fsinfo.check_lead_sig() == false {
+        if fsinfo.check_lead_sig(DEV) == false {
             // 可能待实现
             // assert!(fsinfo.check_lead_sig())
-            panic!("lead_sig of fsinfo is {},it should be 0x41625252!!!",fsinfo.get_lead_sig());
+            panic!("lead_sig of fsinfo is {},it should be 0x41625252!!!",fsinfo.get_lead_sig(DEV));
         }
 
-        if fsinfo.check_struct_sig() == false {
-            panic!("struct_sig of fsinfo is {},it should be 0x61417272!!!",fsinfo.get_struct_sig());
+        if fsinfo.check_struct_sig(DEV) == false {
+            panic!("struct_sig of fsinfo is {},it should be 0x61417272!!!",fsinfo.get_struct_sig(DEV));
         }
 
-        if fsinfo.check_trail_sig() == false {
-            panic!("trail_sig of fsinfo is {},it should be 0xaa550000!!!",fsinfo.get_trail_sig());
+        if fsinfo.check_trail_sig(DEV) == false {
+            panic!("trail_sig of fsinfo is {},it should be 0xaa550000!!!",fsinfo.get_trail_sig(DEV));
         }
 
         
@@ -131,9 +134,6 @@ impl Fat32Manager {
         let root_dir = ShortDirEntry::new(&[0x2F,0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20],
                                               &[0x20, 0x20, 0x20],
                                               SUB_DIRECTORY,);
-        // let mut root_dir = ShortDirEntry::new(&[0x46,0x41, 0x54, 0x33, 0x32, 0x20, 0x20, 0x20],
-        //     &[0x74, 0x78, 0x74],
-        //     0b00010000,);
         
         
         let fat32_manager = Self {
@@ -145,16 +145,17 @@ impl Fat32Manager {
             dev,
             fat: Arc::new(RwLock::new(fat)),
             first_sector,
+            root_cluster_number: root_cluster_num,
         };
 
         Arc::new(RwLock::new(fat32_manager))
                     
     }
     #[allow(unused)]
-    pub fn get_root_vfsfile(&self, fs: Arc<RwLock<Fat32Manager>>,) -> VFSFile {
+    pub fn get_root_vfsfile(&self, fs: &Arc<RwLock<Fat32Manager>>,) -> VFSFile {
         VFSFile::new(
             DEV, 
-            fs, 
+            Arc::clone(fs),
             0, 
             0, 
             Vec::new(), 
@@ -170,7 +171,11 @@ impl Fat32Manager {
     #[allow(unused)]
     pub fn initialize_root_dirent(&self) {
         let head = self.alloc_cluster(1, DEV).unwrap();
-        self.get_root().write().set_start_cluster(head);
+        if head != self.root_cluster_number {
+            self.dealloc_cluster(head,DEV);
+            println!("root has initialized!");
+        }
+        self.get_root().write().set_start_cluster(self.root_cluster_number);
     }
 
 
@@ -179,15 +184,15 @@ impl Fat32Manager {
     // 分配need个簇，会进行越界检查
     pub fn alloc_cluster(&self ,need :usize, dev: u8) -> Option<u32>{
         let mut fsinfo_write = self.fsinfo.write();
-        if fsinfo_write.get_free_cluster_num() < need as u32{
+        if fsinfo_write.get_free_cluster_num(DEV) < need as u32{
             println!("the need is more than free clusters!!!");
             None
         }
         else {  
             let mut fat_write = self.fat.write();
             
-            let res = fsinfo_write.get_first_free_cluster();
-            let mut current: u32 = fsinfo_write.get_first_free_cluster();
+            let res = fsinfo_write.get_first_free_cluster(DEV);
+            let mut current: u32 = fsinfo_write.get_first_free_cluster(DEV);
             // 使用之前必须清空
             self.clean_cluster(current, dev);
             let mut i = 1;
@@ -202,12 +207,12 @@ impl Fat32Manager {
             fat_write.set_next_cluster(current, LAST_CLUSTER, dev);
             
             // 分配完之后修改fsinfo信息
-            let free_cluster_num = fsinfo_write.get_free_cluster_num();
+            let free_cluster_num = fsinfo_write.get_free_cluster_num(DEV);
             
-            fsinfo_write.set_free_cluster_num(free_cluster_num - need as u32);
+            fsinfo_write.set_free_cluster_num(free_cluster_num - need as u32, DEV);
             let next_free_cluster = fat_write.get_next_free_cluster(current, dev);
             
-            fsinfo_write.set_first_free_cluster(next_free_cluster);
+            fsinfo_write.set_first_free_cluster(next_free_cluster, DEV);
             
             Some(res)
         }
@@ -219,9 +224,9 @@ impl Fat32Manager {
         let mut start = start;
         let mut fsinfo_write = self.fsinfo.write();
         let fat_write = self.fat.write();
-        let current: u32 = fsinfo_write.get_first_free_cluster();
+        let current: u32 = fsinfo_write.get_first_free_cluster(DEV);
         if start < current {
-            fsinfo_write.set_first_free_cluster(start);
+            fsinfo_write.set_first_free_cluster(start, DEV);
         }
         loop {
             let next = fat_write.get_next_cluster(start, dev);

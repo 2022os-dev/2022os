@@ -306,6 +306,7 @@ impl VFSFile {
             }
             // 该目录项不是要找的，则寻找下一个
             else {
+                
                 offset += 32;
             }
         }
@@ -373,7 +374,6 @@ impl VFSFile {
         if !self.is_dir() {
             panic!("can not find file in no-directory");
         }
-
         let (file_name, extension_name) = Fat32Manager::split_name_extension(name);
 
         let file_name_byte_arr = file_name.as_bytes();
@@ -398,12 +398,15 @@ impl VFSFile {
     #[allow(unused)]
     // 通过路径path在当前目录中开始寻找该目录项
     pub fn find_name_by_path(&self, path: &str) -> Option<Arc<VFSFile>> {
+        
         let pos :Vec<&str> = path.split("/").collect();
         if pos.len() == 0 {
+            
             return Some( Arc::new(self.clone()) );
         }
         let mut current = self.clone();
         for i in (0 .. pos.len()) {
+            
             if pos[i] == "" || pos[i] == "."{
                 continue;
             }
@@ -415,6 +418,7 @@ impl VFSFile {
                 return None
             }
         }
+        
         Some(Arc::new(current))
     }
 
@@ -485,13 +489,11 @@ impl VFSFile {
             let mut dir_offset;
             if let Some(offset) = self.find_next_free_dirent() {                            
                 dir_offset = offset;
-                
             } else {
                 
                 return None
             } 
             (short_sector, short_off) = self.get_sector_offset(dir_offset);
-            
             self.write_at(dir_offset as u32, short_dir_entry.trans_to_mut_bytes());
         }
 
@@ -515,8 +517,8 @@ impl VFSFile {
             res.increase(64);
             self_dirent.set_start_cluster(res.get_start_cluster());
             parent_dirent.set_start_cluster(self.get_start_cluster());
-
             if let Some(offset) = res.find_next_free_dirent() {
+                
                 dir_offset = offset;
             } else {
                 return None
@@ -531,6 +533,40 @@ impl VFSFile {
             res.write_at(dir_offset as u32, parent_dirent.trans_to_bytes());
         }
         Some(res)
+
+    }
+
+    pub fn get_dirent_info(&self, offset: u32) -> Option<(String, u32 ,u32 ,u8)> {
+        if !self.is_dir() {
+            println!("it should be directory!");
+            return None
+        }
+        let mut name = String::new(); 
+        let mut off = offset;
+        let long_dirent = LongDirEntry::empty();
+        loop {
+            if self.read_at(off, long_dirent.trans_to_mut_bytes()) < 32 || long_dirent.is_empty(){
+                return None
+            }
+            if long_dirent.is_delete() {
+                println!("the finding result has been deleted!");
+                return None
+            }
+            if long_dirent.is_long_dir() {
+                name.insert_str(0, long_dirent.get_name().as_str());
+            }
+            else {
+                let (_, array, _) = unsafe{
+                    long_dirent.trans_to_mut_bytes().align_to_mut::<ShortDirEntry>()
+                };
+                let short_dirent = array[0];
+                if name.len() == 0 {
+                    name = short_dirent.get_name();
+                }
+                Some(name, short_dirent.get_start_cluster(), off + 32, short_dirent.get_flag())
+            }
+            off += 32;
+        }
 
     }
 
@@ -585,8 +621,101 @@ impl VFSFile {
 
     #[allow(unused)]
     //获取相关文件信息
-    pub fn stat(&self) {
+    pub fn stat(&self) -> (i64, i64, i64, i64, i64,) {
+        let mut size: i64;
+        if self.is_dir() {
+            size = self.get_dir_length()
+        }
+        else {
+            size = self.get_file_length()
+        }
+        (self.get_creation_time() as i64, self.get_last_access_time() as i64, self.get_last_modify_time() as i64, size, self.get_start_cluster() as i64)
+        
+    }
 
+}
+
+impl _Inode for VFSFile {
+
+    fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
+        if let child = self.find_name(&self, name).unwrap() {
+            Ok(child.clone())
+        }
+        else {
+            Err(FileErr::InodeNotChild)
+        }
+    }
+
+    // 在当前目录创建一个文件，文件类型由InodeType指定
+    fn create(&self, name: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
+        
+        if name.len() == 0 {
+            println!("illeagal file name!");
+            return Err(FileErr::NotDefine);
+        }
+        //通过itype来创建flag
+        let flag: u8 = 0;
+        if let child = self.create(name, flag).unwrap() {
+            Ok(child.clone())
+        }
+        else {
+            return Err(FileErr::NotDefine);
+        }
+    }
+
+    // 从Inode的某个偏移量读出
+    fn read_offset(&self, mut offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
+        Ok(self.read_at(offset as u32, buf))
+    }
+
+    // 在Inode的某个偏移量写入
+    fn write_offset(&self, offset: usize, buf: &[u8]) -> Result<usize, FileErr> {
+        Ok(self.write_at(offset as u32, buf))
+    }
+
+    // Inode表示的文件都长度, 必须实现，用于read检测EOF,注意，fat32文件系统目录长度始终置0
+    fn len(&self) -> usize {
+        self.get_file_length(&self,) as usize
+    }
+
+    // 获取一个目录项, offset用于供inode判断读取哪个dirent 返回需要File更新的offset量
+    //     读到目录结尾返回InodeEndOfDir
+    fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
+        //flag用于判断是文件还是目录，offset用于设置偏移量（如果需要）
+        let (name, cluster, offset, flag) = self.get_dirent_info(&self, offset: u32).unwrap();
+        //用cluster号代替
+        dirent.d_ino = cluster;
+        dirent.d_reclen = match u16::try_from(core::mem::size_of::<LinuxDirent>()) {
+            Ok(size) => size,
+            Err(_) => {
+                return Err(FileErr::NotDefine);
+            }
+        };
+        dirent.d_off = match isize::try_from(offset + 1) {
+            Ok(size) => size,
+            Err(_) => {
+                return Err(FileErr::NotDefine);
+            }
+        };
+        dirent.d_type = DT_REG;
+        if name.len() > PATH_LIMITS {
+            return Err(FileErr::NotDefine);
+        }
+        dirent.d_name[0..name.len()].copy_from_slice(name.as_bytes());
+        Ok(1)
+        
+    }
+
+    // 打开子文件，可能为普通文件或目录
+    fn open_child(&self, name: &str, flags: OpenFlags) -> Result<Fd, FileErr> {
+        if let Ok(file) = self
+            .get_child(name)
+            .and_then(|inode| File::open(inode, flags))
+        {
+            Ok(file)
+        } else {
+            Err(FileErr::NotDefine)
+        }
     }
 
 }

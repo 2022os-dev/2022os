@@ -300,7 +300,6 @@ impl ShortDirEntry {
         // 由于目录项file_length字段置0,所以需手动计算其大小
         if self.is_dir() {
             file_length = fat_read.get_cluster_num(self.get_start_cluster(), dev) * bytes_per_sector as u32 * sectors_per_cluster as u32;
-            
         }
         else {
             file_length = self.file_length;
@@ -320,7 +319,7 @@ impl ShortDirEntry {
         // 4.重点!从第一个要读的簇内的偏移簇内块号开始读,直到need_read_length为0,有极大可能会读好几个簇,
         'counting_up: loop {
             while current_sector < sectors_per_cluster as u32{
-               
+                
                 let dst = &mut buffer[have_read_length as usize..(have_read_length + sector_end - sector_start) as usize];
                 if self.is_dir() {
                     get_info_buffer(
@@ -332,6 +331,7 @@ impl ShortDirEntry {
                         let src = &data_block[sector_start as usize..sector_end as usize];
                         dst.copy_from_slice(src);
                     });
+                    
                     have_read_length += sector_end - sector_start;
                     need_read_length -= sector_end - sector_start;
                     sector_start = 0;
@@ -547,6 +547,7 @@ impl ShortDirEntry {
         let mut read_length = 0;
         
         read_length = self.read_at(offset, short_dir_entry.trans_to_mut_bytes(), dev, fat, fat32_manager,);
+        
         loop {
             
             if read_length == 0 {
@@ -687,6 +688,11 @@ impl LongDirEntry {
     // 判断文件是否被删除
     pub fn is_delete(&self) -> bool {
         self.flag == 0xe5
+    }
+
+    #[allow(unused)]
+    pub fn is_long_dir(&self) -> bool {
+        self.flag == LONG_DIR_ENTRY
     }
 
     #[allow(unused)]

@@ -205,6 +205,7 @@ pub fn get_info_buffer(
     // }else {
     //     INFO_BUFFER_MANAGER.write().get_buffer(id, dev)
     // }
+    
     INFO_BUFFER_MANAGER.write().get_buffer(id, dev)
 }
 
