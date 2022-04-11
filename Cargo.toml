@@ -12,17 +12,17 @@ overflow-check = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["multicore", "input_echo", "init_clock", "user_log", "print_lock",
-           "pcb", "path_resolve", "pipe", "vfs"]
-
+default = ["multicore", "input_echo", "init_clock", "user_log", "print_lock"]
 board_unleashed = []    # 使用unleashed开发板
 init_clock = ["board_unleashed"]    # 配置系统时钟，使用1G Hz
 read_buffer = []    # read调用使用缓存区
 input_echo  = []    # 输入回显示
 multicore   = []    # 开启多核
+batch = ["pcb"] # 默认会运行一个shell，在shell中输入程序名运行，batch会指定运行一系列特定的程序，方便调试多核(src/user/mod.rs)
 
 # 下面的选项用于调试内核模块的输出
 user_log = []     # 打印用户态程序输出
+kernel_log = ["pcb", "path_resolve", "pipe", "vfs", "execve"] 
 print_lock = []   # 使用互斥锁防止多核打印格式混乱
 syscall = []
 trap = []
@@ -35,7 +35,7 @@ signal = []
 vfs = []
 pipe = []
 path_resolve = []
-
+execve = []
 
 [dependencies]
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
@@ -44,3 +44,4 @@ buddy_system_allocator = "0.6"
 spin = "0.7.0"
 bitflags = "1.2.1"
 xmas-elf = "0.8.0"
+elf_parser = { version = "0.1.1", path = "crates/elf_parser" }

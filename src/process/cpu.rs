@@ -128,10 +128,6 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> ! {
     log!("hart":"run">"map segments");
     // map_segments将代码数据段映射到页表
     current_hart_pgtbl().map_segments(pcb.lock().memory_space.segments());
-    // 因为是在对当前使用的页表进行映射，所以可能需要刷新快表
-    unsafe {
-        asm!("sfence.vma");
-    }
     // 映射用户栈,U flags
     let stack = pcb.lock().memory_space.user_stack;
     log!("hart":"run">"map user stack page 0x{:x}", stack.page());
@@ -149,6 +145,10 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> ! {
     pcb.lock()
         .stimes_add(get_time() - current_hart_set_trap_times(get_time()));
     current_hart().pcb = Some(pcb);
+    // 因为是在对当前使用的页表进行映射，所以可能需要刷新快表
+    unsafe {
+        asm!("sfence.vma");
+    }
     restore_trapframe(tf);
 }
 

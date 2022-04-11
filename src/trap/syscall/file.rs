@@ -25,13 +25,28 @@ fn get_str(pa: &PhysAddr) -> &str {
     unsafe { core::str::from_utf8_unchecked(pa.as_slice(len)) }
 }
 
-fn get_array(pa: &PhysAddr) -> &[usize] {
-    // 可能数组过大或末尾未置0导致循环无法停止
+fn get_cstr(pa: &PhysAddr) -> &str {
     let mut len = 0;
-    loop {
+    // Note: 将从用户空间传入的字符串大小作一个限制
+    while len < PATH_LIMITS {
         if unsafe { *(pa.0 as *const u8).add(len) } != 0 {
             len += 1;
         } else {
+            len += 1;
+            break;
+        }
+    }
+    unsafe { core::str::from_utf8_unchecked(pa.as_slice(len)) }
+}
+
+fn get_usize_array(pa: &PhysAddr) -> &[usize] {
+    // 可能数组过大或末尾未置0导致循环无法停止
+    let mut len = 0;
+    loop {
+        if unsafe { *(pa.0 as *const usize).add(len) } != 0 {
+            len += 1;
+        } else {
+            len += 1;
             break;
         }
     }
@@ -60,6 +75,8 @@ pub(super) fn sys_getcwd(pcb: &mut MutexGuard<Pcb>, buf: VirtualAddr, len: usize
         let mut buf: PhysAddr = buf.into();
         // Fixme: 考虑 len长度限制
         buf.write(pcb.cwd.as_bytes());
+        // 最后一位写0
+        (buf + pcb.cwd.len()).write_bytes('\0' as u8, 1);
         VirtualAddr(buf.0)
     }
 }
@@ -365,7 +382,7 @@ pub(super) fn sys_read(
     }
 }
 
-pub(super) fn execve(
+pub(super) fn sys_execve(
     pcb: &mut MutexGuard<Pcb>,
     path: VirtualAddr,
     argv: VirtualAddr,
@@ -374,49 +391,61 @@ pub(super) fn execve(
     let path: PhysAddr = path.into();
     let path = get_str(&path);
     let argv: PhysAddr = argv.into();
-    let argv = get_array(&argv);
+    let argv = get_usize_array(&argv);
     let envp: PhysAddr = envp.into();
-    let envp = get_array(&envp);
+    let envp = get_usize_array(&envp);
 
     // 构造一个绝对路径
     let fullpath = concat_full_path(AT_FDCWD, &pcb.cwd, path);
     if fullpath.is_none() {
-        log!("syscall":"execve">"invalid path {}", fullpath);
+        log!("syscall":"execve">"invalid path {}", path);
         return;
     }
     let fullpath = fullpath.unwrap();
-    parse_path(&pcb.root, fullpath.as_str()).and_then(|inode| {
-        // Fixme：目前暂时的实现是将文件全部读到内存进行解析
-        let mut buf: Vec<u8> = Vec::with_capacity(inode.len());
-        if let Ok(_) = inode.read_offset(0, buf.as_mut_slice()) {
-            let mut ms = MemorySpace::from_elf(buf.as_slice());
+    log!("execve":>"path {}", fullpath);
+    if let Ok(_) = parse_path(&pcb.root, fullpath.as_str()).and_then(|inode| {
+            let mut ms = MemorySpace::from_elf_inode(inode)?;
             // 用户栈底的物理地址(栈由上往下增长)
-            let mut user_stack = ms.user_stack.offset_phys(PAGE_SIZE);
+            let mut user_stack_high = ms.user_stack.offset_phys(USER_STACK_SIZE);
             // 将argv和envp数组拷贝到用户栈上
-            match copy_execve_str_array(argv, user_stack).and_then(|(argv_pa, start_pa)| {
-                copy_execve_str_array(envp, start_pa).and_then(|(envp_pa, stack_pa)| {
+            match copy_execve_str_array(user_stack_high, argv, user_stack_high).and_then(|(argv_pa, start_pa)| {
+                copy_execve_str_array(user_stack_high, envp, start_pa).and_then(|(envp_pa, stack_pa)| {
                     Ok((argv_pa, envp_pa, stack_pa))
                 })
             }) {
                 Ok((argv_pa, envp_pa, stack_pa)) => {
-                    log!("syscall":"execve""success">"copy argv, envp");
+                    log!("execve":>"copying argv, envp");
+                    let sp = MemorySpace::get_stack_sp().0 - (user_stack_high.0 - stack_pa.0);
                     // 更新栈
-                    ms.trapframe()["sp"] = stack_pa.page_offset() + USER_STACK_PAGE;
+                    ms.trapframe()["sp"] = sp;
                     // 更新args
-                    ms.trapframe()["a1"] = argv.len() - 1;
+                    ms.trapframe()["a0"] = argv.len() - 1;
                     // 计算argv数组的虚拟地址
-                    ms.trapframe()["a1"] = argv_pa.page_offset() + USER_STACK_PAGE;
+                    let a1 = MemorySpace::get_stack_sp().0 - (user_stack_high.0 - argv_pa.0);
+                    ms.trapframe()["a1"] = a1;
                     // 计算envp数组的虚拟地址
-                    ms.trapframe()["a2"] = envp_pa.page_offset() + USER_STACK_PAGE;
+                    let a2 = MemorySpace::get_stack_sp().0 - (user_stack_high.0 - envp_pa.0);
+                    ms.trapframe()["a2"] = a2;
 
+                    let sp = ms.trapframe()["sp"];
+                    log!("execve":>"sp, entry (0x{:x}) (0x{:x})", sp, ms.entry());
                     // 释放了原本的用户MemorySpace，不能再读写了
                     pcb.memory_space = ms;
+                    Ok(())
                 }
-                Err(_) => {}
-            };
-        }
-        Ok(())
-    });
+                Err(_) => {
+                    Err(FileErr::NotDefine)
+                }
+            }
+        // } else {
+        //     log!("syscall":"execve">"read path({}) error", fullpath);
+        //     Ok(())
+        // }
+    }) {
+        log!("syscall":"execve""success">"");
+    } else {
+        log!("syscall":"execve""fail">"");
+    }
 }
 
 /**
@@ -439,7 +468,7 @@ pub(super) fn execve(
  *       |--------------| <-----|
  */
 // 将execve的argv和envp字符数组复制道新进程的栈中, 返回接下来的栈地址
-fn copy_execve_str_array(str_array: &[usize], stack_pa: PhysAddr) -> Result<(PhysAddr, PhysAddr), ()> {
+fn copy_execve_str_array(stack_high: PhysAddr, str_array: &[usize], stack_pa: PhysAddr) -> Result<(PhysAddr, PhysAddr), ()> {
     // 计算字符串复制的地址
     let mut str_pa = stack_pa - size_of::<usize>() * (str_array.len());
     // 计算数组复制的地址
@@ -454,7 +483,8 @@ fn copy_execve_str_array(str_array: &[usize], stack_pa: PhysAddr) -> Result<(Phy
         }
         // 获得str_array指向的字符串
         let str_pa_orignal: PhysAddr = VirtualAddr(va).into();
-        let str_original = get_str(&str_pa_orignal);
+        let str_original = get_cstr(&str_pa_orignal);
+        log!("execve":"copy_str_array">"str({}): \"{}\"", str_original.len(), str_original);
 
         // 通过字符串长度计算要写入的地址
         str_pa = str_pa - str_original.len();
@@ -462,7 +492,7 @@ fn copy_execve_str_array(str_array: &[usize], stack_pa: PhysAddr) -> Result<(Phy
 
         // 计算虚拟地址，写入栈中
         let arr_i: &mut usize = arr_pa.as_mut();
-        *arr_i = str_pa.page_offset() + USER_STACK_PAGE;
+        *arr_i = MemorySpace::get_stack_sp().0 - (stack_high.0 - str_pa.0);
         // 复制字符串
         str_pa.write(str_original.as_bytes());
         // 指向下一个

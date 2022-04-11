@@ -97,10 +97,13 @@ pub fn schedule() -> ! {
         } else {
             drop(pcb);
             current_hart_leak();
-            log!("scheduler":>"No ready Pcb");
-            // 查看是否已经释放所有pcb
-            log!("pcb":"remain">"{}", unsafe {crate::process::pcb::DROPPCBS.lock()});
-            loop {}
+            #[cfg(feature = "batch")]
+            {
+                // 查看是否已经释放所有pcb
+                log!("scheduler":>"No ready Pcb");
+                log!("pcb":"remain">"{}", unsafe {crate::process::pcb::DROPPCBS.lock()});
+                loop {}
+            }
         }
     }
 }

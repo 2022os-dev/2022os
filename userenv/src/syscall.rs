@@ -344,6 +344,17 @@ pub fn syscall_clone(flags: CloneFlags, stack_top: *const u8, ptid: usize, ctid:
 
 }
 
+pub fn syscall_execve(path: &str, argv: &[usize], envp: &[usize]) {
+    let mut a0 = path.as_ptr() as usize; 
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") argv.as_ptr() as usize,
+            in("x12") envp.as_ptr() as usize,
+            in("x17") SYSCALL_EXEC
+        )
+    }
+}
+
 
 pub fn syscall_getpid() -> usize {
     let mut ret = 0;

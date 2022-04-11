@@ -8,9 +8,16 @@ use spin::RwLock;
 
 use super::*;
 
-pub struct MemInode {
+lazy_static! {
+    pub static ref ROOT: Inode = Arc::new(MemRootInode::new());
+    static ref MEMINODES: RwLock<Vec<Arc<MemInode>>> = RwLock::new(Vec::new());
+}
+
+struct MemInode {
     inner: RwLock<InodeInner>,
 }
+
+struct MemRootInode(MemInode);
 
 struct InodeInner {
     // 设置一个名字方便调试
@@ -164,10 +171,44 @@ impl _Inode for MemInode {
         self.inner.read().len
     }
 }
+impl MemRootInode {
+    fn new() -> Self {
+        Self(MemInode::new())
+    }
+}
 
-lazy_static! {
-    pub static ref ROOT: Inode = Arc::new(MemInode::new());
-    pub static ref MEMINODES: RwLock<Vec<Arc<MemInode>>> = RwLock::new(Vec::new());
+impl _Inode for MemRootInode {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
+        self.0.get_dirent(offset, dirent) 
+    }
+
+    fn read_offset(&self, offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
+        self.0.read_offset(offset, buf)
+    }
+
+    fn write_offset(&self, offset: usize, buf: &[u8]) -> Result<usize, FileErr> {
+        self.0.write_offset(offset, buf)
+    }
+    fn create(&self, subname: &str, mode: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
+        self.0.create(subname, mode, itype)
+    }
+    fn open_child(&self, name: &str, flags: OpenFlags) -> Result<Fd, FileErr> {
+        self.0.open_child(name, flags)
+    }
+    fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
+        // 用于将用户态程序放到根目录下，方便execve系统调用测试
+        if let Some(app) = crate::user::APP.get(name) {
+            return Ok(Arc::new(ProgInode {
+                data: app
+            }))
+        } else {
+            self.0.get_child(name)
+        }
+    }
 }
 
 fn alloc_inode() -> Result<Arc<MemInode>, ()> {
@@ -189,5 +230,22 @@ fn alloc_inode() -> Result<Arc<MemInode>, ()> {
 pub fn memfs_init() {
     for _ in 0..20 {
         MEMINODES.write().push(Arc::new(MemInode::new()));
+    }
+}
+
+struct ProgInode {
+    pub data: &'static [u8]
+}
+
+impl _Inode for ProgInode {
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    fn read_offset(&self, offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
+        for i in 0..buf.len() {
+            buf[i] = self.data[offset + i];
+        }
+        Ok(buf.len())
     }
 }

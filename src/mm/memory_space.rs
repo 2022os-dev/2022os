@@ -4,8 +4,12 @@ use super::KALLOCATOR;
 use crate::config::*;
 use crate::process::TrapFrame;
 use crate::trap::{__alltraps, __restore};
+use crate::vfs::*;
 use alloc::collections::BTreeMap;
+use alloc::vec;
 use core::cmp::min;
+use core::mem::size_of;
+use core::mem::transmute;
 use core::ops::Range;
 use core::slice;
 use xmas_elf::ElfFile;
@@ -157,6 +161,46 @@ impl MemorySpace {
         space
     }
 
+    pub fn from_elf_inode(inode: Inode) -> Result<Self, FileErr> {
+        let ehdr_size = size_of::<elf_parser::Elf64Ehdr>();
+        let mut elf = vec![0; ehdr_size];
+        if let Ok(_) = inode.read_offset(0, elf.as_mut_slice()) {
+            let elf = elf_parser::Elf64::from_bytes(elf.as_slice());
+            if let Err(e) = elf {
+                println!("{:?}", e);
+                return Err(FileErr::NotDefine)
+            }
+            let elf = elf.unwrap();
+            let mut ms = Self::new();
+            // map programe
+            for i in 0..elf.phdr_num() {
+                let inode_offset = elf.ehdr().e_phoff + i as u64 * elf.ehdr().e_phentsize as u64;
+                let mut phdr = vec![0; size_of::<elf_parser::Elf64Phdr>()];
+                inode.read_offset(inode_offset as usize, phdr.as_mut_slice())?;
+                let phdr = unsafe {transmute::<*const u8, &elf_parser::Elf64Phdr>(phdr.as_ptr()) };
+                // Not LOAD
+                if phdr.p_type != 1 {
+                    continue;
+                }
+                let mut data = vec![0; phdr.p_filesz as usize];
+                inode.read_offset(phdr.p_offset as usize, data.as_mut_slice())?;
+                let start_va = VirtualAddr(phdr.p_vaddr as usize);
+                let end_va = VirtualAddr((phdr.p_vaddr + phdr.p_memsz) as usize);
+                let map_perm = MemorySpace::get_pte_flags_from_phdr_flags(phdr.p_flags) | PTEFlag::U;
+                ms.add_area_data_each_byte(
+                    start_va..end_va,
+                    map_perm | PTEFlag::V,
+                    data.as_slice(),
+                );
+            }
+            ms.set_entry_point(elf.entry_point() as usize);
+            let sp = Self::get_stack_sp().0;
+            ms.trapframe().init(sp, elf.entry_point() as usize);
+            return Ok(ms)
+        }
+        Err(FileErr::NotDefine)
+    }
+
     pub fn entry(&self) -> usize {
         self.entry
     }
@@ -206,6 +250,7 @@ impl MemorySpace {
     }
     */
 
+    // 将data中的数据映射到area
     fn add_area_data_each_byte(&mut self, area: Range<VirtualAddr>, flags: PTEFlag, data: &[u8]) {
         let mut start = area.start;
         let end = area.end;
@@ -213,11 +258,11 @@ impl MemorySpace {
         let end_page = end.ceil();
         let total = data.len();
         let mut wroten = 0;
-        log!(debug "[kernel] Maping data page 0x{:x} - 0x{:x}, {:?}", start.0, end.0, flags);
         for vpage in start_page.page()..end_page.page() {
             let vpage: PageNum = vpage.into();
             let page;
             if self.segments.contains_key(&vpage) {
+                // 多个段可能在同一页，将所有段的flags 或
                 page = self.segments[&vpage].0;
                 self.segments.get_mut(&vpage).unwrap().1 |= flags;
             } else {
@@ -225,7 +270,9 @@ impl MemorySpace {
                 self.segments.insert(vpage, (page, flags));
             }
             let size = min(PAGE_SIZE - start.page_offset(), total - wroten);
-            log!(debug "maping data[{}]: 0x{:x} -> 0x{:x}", wroten, size, start.0);
+            if size == 0 {
+                break;
+            }
             page.offset_phys(start.page_offset())
                 .write(unsafe { slice::from_raw_parts(&data[wroten], size) });
             wroten += size;
@@ -254,6 +301,21 @@ impl MemorySpace {
             pte_flags |= PTEFlag::X;
         }
         pte_flags
+    }
+
+    fn get_pte_flags_from_phdr_flags(flags: u32) -> PTEFlag {
+        let mut pte = PTEFlag::empty();
+        if flags & 0x4 != 0 {
+            pte |= PTEFlag::R;
+        }
+        if flags & 0x2 != 0 {
+            pte |= PTEFlag::W;
+        }
+        if flags & 0x1 != 0 {
+            pte |= PTEFlag::X;
+        }
+        pte
+
     }
 }
 

@@ -43,6 +43,7 @@ extern crate buddy_system_allocator;
 extern crate spin;
 #[macro_use]
 extern crate bitflags;
+extern crate elf_parser;
 
 use mm::*;
 use process::cpu::hartid;
@@ -79,14 +80,17 @@ extern "C" fn kernel_start() {
 
         init_hart();
 
-        // Load tasks
-        for i in user::APP.iter() {
-            let virtual_space = MemorySpace::from_elf(i);
-            scheduler_load_pcb(virtual_space);
+        // Load shell
+        #[cfg(not(feature = "batch"))]
+        scheduler_load_pcb(MemorySpace::from_elf(user::SHELL));
+
+        #[cfg(feature = "batch")]
+        for i in user::BATCH.iter() {
+            scheduler_load_pcb(MemorySpace::from_elf(i));
         }
 
         #[cfg(feature = "multicore")]
-        for i in 1..=4 {
+        for i in 1..=2 {
             if hartid() != i {
                 sbi_hsm_hart_start(i, 0x80200000, 0);
             }

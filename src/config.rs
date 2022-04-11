@@ -4,9 +4,10 @@ pub const SV39_VPN_BIT: usize = 9;
 pub const PAGE_TABLE_LEVEL: usize = 3;
 
 // 物理内存终止页
-pub const PHYS_FRAME_END: usize = 0x80f00000;
-// 用户栈映射的虚拟地址, 用户栈大小为一个页
-pub const USER_STACK_PAGE: usize = 0x80000000 - PAGE_SIZE;
+pub const PHYS_FRAME_END: usize = 0x83f00000;
+// 用户栈映射的虚拟地址, 用户栈大小为一个页, 暂时不支持修改
+pub const USER_STACK_SIZE: usize = PAGE_SIZE;
+pub const USER_STACK_PAGE: usize = 0x80000000 - USER_STACK_SIZE;
 // 每个hart使用的栈大小
 pub const BOOT_STACK_SIZE: usize = 2 * PAGE_SIZE;
 // 定时器频率

@@ -227,6 +227,7 @@ pub fn syscall_handler() {
             let path = VirtualAddr(trapframe["a0"]);
             let argv = VirtualAddr(trapframe["a1"]);
             let envp = VirtualAddr(trapframe["a2"]);
+            sys_execve(&mut pcblock, path, argv, envp);
         }
         SYSCALL_KILL => {
             let pid = trapframe["a0"];
