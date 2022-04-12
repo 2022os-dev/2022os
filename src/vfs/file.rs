@@ -49,6 +49,8 @@ pub enum FileErr {
     NotDefine,
     // Directory中找不到Child
     InodeNotChild,
+    // 目录项被删除
+    InodeDelete
     // Inode不是Directory
     InodeNotDir,
     // 目录Inode中已经存在同名的child
