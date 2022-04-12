@@ -50,7 +50,7 @@ pub enum FileErr {
     // Directory中找不到Child
     InodeNotChild,
     // 目录项被删除
-    InodeDelete
+    InodeDelete,
     // Inode不是Directory
     InodeNotDir,
     // 目录Inode中已经存在同名的child
@@ -202,11 +202,6 @@ pub trait _Inode {
     //     读到目录结尾返回InodeEndOfDir
     fn get_dirent(&self, _: usize, _: &mut LinuxDirent) -> Result<usize, FileErr> {
         unimplemented!("get_dirents")
-    }
-
-    // 打开子文件，可能为普通文件或目录
-    fn open_child(&self, _: &str, _: OpenFlags) -> Result<Fd, FileErr> {
-        unimplemented!("open_child")
     }
 
     // 在当前目录创建一个文件，文件类型由InodeType指定

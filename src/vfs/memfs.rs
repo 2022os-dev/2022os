@@ -144,19 +144,6 @@ impl _Inode for MemInode {
         }
     }
 
-    fn open_child(&self, name: &str, flags: OpenFlags) -> Result<Fd, FileErr> {
-        if let Ok(file) = self
-            .get_child(name)
-            .and_then(|inode| File::open(inode, flags))
-        {
-            log!("vfs":"mem_open">"child ({})", name);
-            Ok(file)
-        } else {
-            log!("vfs":"mem_open">"failed child ({})", name);
-            Err(FileErr::NotDefine)
-        }
-    }
-
     fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
         if let Some(child) = self.inner.read().children.get(name) {
             log!("vfs":"mem_getchild">"got child name ({})", name);
@@ -195,9 +182,6 @@ impl _Inode for MemRootInode {
     }
     fn create(&self, subname: &str, mode: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
         self.0.create(subname, mode, itype)
-    }
-    fn open_child(&self, name: &str, flags: OpenFlags) -> Result<Fd, FileErr> {
-        self.0.open_child(name, flags)
     }
     fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
         // 用于将用户态程序放到根目录下，方便execve系统调用测试
