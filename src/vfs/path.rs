@@ -33,11 +33,8 @@ pub fn parse_path(from: &Inode, path: &str) -> Result<Inode, FileErr> {
                 nodes.pop();
                 continue;
             } else {
-                if let Ok(child) = inode.get_child(name) {
-                    nodes.push(child);
-                } else {
-                    return Err(FileErr::InodeNotChild);
-                }
+                let child = inode.get_child(name)?;
+                nodes.push(child);
             }
         } else {
             // ".." 超过根目录，比如"/dir/../.."

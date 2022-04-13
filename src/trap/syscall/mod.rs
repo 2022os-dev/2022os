@@ -121,6 +121,14 @@ pub fn syscall_handler() {
             log!("syscall":"mkdirat" > "pid({}) ({}, 0x{:x})", pcblock.pid, fd, mode);
             pcblock.trapframe()["a0"] = sys_mkdirat(&mut pcblock, fd, path, mode) as usize;
         }
+        SYSCALL_LINKAT => {
+            let olddirfd = trapframe["a0"] as isize;
+            let oldpath= VirtualAddr(trapframe["a1"]);
+            let newdirfd = trapframe["a2"] as isize;
+            let newpath = VirtualAddr(trapframe["a3"]);
+            let flags = trapframe["a4"];
+            pcblock.trapframe()["a0"] = sys_linkat(&mut pcblock, olddirfd, oldpath, newdirfd, newpath, flags) as usize;
+        }
         SYSCALL_CHDIR => {
             let path = VirtualAddr(trapframe["a0"]);
             log!("syscall":"chdir" > "pid({}) (0x{:x})", pcblock.pid, path.0);

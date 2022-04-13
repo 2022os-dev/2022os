@@ -19,6 +19,16 @@ fn main() {
     let name = "/file\0";
     let fd = syscall_openat(0, name, flags, mode);
     assert!(fd >= 0);
+
+    // 错误搭配
+    assert!(syscall_openat(0, "hello\0", flags, mode) == -1);
+    // 正确组合
+    assert!(syscall_mkdirat(AT_FDCWD, "openatdir\0", mode) == 0);
+    let dirfd = syscall_openat(AT_FDCWD, "openatdir\0", flags, mode);
+    assert!(dirfd >= 0);
+    assert!(syscall_openat(dirfd, "file2\0", OpenFlags::RDONLY|OpenFlags::CREATE, mode) > 0);
+    assert!(syscall_openat(AT_FDCWD, "openatdir/file2\0", OpenFlags::RDONLY|OpenFlags::CREATE, mode) > 0);
+
     // 判断写入
     assert!(syscall_write(fd, name.as_bytes()) == name.len() as isize);
     let mut buf: [u8; 6] = [0; 6];
@@ -56,9 +66,6 @@ fn main() {
     assert!(syscall_lseek(oldfd, 0, SEEK_SET) == 0);
     assert!(syscall_read(oldfd, &mut buf) == name.len() as isize);
     assert!(unsafe {core::str::from_utf8_unchecked(&buf)} == name);
-
-
-    println!("..........................");
 
     // 相对路径创建文件
     let flags = OpenFlags::CREATE | OpenFlags::RDWR;
@@ -118,9 +125,6 @@ fn main() {
     assert!(syscall_openat(-100, "./dir1\0", flags, mode) > 0);
     assert!(syscall_openat(0, "/dir1/dir2/dir3\0", flags, mode) > 0);
     assert!(syscall_openat(-100, "./dir1/dir2/dir3\0", flags, mode) > 0);
-
-    // 错误搭配
-    assert!(syscall_openat(0, "hello\0", flags, mode) == -1);
 
     // 使用"..“和"."
     assert!(syscall_openat(0, "/dir1/../dir1/dir2/file2\0", flags, mode) > 0);

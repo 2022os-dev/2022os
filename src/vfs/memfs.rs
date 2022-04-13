@@ -22,7 +22,7 @@ struct MemRootInode(MemInode);
 struct InodeInner {
     // 设置一个名字方便调试
     name: String,
-    children: BTreeMap<String, Arc<MemInode>>,
+    children: BTreeMap<String, Inode>,
     data: [u8; 512],
     used: bool,
     len: usize,
@@ -136,6 +136,11 @@ impl _Inode for MemInode {
                     .insert(String::from(subname), inode.clone().unwrap());
                 log!("vfs":"mem_create""{}">"child name ({})", inner.name, subname);
                 Ok(inode.unwrap())
+            }
+            // 硬链接
+            InodeType::HardLink(inode) => {
+                inner.children.insert(String::from(subname), inode.clone());
+                Ok(inode)
             }
             _ => {
                 log!("vfs":"mem_create""{}">"failed child name ({})",inner.name, subname);

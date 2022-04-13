@@ -10,6 +10,7 @@ use crate::sbi::*;
 pub enum InodeType {
     File,
     Directory,
+    HardLink(Inode),
     SymbolLink,
 }
 bitflags! {
@@ -72,7 +73,7 @@ pub type Inode = Arc<dyn _Inode + Send + Sync + 'static>;
 pub struct File {
     pos: usize,
     flags: OpenFlags,
-    inode: Inode,
+    pub inode: Inode,
 }
 
 impl File {
@@ -195,28 +196,28 @@ impl Drop for File {
 pub trait _Inode {
     // 如果Inode不是目录，返回Err(FileErr::NotDir)
     fn get_child(&self, _: &str) -> Result<Inode, FileErr> {
-        unimplemented!("get_child")
+        Err(FileErr::NotDefine)
     }
 
     // 获取一个目录项, offset用于供inode判断读取哪个dirent 返回需要File更新的offset量
     //     读到目录结尾返回InodeEndOfDir
     fn get_dirent(&self, _: usize, _: &mut LinuxDirent) -> Result<usize, FileErr> {
-        unimplemented!("get_dirents")
+        Err(FileErr::NotDefine)
     }
 
     // 在当前目录创建一个文件，文件类型由InodeType指定
     fn create(&self, _: &str, _: FileMode, _: InodeType) -> Result<Inode, FileErr> {
-        unimplemented!("create")
+        Err(FileErr::NotDefine)
     }
 
     // 从Inode的某个偏移量读出
     fn read_offset(&self, _: usize, _: &mut [u8]) -> Result<usize, FileErr> {
-        unimplemented!("read")
+        Err(FileErr::NotDefine)
     }
 
     // 在Inode的某个偏移量写入
     fn write_offset(&self, _: usize, _: &[u8]) -> Result<usize, FileErr> {
-        unimplemented!("write")
+        Err(FileErr::NotDefine)
     }
 
     // Inode表示的文件都长度, 必须实现，用于read检测EOF

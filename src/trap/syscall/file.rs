@@ -53,17 +53,26 @@ fn get_usize_array(pa: &PhysAddr) -> &[usize] {
     unsafe { core::slice::from_raw_parts(pa.0 as *const usize, len) }
 }
 
-fn concat_full_path(fd: isize, cwd: &String, path: &str) -> Option<String> {
+// 将fd和path的组合解析为(Inode, String)的元组，方便parse_path的调用
+fn make_path_tuple(pcb: &Pcb, fd: isize, path: &str) -> Option<(Inode, String)> {
     if is_absolute_path(path) {
-        Some(String::from(path))
+        Some((pcb.root.clone(), String::from(path)))
     } else if fd == AT_FDCWD {
-        if let Some('/') = cwd.chars().last() {
-            Some(cwd.clone() + path)
+        // 如果是相对于当前cwd的路径，构造一个绝对路径
+        if let Some('/') = pcb.cwd.chars().last() {
+            Some((pcb.root.clone(), pcb.cwd.clone() + path))
         } else {
-            Some(cwd.clone() + "/" + path)
+            Some((pcb.root.clone(), pcb.cwd.clone() + "/" + path))
         }
     } else {
-        None
+        match pcb.get_fd(fd) {
+            Some(fd) => {
+                Some((fd.read().inode.clone(), String::from(path)))
+            }
+            None => {
+                None
+            }
+        }
     }
 }
 
@@ -83,32 +92,46 @@ pub(super) fn sys_getcwd(pcb: &mut MutexGuard<Pcb>, buf: VirtualAddr, len: usize
 
 pub(super) fn sys_mkdirat(
     pcb: &mut MutexGuard<Pcb>,
-    fd: isize,
+    dirfd: isize,
     path: VirtualAddr,
     mode: usize,
 ) -> isize {
     let phys: PhysAddr = path.into();
     let path = get_str(&phys);
     let mode = FileMode::from_bits(mode).unwrap();
-    let fullpath = concat_full_path(fd, &pcb.cwd, path);
-    if fullpath.is_none() {
-        return -1
+    let path_tuple = make_path_tuple(&mut *pcb, dirfd, path);
+    if path_tuple.is_none() {
+        return -1;
     }
-    let fullpath = fullpath.unwrap();
-    let (rest, name) = rsplit_path(fullpath.as_str());
+    let (node, path) = path_tuple.unwrap();
+    let (rest, name) = rsplit_path(path.as_str());
     if name == "." || name == ".." {
         return -1;
     }
     if let Some(_) = match rest {
-        Some(rest) => parse_path(&pcb.root, rest)
+        Some(rest) => parse_path(&node, rest)
             .and_then(|inode| inode.create(name, mode, InodeType::Directory))
             .ok(),
-        None => pcb.root.create(name, mode, InodeType::Directory).ok(),
+        None => {
+            // rest 可能为空
+            node.create(name, mode, InodeType::Directory).ok()
+        }
     } {
         0
     } else {
         -1
     }
+}
+
+pub(super) fn sys_linkat(
+    pcb: &mut MutexGuard<Pcb>,
+    olddirfd: isize,
+    oldpath: VirtualAddr,
+    newdirfd: isize,
+    newpath: VirtualAddr,
+    _: usize,
+) -> isize {
+    -1
 }
 
 pub(super) fn sys_pipe(pcb: &mut MutexGuard<Pcb>, pipe: VirtualAddr) -> isize {
@@ -156,14 +179,14 @@ pub(super) fn sys_dup3(pcb: &mut MutexGuard<Pcb>, oldfd: isize, newfd: isize) ->
 pub(super) fn sys_chdir(pcb: &mut MutexGuard<Pcb>, path: VirtualAddr) -> isize {
     let path: PhysAddr = path.into();
     let path = get_str(&path);
-    let fullpath = concat_full_path(AT_FDCWD, &pcb.cwd, path);
-    if fullpath.is_none() {
-        return -1
+    let path_tuple = make_path_tuple(&mut *pcb, AT_FDCWD, path);
+    if path_tuple.is_none() {
+        return -1;
     }
-    let fullpath = fullpath.unwrap();
-    match parse_path(&pcb.root, fullpath.as_str()) {
+    let (node, path) = path_tuple.unwrap();
+    match parse_path(&node, path.as_str()) {
         Ok(_) => {
-            pcb.cwd = fullpath;
+            pcb.cwd = path;
             0
         }
         Err(e) => {
@@ -184,17 +207,17 @@ pub(super) fn sys_openat(
     let path = get_str(&path);
     let flags = OpenFlags::from_bits(flags).unwrap();
     let mode = FileMode::from_bits(mode).unwrap();
-    // 构造绝对路径
-    let fullpath =  concat_full_path(dirfd, &pcb.cwd, path);
-    if fullpath.is_none() {
+
+    let path_tuple = make_path_tuple(&mut *pcb, dirfd, path);
+    if path_tuple.is_none() {
         return -1;
     }
-    let fullpath = fullpath.unwrap();
+    let (node, path) = path_tuple.unwrap();
     // 1. 首先尝试直接解析
-    match parse_path(&pcb.root, fullpath.as_str()) {
+    match parse_path(&node, path.as_str()) {
         Ok(inode) => {
             // 2. 解析成功，直接打开
-            log!("syscall":"openat">"path exists: {}", fullpath);
+            log!("syscall":"openat">"path exists: {}", path);
             if let Ok(fd) = File::open(inode, flags)
                 .and_then(|file| pcb.fds_insert(file).ok_or(FileErr::NotDefine))
             {
@@ -204,39 +227,41 @@ pub(super) fn sys_openat(
         }
         // 3. 解析失败，目录内没有该path，如果flags包含create，尝试创建文件
         Err(FileErr::InodeNotChild) if flags.contains(OpenFlags::CREATE) => {
-            log!("syscall":"openat">"path not exists, create: {}", fullpath);
-            let (rest, comp) = rsplit_path(fullpath.as_str());
+            log!("syscall":"openat">"path not exists, create: {}", path);
+            let (rest, comp) = rsplit_path(path.as_str());
             if comp == "." || comp == ".." {
                 return -1;
             }
+            // 4. 创建文件需要先获取父目录
             let parent = if let Some(rest) = rest {
-                // 4. 解析Path中除去最后一个节点的剩余节点
-                parse_path(&pcb.root, rest)
+                // 5. 解析Path中除去最后一个节点的剩余节点
+                parse_path(&node, rest)
             } else {
                 Ok(pcb.root.clone())
             };
-            // 5. 判断节点是否解析成功
+            // 6. 判断父目录节点是否解析成功
             if let Ok(addedfd) = parent
                 .and_then(|inode| {
-                    // 6. 解析成功则新建文件
+                    // 7. 解析成功则新建文件
                     if flags.contains(OpenFlags::DIRECTROY) {
                         inode.create(comp, mode, InodeType::Directory)
                     } else {
                         inode.create(comp, mode, InodeType::File)
                     }
                 })
+                // 9. 打开新创建的文件
                 .and_then(|inode| File::open(inode, flags))
                 .and_then(|file| {
-                    // 7. 将打开的文件加入指定的fd中
+                    // 9. 将打开的文件加入指定的fd中
                     pcb.fds_insert(file).ok_or(FileErr::FdInvalid)
                 })
             {
-                // 8. 成功，返回新的fd
+                // 10. 成功，返回新的fd
                 return addedfd as isize;
             }
         }
         _ => {
-            log!("syscall":"openat">"path not exists: {}", fullpath);
+            log!("syscall":"openat">"path not exists: {}", path);
         }
     }
     -1
@@ -395,52 +420,47 @@ pub(super) fn sys_execve(
     let envp: PhysAddr = envp.into();
     let envp = get_usize_array(&envp);
 
-    // 构造一个绝对路径
-    let fullpath = concat_full_path(AT_FDCWD, &pcb.cwd, path);
-    if fullpath.is_none() {
+    // 构造路径tuple
+    let path_tuple = make_path_tuple(&mut *pcb, AT_FDCWD, path);
+    if path_tuple.is_none() {
         log!("syscall":"execve">"invalid path {}", path);
         return;
     }
-    let fullpath = fullpath.unwrap();
-    log!("execve":>"path {}", fullpath);
-    if let Ok(_) = parse_path(&pcb.root, fullpath.as_str()).and_then(|inode| {
-            let mut ms = MemorySpace::from_elf_inode(inode)?;
-            // 用户栈底的物理地址(栈由上往下增长)
-            let mut user_stack_high = ms.user_stack.offset_phys(USER_STACK_SIZE);
-            // 将argv和envp数组拷贝到用户栈上
-            match copy_execve_str_array(user_stack_high, argv, user_stack_high).and_then(|(argv_pa, start_pa)| {
-                copy_execve_str_array(user_stack_high, envp, start_pa).and_then(|(envp_pa, stack_pa)| {
-                    Ok((argv_pa, envp_pa, stack_pa))
-                })
-            }) {
-                Ok((argv_pa, envp_pa, stack_pa)) => {
-                    log!("execve":>"copying argv, envp");
-                    let sp = MemorySpace::get_stack_sp().0 - (user_stack_high.0 - stack_pa.0);
-                    // 更新栈
-                    ms.trapframe()["sp"] = sp;
-                    // 更新args
-                    ms.trapframe()["a0"] = argv.len() - 1;
-                    // 计算argv数组的虚拟地址
-                    let a1 = MemorySpace::get_stack_sp().0 - (user_stack_high.0 - argv_pa.0);
-                    ms.trapframe()["a1"] = a1;
-                    // 计算envp数组的虚拟地址
-                    let a2 = MemorySpace::get_stack_sp().0 - (user_stack_high.0 - envp_pa.0);
-                    ms.trapframe()["a2"] = a2;
+    let (node, path)= path_tuple.unwrap();
+    log!("execve":>"path {}", path);
+    if let Ok(_) = parse_path(&node, path.as_str()).and_then(|inode| {
+        let mut ms = MemorySpace::from_elf_inode(inode)?;
+        // 用户栈底的物理地址(栈由上往下增长)
+        let mut user_stack_high = ms.user_stack.offset_phys(USER_STACK_SIZE);
+        // 将argv和envp数组拷贝到用户栈上
+        match copy_execve_str_array(user_stack_high, argv, user_stack_high).and_then(
+            |(argv_pa, start_pa)| {
+                copy_execve_str_array(user_stack_high, envp, start_pa)
+                    .and_then(|(envp_pa, stack_pa)| Ok((argv_pa, envp_pa, stack_pa)))
+            },
+        ) {
+            Ok((argv_pa, envp_pa, stack_pa)) => {
+                log!("execve":>"copying argv, envp");
+                let sp = MemorySpace::get_stack_sp().0 - (user_stack_high.0 - stack_pa.0);
+                // 更新栈
+                ms.trapframe()["sp"] = sp;
+                // 更新args
+                ms.trapframe()["a0"] = argv.len() - 1;
+                // 计算argv数组的虚拟地址
+                let a1 = MemorySpace::get_stack_sp().0 - (user_stack_high.0 - argv_pa.0);
+                ms.trapframe()["a1"] = a1;
+                // 计算envp数组的虚拟地址
+                let a2 = MemorySpace::get_stack_sp().0 - (user_stack_high.0 - envp_pa.0);
+                ms.trapframe()["a2"] = a2;
 
-                    let sp = ms.trapframe()["sp"];
-                    log!("execve":>"sp, entry (0x{:x}) (0x{:x})", sp, ms.entry());
-                    // 释放了原本的用户MemorySpace，不能再读写了
-                    pcb.memory_space = ms;
-                    Ok(())
-                }
-                Err(_) => {
-                    Err(FileErr::NotDefine)
-                }
+                let sp = ms.trapframe()["sp"];
+                log!("execve":>"sp, entry (0x{:x}) (0x{:x})", sp, ms.entry());
+                // 释放了原本的用户MemorySpace，不能再读写了
+                pcb.memory_space = ms;
+                Ok(())
             }
-        // } else {
-        //     log!("syscall":"execve">"read path({}) error", fullpath);
-        //     Ok(())
-        // }
+            Err(_) => Err(FileErr::NotDefine),
+        }
     }) {
         log!("syscall":"execve""success">"");
     } else {
@@ -468,7 +488,11 @@ pub(super) fn sys_execve(
  *       |--------------| <-----|
  */
 // 将execve的argv和envp字符数组复制道新进程的栈中, 返回接下来的栈地址
-fn copy_execve_str_array(stack_high: PhysAddr, str_array: &[usize], stack_pa: PhysAddr) -> Result<(PhysAddr, PhysAddr), ()> {
+fn copy_execve_str_array(
+    stack_high: PhysAddr,
+    str_array: &[usize],
+    stack_pa: PhysAddr,
+) -> Result<(PhysAddr, PhysAddr), ()> {
     // 计算字符串复制的地址
     let mut str_pa = stack_pa - size_of::<usize>() * (str_array.len());
     // 计算数组复制的地址
