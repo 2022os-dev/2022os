@@ -52,6 +52,7 @@
 - [ ] 实现dentry缓存
 - [ ] 文件系统调用
   - [ ] execve
+    - [x] 基本的execve调用
     - [ ] 处理O_CLOEXEC
   - [ ] getcwd
     - [ ] 当buf为0表示由内核分配内存(malloc)
