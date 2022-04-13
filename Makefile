@@ -3,8 +3,11 @@ ifndef SDCARD_SIZE_MB
 	SDCARD_SIZE_KB=8
 endif
 
+apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
+	  	forkboom signal_chld times nanosleep openat pipe dup \
+		mkdirat chdir get_dirents sys_clone execve shell read
+
 qemu:
-	@[ -e kernel.bin ] && rm kernel.bin 
 	make kernel.bin
 	qemu-system-riscv64 -M sifive_u -smp 5 \
 		-bios bootloader/fw_jump.bin \
@@ -12,17 +15,15 @@ qemu:
 		-device loader,file=kernel.bin,addr=0x80200000 \
 		-nographic
 
-apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
-	  	forkboom signal_chld times nanosleep openat pipe dup \
-		mkdirat chdir get_dirents sys_clone execve shell read
-
 user_apps:
-	@cat userenv/cargo.toml.template > userenv/cargo.toml
+	@cat userenv/cargo.toml.template > userenv/Cargo.toml
 	@for x in $(apps); do \
-		echo "\n[[bin]]\n" >> userenv/cargo.toml; \
-		echo "name = \"$$x\"\n" >> userenv/cargo.toml; \
-		echo "path = \"src/$$x.rs\"\n" >> userenv/cargo.toml; \
+		echo "\n[[bin]]\n" >> userenv/Cargo.toml; \
+		echo "name = \"$$x\"\n" >> userenv/Cargo.toml; \
+		echo "path = \"src/$$x.rs\"\n" >> userenv/Cargo.toml; \
 	done
+	@[ -e src/user/bin ] || mkdir src/user/bin
+	@rm src/user/bin/*
 	@cd userenv && cargo build
 	@for x in $(apps); do \
 		mv userenv/target/riscv64gc-unknown-none-elf/debug/$$x src/user/bin/$$x; \
