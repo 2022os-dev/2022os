@@ -192,6 +192,32 @@ pub fn syscall_chdir(buf: &str) -> isize {
     a0 as isize
 }
 
+pub fn syscall_linkat(olddirfd: isize, oldpath: &str, newdirfd: isize, newpath: &str, flags: usize) -> isize {
+    let mut a0 = olddirfd as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") oldpath.as_ptr() as usize,
+            in("x12") newdirfd as usize,
+            in("x13") newpath.as_ptr() as usize,
+            in("x14") flags,
+            in("x17") SYSCALL_LINKAT
+        )
+    }
+    a0 as isize
+}
+
+pub fn syscall_unlinkat(dirfd: isize, path: &str, flags: usize) -> isize {
+    let mut a0 = dirfd as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0,
+            in("x11") path.as_ptr() as usize,
+            in("x12") flags,
+            in("x17") SYSCALL_UNLINKAT
+        )
+    }
+    a0 as isize
+}
+
 
 pub fn syscall_pipe(pipe: &mut [isize; 2]) -> isize {
     let mut a0 = pipe as *const _ as usize;

@@ -3,6 +3,8 @@
 ## 其他
 - [ ] 检查系统调用接口中usize和isze的转换，可能会溢出导致内核panic
 - [ ] shell
+  - [x] 能运行用户态程序
+  - [ ] 内置命令
 - [ ] uname获取系统信息
 
 ## 调度
@@ -85,8 +87,10 @@
     - [ ] 构造".."和"."目录项
   - [x] read
   - [x] write
-  - [ ] linkat 
+  - [x] linkat 
   - [ ] unlinkat
+    - [x] 删除文件
+    - [ ] 处理REMOVEDIR flags
   - [x] mkdirat 
     - [x] 创建绝对路径文件夹
     - [x] 创建相对路径文件夹

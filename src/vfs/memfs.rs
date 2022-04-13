@@ -80,6 +80,18 @@ impl _Inode for MemInode {
         Ok(1)
     }
 
+    fn unlink_child(&self, name: &str, _: bool) -> Result<usize, FileErr> {
+        let mut inner = self.inner.write();
+        if inner.children.contains_key(&String::from(name)) {
+            if inner.children.remove(&String::from(name)).is_some() {
+                // Memfs 剩余的链接数为0
+                return Ok(0)
+            }
+        }
+        return Err(FileErr::InodeNotChild)
+    }
+
+
     fn read_offset(&self, mut offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
         log!("vfs":"mem_read">"offset ({})", offset);
         let mut i = 0;

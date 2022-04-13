@@ -22,6 +22,7 @@ pub static GET_DIRENTS: &'static [u8] = include_bytes!("bin/get_dirents");
 pub static SYS_CLONE: &'static [u8] = include_bytes!("bin/sys_clone");
 pub static EXECVE: &'static [u8] = include_bytes!("bin/execve");
 pub static SHELL: &'static [u8] = include_bytes!("bin/shell");
+pub static FILELINK: &'static [u8] = include_bytes!("bin/filelink");
 
 #[cfg(feature = "batch")]
 lazy_static! {
@@ -53,6 +54,7 @@ lazy_static! {
         map.insert("get_dirents", Box::new(GET_DIRENTS));
         map.insert("sys_clone", Box::new(SYS_CLONE));
         map.insert("execve", Box::new(EXECVE));
+        map.insert("filelink", Box::new(FILELINK));
         map
     };
 }

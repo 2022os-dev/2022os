@@ -5,7 +5,7 @@ endif
 
 apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
 	  	forkboom signal_chld times nanosleep openat pipe dup \
-		mkdirat chdir get_dirents sys_clone execve shell read
+		mkdirat chdir get_dirents sys_clone execve shell read filelink
 
 qemu:
 	make kernel.bin
@@ -23,7 +23,7 @@ user_apps:
 		echo "path = \"src/$$x.rs\"\n" >> userenv/Cargo.toml; \
 	done
 	@[ -e src/user/bin ] || mkdir src/user/bin
-	@rm src/user/bin/*
+	@rm -f src/user/bin/*
 	@cd userenv && cargo build
 	@for x in $(apps); do \
 		mv userenv/target/riscv64gc-unknown-none-elf/debug/$$x src/user/bin/$$x; \

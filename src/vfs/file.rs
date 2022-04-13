@@ -205,6 +205,11 @@ pub trait _Inode {
         Err(FileErr::NotDefine)
     }
 
+    // unlink目录下的子文件，返回剩余的链接数, bool为true，则删除文件夹（必须为空)
+    fn unlink_child(&self, _: &str, _: bool) -> Result<usize, FileErr> {
+        Err(FileErr::NotDefine)
+    }
+
     // 在当前目录创建一个文件，文件类型由InodeType指定
     fn create(&self, _: &str, _: FileMode, _: InodeType) -> Result<Inode, FileErr> {
         Err(FileErr::NotDefine)

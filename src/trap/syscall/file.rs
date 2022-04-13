@@ -66,13 +66,23 @@ fn make_path_tuple(pcb: &Pcb, fd: isize, path: &str) -> Option<(Inode, String)> 
         }
     } else {
         match pcb.get_fd(fd) {
-            Some(fd) => {
-                Some((fd.read().inode.clone(), String::from(path)))
-            }
-            None => {
-                None
-            }
+            Some(fd) => Some((fd.read().inode.clone(), String::from(path))),
+            None => None,
         }
+    }
+}
+
+// 获取由一个Inode和相对于Inode的路径指定的文件的父Inode
+fn get_parent_inode<'a, 'b>(node: &'a Inode, path: &'b str) -> Result<(Inode, &'b str), FileErr> {
+    let (rest, name) = rsplit_path(path);
+    if name == "." || name == ".." || name.len() == 0 {
+        return Err(FileErr::NotDefine);
+    }
+    if let Some(rest) = rest {
+        let parent = parse_path(&node, rest)?;
+        Ok((parent, name))
+    } else {
+        Ok((node.clone(), name))
     }
 }
 
@@ -103,24 +113,19 @@ pub(super) fn sys_mkdirat(
     if path_tuple.is_none() {
         return -1;
     }
+
     let (node, path) = path_tuple.unwrap();
-    let (rest, name) = rsplit_path(path.as_str());
-    if name == "." || name == ".." {
-        return -1;
-    }
-    if let Some(_) = match rest {
-        Some(rest) => parse_path(&node, rest)
-            .and_then(|inode| inode.create(name, mode, InodeType::Directory))
-            .ok(),
-        None => {
-            // rest 可能为空
-            node.create(name, mode, InodeType::Directory).ok()
+    match get_parent_inode(&node, path.as_str()) {
+        Ok((parent, name)) => {
+            if let Ok(_) = parent.create(name, FileMode::empty(), InodeType::Directory) {
+                return 0;
+            }
         }
-    } {
-        0
-    } else {
-        -1
+        Err(e) => {
+            log!("syscall":"mkdirat">"{:?}", e);
+        }
     }
+    return -1;
 }
 
 pub(super) fn sys_linkat(
@@ -131,7 +136,68 @@ pub(super) fn sys_linkat(
     newpath: VirtualAddr,
     _: usize,
 ) -> isize {
-    -1
+    let oldpath: PhysAddr = oldpath.into();
+    let oldpath = get_str(&oldpath);
+    let old_path_tuple = make_path_tuple(&mut *pcb, olddirfd, oldpath);
+    if old_path_tuple.is_none() {
+        // fd和path的组合不正确
+        log!("syscall":"linkat">"invalid combinations old(fd:{}, path:\"{}\"", olddirfd, oldpath);
+        return -1;
+    }
+    let (oldnode, oldpath) = old_path_tuple.unwrap();
+    let newpath: PhysAddr = newpath.into();
+    let newpath = get_str(&newpath);
+    let new_path_tuple = make_path_tuple(&mut *pcb, newdirfd, newpath);
+    if new_path_tuple.is_none() {
+        // fd和path的组合不正确
+        log!("syscall":"linkat">"invalid combinations neew(fd:{}, path:\"{}\"", newdirfd, newpath);
+        return -1;
+    }
+    let (newnode, newpath) = new_path_tuple.unwrap();
+    match parse_path(&oldnode, oldpath.as_str()).and_then(|oldinode| {
+        get_parent_inode(&newnode, newpath.as_str()).and_then(|(parent, name)| {
+            parent.create(name, FileMode::empty(), InodeType::HardLink(oldinode))
+        })
+    }) {
+        Ok(_) => {
+            log!("syscall":"linkat""successed">"{}", newpath);
+            0
+        }
+        Err(e) => {
+            log!("syscall":"linkatl""failed">"{:?}", e);
+            -1
+        }
+    }
+}
+
+pub(super) fn sys_unlinkat(
+    pcb: &mut MutexGuard<Pcb>,
+    dirfd: isize,
+    path: VirtualAddr,
+    flags: usize,
+) -> isize {
+    let path: PhysAddr = path.into();
+    let path = get_str(&path);
+    let path_tuple = make_path_tuple(&mut *pcb, dirfd, path);
+    if path_tuple.is_none() {
+        // fd和path的组合不正确
+        log!("syscall":"unlinkat">"invalid combinations (fd:{}, path:\"{}\"", dirfd, path);
+        return -1;
+    }
+    let (node, path) = path_tuple.unwrap();
+    match get_parent_inode(&node, path.as_str()).and_then(|(parent, name)| {
+        // todo: REMOVEDIR
+        parent.unlink_child(name, false)
+    }) {
+        Ok(linknum) => {
+            log!("syscall":"unlinkat""successed">"remain linknum {}", linknum);
+            0
+        }
+        Err(e) => {
+            log!("syscall":"unlinkat""failed">"{:?}", e);
+            -1
+        }
+    }
 }
 
 pub(super) fn sys_pipe(pcb: &mut MutexGuard<Pcb>, pipe: VirtualAddr) -> isize {
@@ -213,58 +279,39 @@ pub(super) fn sys_openat(
         return -1;
     }
     let (node, path) = path_tuple.unwrap();
-    // 1. 首先尝试直接解析
-    match parse_path(&node, path.as_str()) {
-        Ok(inode) => {
-            // 2. 解析成功，直接打开
-            log!("syscall":"openat">"path exists: {}", path);
-            if let Ok(fd) = File::open(inode, flags)
+    match get_parent_inode(&node, path.as_str()) {
+        Ok((parent, name)) => {
+            match parent
+                .get_child(name)
+                .and_then(|child| File::open(child, flags))
                 .and_then(|file| pcb.fds_insert(file).ok_or(FileErr::NotDefine))
             {
-                // todo: O_TRUNC截断
-                return fd as isize;
+                Ok(fd) => {
+                    log!("syscall":"openat""success">"");
+                    return fd as isize;
+                }
+                Err(FileErr::InodeNotChild) if flags.contains(OpenFlags::CREATE) => {
+                    // 需要创建文件
+                    return parent
+                        .create(name, mode, InodeType::File)
+                        .and_then(|child| File::open(child, flags))
+                        .and_then(|file| pcb.fds_insert(file).ok_or(FileErr::NotDefine))
+                        .unwrap_or_else(|e| {
+                            log!("syscall":"openat">"create error {:?}", e);
+                            -1 as isize as usize
+                        }) as isize;
+                }
+                Err(e) => {
+                    log!("syscall":"openat">"error {:?}", e);
+                    return -1;
+                }
             }
         }
-        // 3. 解析失败，目录内没有该path，如果flags包含create，尝试创建文件
-        Err(FileErr::InodeNotChild) if flags.contains(OpenFlags::CREATE) => {
-            log!("syscall":"openat">"path not exists, create: {}", path);
-            let (rest, comp) = rsplit_path(path.as_str());
-            if comp == "." || comp == ".." {
-                return -1;
-            }
-            // 4. 创建文件需要先获取父目录
-            let parent = if let Some(rest) = rest {
-                // 5. 解析Path中除去最后一个节点的剩余节点
-                parse_path(&node, rest)
-            } else {
-                Ok(pcb.root.clone())
-            };
-            // 6. 判断父目录节点是否解析成功
-            if let Ok(addedfd) = parent
-                .and_then(|inode| {
-                    // 7. 解析成功则新建文件
-                    if flags.contains(OpenFlags::DIRECTROY) {
-                        inode.create(comp, mode, InodeType::Directory)
-                    } else {
-                        inode.create(comp, mode, InodeType::File)
-                    }
-                })
-                // 9. 打开新创建的文件
-                .and_then(|inode| File::open(inode, flags))
-                .and_then(|file| {
-                    // 9. 将打开的文件加入指定的fd中
-                    pcb.fds_insert(file).ok_or(FileErr::FdInvalid)
-                })
-            {
-                // 10. 成功，返回新的fd
-                return addedfd as isize;
-            }
-        }
-        _ => {
-            log!("syscall":"openat">"path not exists: {}", path);
+        Err(e) => {
+            log!("syscall":"openat">"get_parent_inode error {:?}", e);
+            return -1;
         }
     }
-    -1
 }
 
 pub(super) fn sys_close(pcb: &mut MutexGuard<Pcb>, fd: isize) -> isize {
@@ -426,7 +473,7 @@ pub(super) fn sys_execve(
         log!("syscall":"execve">"invalid path {}", path);
         return;
     }
-    let (node, path)= path_tuple.unwrap();
+    let (node, path) = path_tuple.unwrap();
     log!("execve":>"path {}", path);
     if let Ok(_) = parse_path(&node, path.as_str()).and_then(|inode| {
         let mut ms = MemorySpace::from_elf_inode(inode)?;

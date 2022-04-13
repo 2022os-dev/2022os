@@ -129,6 +129,13 @@ pub fn syscall_handler() {
             let flags = trapframe["a4"];
             pcblock.trapframe()["a0"] = sys_linkat(&mut pcblock, olddirfd, oldpath, newdirfd, newpath, flags) as usize;
         }
+        SYSCALL_UNLINKAT => {
+            let dirfd = trapframe["a0"] as isize;
+            let path = VirtualAddr(trapframe["a1"]);
+            let flags = trapframe["a2"];
+            pcblock.trapframe()["a0"] = sys_unlinkat(&mut pcblock, dirfd, path, flags) as usize;
+
+        }
         SYSCALL_CHDIR => {
             let path = VirtualAddr(trapframe["a0"]);
             log!("syscall":"chdir" > "pid({}) (0x{:x})", pcblock.pid, path.0);
