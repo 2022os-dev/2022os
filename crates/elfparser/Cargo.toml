@@ -1,0 +1,14 @@
+[package]
+name = "elf_parser"
+version = "0.1.1"
+edition = "2021"
+authors = ["Shu Anzai <shu.anzai@gmail.com>"]
+description = "A minimal no_std ELF (32/64) parser."
+readme = "README.md"
+categories = ["no-std", "parsing"]
+repository = "https://github.com/gedatsu217/elf_parser"
+license = "MIT OR Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
