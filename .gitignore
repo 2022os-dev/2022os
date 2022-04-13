@@ -1,5 +1,5 @@
 target
 /kernel.bin
 /fat32.img
-/src/user/bin
+/src/user/bin/*
 /userenv/Cargo.toml

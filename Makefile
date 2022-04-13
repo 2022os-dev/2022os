@@ -3,6 +3,9 @@ ifndef SDCARD_SIZE_MB
 	SDCARD_SIZE_KB=8
 endif
 
+CARGO_BUILD_FLAGS = --release
+
+
 apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
 	  	forkboom signal_chld times nanosleep openat pipe dup \
 		mkdirat chdir get_dirents sys_clone execve shell read filelink
@@ -30,7 +33,7 @@ user_apps:
 	done
 
 kernel.bin: user_apps
-	@cargo build --release
+	@cargo build $(CARGO_BUILD_FLAGS)
 	@if which rust-objcopy ; then \
 		rust-objcopy target/riscv64gc-unknown-none-elf/release/os -O binary kernel.bin; \
 	elif which riscv-objcopy; then \
@@ -90,7 +93,6 @@ qemu-unleashed-rustsbi: kernel.bin
 			-nographic
 
 clean:
-		@rm -f sdcard.img
 		@rm -f kernel.bin
-		@rm -f fat32.img
+		@rm -f src/user/bin/*
 		@cargo clean
