@@ -86,9 +86,11 @@ pub(super) fn sys_wait4(
             pcb.trapframe()["a0"] = child.pid;
             pcb.cutimes_add(child.utimes());
             pcb.cstimes_add(child.stimes());
-            let mut wstatus: PhysAddr = wstatus.into();
-            let wstatus: &mut usize = wstatus.as_mut();
-            *wstatus = xcode as usize;
+            if wstatus.0 != 0 {
+                let mut wstatus: PhysAddr = wstatus.into();
+                let wstatus: &mut usize = wstatus.as_mut();
+                *wstatus = xcode as usize;
+            }
         }
     } else {
         // 如果找不到，退回这条系统调用指令
@@ -127,7 +129,7 @@ pub(super) fn sys_gettimeofday(timespec: VirtualAddr, _: VirtualAddr) -> isize {
     let timespec: &mut TimeSpec = timespec.as_mut();
     let time = cpu::get_time();
     timespec.tv_sec = time / RTCLK_FREQ;
-    timespec.tv_nsec = time % RTCLK_FREQ / (RTCLK_FREQ / 1000);
+    timespec.tv_nsec = (time % RTCLK_FREQ) / 1000_000;
     0
 }
 

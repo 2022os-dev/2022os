@@ -57,7 +57,39 @@ pub static GITEE_GETPPID: &'static [u8] = include_bytes!("bin/gitee_getppid");
 #[cfg(feature = "gitee_test")]
 pub static GITEE_GETTIMEOFDAY: &'static [u8] = include_bytes!("bin/gitee_gettimeofday");
 #[cfg(feature = "gitee_test")]
-pub static GETEE_MKDIR_: &'static [u8] = include_bytes!("bin/gitee_mkdir_");
+pub static GITEE_MKDIR_: &'static [u8] = include_bytes!("bin/gitee_mkdir_");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_MMAP: &'static [u8] = include_bytes!("bin/gitee_mmap");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_MOUNT: &'static [u8] = include_bytes!("bin/gitee_mount");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_MUNMAP: &'static [u8] = include_bytes!("bin/gitee_munmap");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_OPEN: &'static [u8] = include_bytes!("bin/gitee_open");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_OPENAT: &'static [u8] = include_bytes!("bin/gitee_openat");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_PIPE: &'static [u8] = include_bytes!("bin/gitee_pipe");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_READ: &'static [u8] = include_bytes!("bin/gitee_read");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_SLEEP: &'static [u8] = include_bytes!("bin/gitee_sleep");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_TIMES: &'static [u8] = include_bytes!("bin/gitee_times");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_UMOUNT: &'static [u8] = include_bytes!("bin/gitee_umount");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_UNAME: &'static [u8] = include_bytes!("bin/gitee_uname");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_UNLINK: &'static [u8] = include_bytes!("bin/gitee_unlink");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_WAIT: &'static [u8] = include_bytes!("bin/gitee_wait");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_WAITPID: &'static [u8] = include_bytes!("bin/gitee_waitpid");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_WRITE: &'static [u8] = include_bytes!("bin/gitee_write");
+#[cfg(feature = "gitee_test")]
+pub static GITEE_YIELD: &'static [u8] = include_bytes!("bin/gitee_yield");
 
 #[cfg(feature = "batch")]
 lazy_static! {
@@ -122,10 +154,42 @@ lazy_static! {
         #[cfg(feature = "gitee_test")]
         map.insert("gitee_gettimeofday", Box::new(GITEE_GETTIMEOFDAY));
         #[cfg(feature = "gitee_test")]
-        map.insert("gitee_mkdir_", Box::new(GETEE_MKDIR_));
+        map.insert("gitee_mkdir_", Box::new(GITEE_MKDIR_));
         #[cfg(feature = "gitee_test")]
         // test_echo 被gitee_execve执行
         map.insert("test_echo", Box::new(GITEE_TEST_ECHO));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_mmap", Box::new(GITEE_MMAP));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_mount", Box::new(GITEE_MOUNT));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_munmap", Box::new(GITEE_MUNMAP));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_open", Box::new(GITEE_OPEN));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_openat", Box::new(GITEE_OPENAT));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_pipe", Box::new(GITEE_PIPE));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_read", Box::new(GITEE_READ));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_sleep", Box::new(GITEE_SLEEP));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_times", Box::new(GITEE_TIMES));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_umount", Box::new(GITEE_UMOUNT));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_uname", Box::new(GITEE_UNAME));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_unlink", Box::new(GITEE_UNLINK));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_wait", Box::new(GITEE_WAIT));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_waitpid", Box::new(GITEE_WAITPID));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_write", Box::new(GITEE_WRITE));
+        #[cfg(feature = "gitee_test")]
+        map.insert("gitee_yield", Box::new(GITEE_YIELD));
         map
     };
 }

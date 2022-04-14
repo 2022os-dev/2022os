@@ -202,14 +202,15 @@ pub(super) fn sys_unlinkat(
 
 pub(super) fn sys_pipe(pcb: &mut MutexGuard<Pcb>, pipe: VirtualAddr) -> isize {
     let mut phys: PhysAddr = pipe.into();
-    let pipe: &mut [usize; 2] = phys.as_mut();
+    // sizeof(int) == 4
+    let pipe: &mut [u32; 2] = phys.as_mut();
     if let Ok((reader, writer)) = make_pipe().and_then(|(reader, writer)| {
         pcb.fds_insert(reader)
             .and_then(|rfd| pcb.fds_insert(writer).and_then(|wfd| Some((rfd, wfd))))
             .ok_or(FileErr::NotDefine)
     }) {
-        pipe[0] = reader;
-        pipe[1] = writer;
+        pipe[0] = reader as u32;
+        pipe[1] = writer as u32;
         0
     } else {
         log!("syscall":"pipe">"fail");
@@ -501,7 +502,6 @@ pub(super) fn sys_execve(
                 ms.trapframe()["a2"] = a2;
 
                 let sp = ms.trapframe()["sp"];
-                log!("execve":>"sp, entry (0x{:x}) (0x{:x})", sp, ms.entry());
                 // 释放了原本的用户MemorySpace，不能再读写了
                 pcb.memory_space = ms;
                 Ok(())

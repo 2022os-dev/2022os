@@ -81,10 +81,9 @@ const SYSCALL_SHUTDOWN: usize = 501;
 const SYSCALL_CLEAR: usize = 502;
 
 pub fn syscall_handler() {
-    log!("syscall":"handler" > "Enter");
+    // log!("syscall":"handler" > "Enter");
     let pcb = current_pcb().unwrap();
     let mut pcblock = pcb.lock();
-    log!(debug "pid {} in trap", pcblock.pid);
     let trapframe = pcblock.trapframe();
     let syscall_id = trapframe["a7"];
 
