@@ -73,6 +73,7 @@ fn make_path_tuple(pcb: &Pcb, fd: isize, path: &str) -> Option<(Inode, String)> 
 }
 
 // 获取由一个Inode和相对于Inode的路径指定的文件的父Inode
+// pre-cond: 路径的最后节点必须不能是"."或".."
 fn get_parent_inode<'a, 'b>(node: &'a Inode, path: &'b str) -> Result<(Inode, &'b str), FileErr> {
     let (rest, name) = rsplit_path(path);
     if name == "." || name == ".." || name.len() == 0 {
@@ -280,39 +281,27 @@ pub(super) fn sys_openat(
         return -1;
     }
     let (node, path) = path_tuple.unwrap();
-    match get_parent_inode(&node, path.as_str()) {
-        Ok((parent, name)) => {
-            match parent
-                .get_child(name)
-                .and_then(|child| File::open(child, flags))
+    // 不能使用get_parent_inode，因为路径的最后为"."或".."是合理的
+    match parse_path(&node, path.as_str()).and_then(|inode| {
+        File::open(inode, flags)
+    }).and_then(|file| pcb.fds_insert(file).ok_or(FileErr::NotDefine)) {
+        Ok(fd) => {
+            return fd as isize
+        }
+        Err(FileErr::InodeNotChild) => {
+            return get_parent_inode(&node, path.as_str()).and_then(|(parent, name)| {
+                parent.create(name, FileMode::empty(), InodeType::File)
+            }).and_then(|child| File::open(child, flags))
                 .and_then(|file| pcb.fds_insert(file).ok_or(FileErr::NotDefine))
-            {
-                Ok(fd) => {
-                    log!("syscall":"openat""success">"");
-                    return fd as isize;
-                }
-                Err(FileErr::InodeNotChild) if flags.contains(OpenFlags::CREATE) => {
-                    // 需要创建文件
-                    return parent
-                        .create(name, mode, InodeType::File)
-                        .and_then(|child| File::open(child, flags))
-                        .and_then(|file| pcb.fds_insert(file).ok_or(FileErr::NotDefine))
-                        .unwrap_or_else(|e| {
-                            log!("syscall":"openat">"create error {:?}", e);
-                            -1 as isize as usize
-                        }) as isize;
-                }
-                Err(e) => {
-                    log!("syscall":"openat">"error {:?}", e);
-                    return -1;
-                }
-            }
+                .unwrap_or_else(|e| {
+                    log!("syscall":"openat">"create error {:?}", e);
+                    -1 as isize as usize
+                }) as isize;
         }
-        Err(e) => {
-            log!("syscall":"openat">"get_parent_inode error {:?}", e);
-            return -1;
+        Err(_) => {
+            return -1
         }
-    }
+    };
 }
 
 pub(super) fn sys_close(pcb: &mut MutexGuard<Pcb>, fd: isize) -> isize {

@@ -21,9 +21,9 @@ bitflags! {
         const RDWR = 1 << 1;
         const CREATE = 1 << 6;
         const TRUNC = 1 << 10;
-        const DIRECTROY = 0200000;
-        const LARGEFILE  = 0100000;
-        const CLOEXEC = 02000000;
+        const DIRECTROY = 0x0200000;
+        const LARGEFILE  = 0x0100000;
+        const CLOEXEC = 0x02000000;
     }
     // 表示openat(2) 中的mode_t
     pub struct FileMode: usize {

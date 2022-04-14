@@ -130,4 +130,6 @@ fn main() {
     assert!(syscall_openat(0, "/dir1/../dir1/dir2/file2\0", flags, mode) > 0);
     assert!(syscall_openat(0, "/dir1/./dir2/file2\0", flags, mode) > 0);
     assert!(syscall_openat(0, "/dir1/../dir1/dir2/../dir2/file2\0", flags, mode) > 0);
+
+    assert!(syscall_openat(0, ".\0", flags, mode) > 0);
 }
