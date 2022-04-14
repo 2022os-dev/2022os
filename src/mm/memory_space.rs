@@ -12,15 +12,18 @@ use core::mem::size_of;
 use core::mem::transmute;
 use core::ops::Range;
 use core::slice;
-use xmas_elf::ElfFile;
 
 pub type Segments = BTreeMap<PageNum, (PageNum, PTEFlag)>;
 
+// 表示进程的内存空间, 包括代码和数据段、一个用于上下文切换的trapframe页、用户栈、堆指针和堆内存
 pub struct MemorySpace {
+    // 进程的入口
     entry: usize,
-    // 保存elf中可加载的段
+    // 保存数据段和代码段、堆内存等映射信息
     pub segments: Segments,
+    // 用于上下文切换的trapframe
     pub trapframe: PageNum,
+    // 用户栈的物理页面，目前用户态的栈大小为一个页面
     pub user_stack: PageNum,
     // 进程的programe_break指针，用于分配堆内存
     prog_break: VirtualAddr,
@@ -96,6 +99,19 @@ impl MemorySpace {
         (alltraps.0, restore.0)
     }
 
+    pub fn trapframe(&mut self) -> &mut TrapFrame {
+        let phys = self.trapframe.offset_phys(0).0;
+        unsafe { <*mut TrapFrame>::from_bits(phys).as_mut().unwrap() }
+    }
+
+    pub fn get_stack_sp() -> VirtualAddr {
+        VirtualAddr(USER_STACK_PAGE) + PAGE_SIZE
+    }
+
+    pub fn get_stack_start() -> VirtualAddr {
+        VirtualAddr(USER_STACK_PAGE)
+    }
+
     /*
     pub fn copy_from_user(&mut self, src: VirtualAddr,  dst: &mut [u8]) {
         let pte = current_hart_pgtbl().walk(src, false);
@@ -141,32 +157,33 @@ impl MemorySpace {
         mem
     }
 
-    pub fn trapframe(&mut self) -> &mut TrapFrame {
-        let phys = self.trapframe.offset_phys(0).0;
-        unsafe { <*mut TrapFrame>::from_bits(phys).as_mut().unwrap() }
-    }
+    // 从elf中加载MemorySpace, ELF存储于data中
+    pub fn from_elf_memory(data: &[u8]) -> Result<Self, ()> {
+        let elf = elf_parser::Elf64::from_bytes(data);
+        if elf.is_err() {
+            return Err(())
+        }
+        let elf = elf.unwrap();
+        let mut ms = Self::new();
+        for phdr in elf.phdr_iter() {
+            let start_va = VirtualAddr(phdr.p_vaddr as usize);
+            let end_va = VirtualAddr((phdr.p_vaddr + phdr.p_memsz) as usize);
+            let map_perm = MemorySpace::get_pte_flags_from_phdr_flags(phdr.p_flags) | PTEFlag::U;
+            ms.add_area_data_each_byte(
+                start_va..end_va,
+                map_perm | PTEFlag::V,
+                &data[phdr.p_offset as usize..(phdr.p_offset+phdr.p_filesz) as usize]
+            );
 
-    pub fn get_stack_sp() -> VirtualAddr {
-        VirtualAddr(USER_STACK_PAGE) + PAGE_SIZE
-    }
-
-    pub fn get_stack_start() -> VirtualAddr {
-        VirtualAddr(USER_STACK_PAGE)
-    }
-
-    pub fn from_elf(data: &[u8]) -> Self {
-        let mut space = Self::new();
-        let elf = ElfFile::new(data).unwrap();
-        let elf_header = elf.header;
-        MemorySpace::validate_elf_header(elf_header);
-        space.set_entry_point(elf_header.pt2.entry_point() as usize);
-        space.add_elf_program_table(&elf);
+        }
+        ms.set_entry_point(elf.entry_point() as usize);
         let sp = Self::get_stack_sp().0;
-        let sepc = space.entry;
-        space.trapframe().init(sp, sepc);
-        space
+        ms.trapframe().init(sp, elf.entry_point() as usize);
+        return Ok(ms)
     }
 
+    // 从elf中加载MemorySpace, ELF为Inode对于的文件
+    // 按需读取文件，不需要将文件全部读入内存
     pub fn from_elf_inode(inode: Inode) -> Result<Self, FileErr> {
         let ehdr_size = size_of::<elf_parser::Elf64Ehdr>();
         let mut elf = vec![0; ehdr_size];
@@ -207,31 +224,8 @@ impl MemorySpace {
         Err(FileErr::NotDefine)
     }
 
-    pub fn entry(&self) -> usize {
-        self.entry
-    }
-
     pub fn segments(&self) -> &Segments {
         &self.segments
-    }
-
-    // Mapping api
-    fn add_elf_program_table(&mut self, elf: &ElfFile) {
-        log!(debug "Maping program section");
-        let ph_count = elf.header.pt2.ph_count();
-        for i in 0..ph_count {
-            let ph = elf.program_header(i).unwrap();
-            if ph.get_type().unwrap() == xmas_elf::program::Type::Load {
-                let start_va = VirtualAddr(ph.virtual_addr() as usize);
-                let end_va = VirtualAddr((ph.virtual_addr() + ph.mem_size()) as usize);
-                let map_perm = MemorySpace::get_pte_flags_from_ph_flags(ph.flags(), PTEFlag::U);
-                self.add_area_data_each_byte(
-                    start_va..end_va,
-                    map_perm | PTEFlag::V,
-                    &elf.input[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize],
-                );
-            }
-        }
     }
 
     /*
@@ -287,26 +281,8 @@ impl MemorySpace {
     }
 
     // Helper functions
-    fn validate_elf_header(header: xmas_elf::header::Header) -> bool {
-        let magic = header.pt1.magic;
-        assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
-        true
-    }
     fn set_entry_point(&mut self, entry: usize) {
         self.entry = entry
-    }
-    fn get_pte_flags_from_ph_flags(flags: xmas_elf::program::Flags, init: PTEFlag) -> PTEFlag {
-        let mut pte_flags = init;
-        if flags.is_read() {
-            pte_flags |= PTEFlag::R;
-        }
-        if flags.is_write() {
-            pte_flags |= PTEFlag::W;
-        }
-        if flags.is_execute() {
-            pte_flags |= PTEFlag::X;
-        }
-        pte_flags
     }
 
     fn get_pte_flags_from_phdr_flags(flags: u32) -> PTEFlag {

@@ -82,11 +82,11 @@ extern "C" fn kernel_start() {
 
         // Load shell
         #[cfg(not(feature = "batch"))]
-        scheduler_load_pcb(MemorySpace::from_elf(user::SHELL));
+        scheduler_load_pcb(MemorySpace::from_elf_memory(user::SHELL).unwrap());
 
         #[cfg(feature = "batch")]
         for i in user::BATCH.iter() {
-            scheduler_load_pcb(MemorySpace::from_elf(i));
+            scheduler_load_pcb(MemorySpace::from_elf_memory(i).unwrap());
         }
 
         #[cfg(feature = "multicore")]
