@@ -23,6 +23,9 @@ pub static SYS_CLONE: &'static [u8] = include_bytes!("bin/sys_clone");
 pub static EXECVE: &'static [u8] = include_bytes!("bin/execve");
 pub static SHELL: &'static [u8] = include_bytes!("bin/shell");
 pub static FILELINK: &'static [u8] = include_bytes!("bin/filelink");
+pub static GITEE_BRK: &'static [u8] = include_bytes!("bin/gitee_brk");
+pub static GITEE_CHDIR: &'static [u8] = include_bytes!("bin/gitee_chdir");
+pub static GITEE_CLONE: &'static [u8] = include_bytes!("bin/gitee_clone");
 
 #[cfg(feature = "batch")]
 lazy_static! {
@@ -55,6 +58,9 @@ lazy_static! {
         map.insert("sys_clone", Box::new(SYS_CLONE));
         map.insert("execve", Box::new(EXECVE));
         map.insert("filelink", Box::new(FILELINK));
+        map.insert("gitee_brk", Box::new(GITEE_BRK));
+        map.insert("gitee_chdir", Box::new(GITEE_CHDIR));
+        map.insert("gitee_clone", Box::new(GITEE_CLONE));
         map
     };
 }

@@ -26,10 +26,9 @@ user_apps:
 		echo "path = \"src/$$x.rs\"\n" >> userenv/Cargo.toml; \
 	done
 	@[ -e src/user/bin ] || mkdir src/user/bin
-	@rm -f src/user/bin/*
 	@cd userenv && cargo build
 	@for x in $(apps); do \
-		mv userenv/target/riscv64gc-unknown-none-elf/debug/$$x src/user/bin/$$x; \
+		mv -f userenv/target/riscv64gc-unknown-none-elf/debug/$$x src/user/bin/$$x; \
 	done
 
 kernel.bin: user_apps
