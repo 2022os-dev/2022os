@@ -89,7 +89,7 @@ pub(super) fn sys_wait4(
             if wstatus.0 != 0 {
                 let mut wstatus: PhysAddr = wstatus.into();
                 let wstatus: &mut usize = wstatus.as_mut();
-                *wstatus = xcode as usize;
+                *wstatus = (xcode << 8) as usize;
             }
         }
     } else {

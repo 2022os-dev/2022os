@@ -19,6 +19,7 @@
   - [ ] wait4
     - [x] 阻塞等待子进程退出
     - [ ] 处理wait4选项
+    - [x] 正确写入wstatus
   - [x] getpid
   - [x] getppid
   - [x] yield
