@@ -16,42 +16,10 @@ pub fn scheduler_load_pcb(memory_space: MemorySpace) {
     scheduler_ready_pcb(pcb);
 }
 
-/*
-pub fn scheduler_block_pcb(pcb: Arc<Mutex<Pcb>>, reason: BlockReason) {
-    log!("scheduler":"Block">"pid({})", pcb.lock().pid);
-    pcb.lock().set_state(PcbState::Block(reason));
-    BLOCKTASKS.lock().insert(0, pcb);
-}
-*/
-
 pub fn scheduler_ready_pcb(pcb: Arc<Mutex<Pcb>>) {
     log!("scheduler":"Ready">"pid({})", pcb.lock().pid);
     READYTASKS.lock().insert(0, pcb);
 }
-/*
-pub fn scheduler_signal(pid: Pid, reason: BlockReason) {
-    log!("scheduler":"signal">"(pid({}), {:?})", pid, reason);
-    let mut blocktasks = BLOCKTASKS.lock();
-    let findret = blocktasks.iter().enumerate().find(|(_, pcb)| {
-        let pcb = pcb.lock();
-        if pcb.pid == pid {
-            match pcb.state() {
-                PcbState::Block(r) if r == reason => {
-                    return true
-                },
-                _ => return false
-            }
-        }
-        false
-    });
-    if let Some((idx, pcb)) = findret {
-        let pcb = pcb.clone();
-        blocktasks.remove(idx);
-        drop(blocktasks);
-        pcb_block_slot(pcb, reason);
-    }
-}
-*/
 
 pub fn schedule() -> ! {
     // FCFS

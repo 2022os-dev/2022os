@@ -90,7 +90,7 @@ extern "C" fn kernel_start() {
         }
 
         #[cfg(feature = "multicore")]
-        for i in 1..=2 {
+        for i in 1..=4 {
             if hartid() != i {
                 sbi_hsm_hart_start(i, 0x80200000, 0);
             }

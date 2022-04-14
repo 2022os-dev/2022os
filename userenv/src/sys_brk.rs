@@ -12,16 +12,21 @@ use core::assert;
 
 fn main() {
     let start = syscall_sbrk(0);
+    const SIZE: usize = 2048;
     let mut num = unsafe {
-        from_raw_parts_mut(syscall_sbrk(10 * size_of::<usize>()), 10)
+        from_raw_parts_mut(syscall_sbrk(SIZE * size_of::<usize>()) as *mut usize, SIZE)
     };
-    let brk = syscall_brk(num.as_ptr() as *const u8);
-    assert!(syscall_sbrk(0) == num.as_mut_ptr());
+    syscall_brk(num.as_ptr() as *const u8);
+    assert!(syscall_sbrk(0) == num.as_mut_ptr() as *mut u8);
     println!("Sbrk ptr is 0x{:x}", num.as_ptr() as usize);
+    let mut count: usize = 0;
     for i in num.iter_mut() {
-        *i = 0xff;
+        *i = count;
+        count += 1;
     }
+    count = 0;
     for i in num {
-        println!("0x{:X}", i);
+        assert!(*i == count);
+        count += 1;
     }
 }
