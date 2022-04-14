@@ -27,6 +27,15 @@ bitflags! {
     }
     // 表示openat(2) 中的mode_t
     pub struct FileMode: usize {
+        const OX = 1;
+        const OW = 2;
+        const OR = 4;
+        const GX = 1 << 3;
+        const GW = 2 << 3;
+        const GR = 4 << 3;
+        const UX = 1 << 6;
+        const UW = 2 << 6;
+        const UR = 4 << 6;
     }
 }
 impl OpenFlags {
