@@ -26,7 +26,7 @@ pub struct MemorySpace {
     // 用户栈的物理页面，目前用户态的栈大小为一个页面
     pub user_stack: PageNum,
     // 进程的programe_break指针，用于分配堆内存
-    prog_break: VirtualAddr,
+    pub prog_break: VirtualAddr,
     // 堆内存映射的最高的一个页面
     prog_high_page: PageNum,
 }
@@ -45,25 +45,30 @@ impl MemorySpace {
         }
     }
 
-    // 将programe_break指针向上移动inc，为用户态程序分配堆空间
-    pub fn prog_sbrk(&mut self, inc: usize) -> VirtualAddr {
-        // 首次调用sbrk，找到当前映射的最高页面
+    fn init_prog_break(&mut self) {
+        let maxvpage = self
+            .segments
+            .keys()
+            .into_iter()
+            .max_by(|lvp, rvp| lvp.0.cmp(&rvp.0));
+        if let None = maxvpage {
+            panic!("Can't found max vpage in segments");
+        }
+        // 将当前最高页面的高2个页面作为堆
+        self.prog_break = (*maxvpage.unwrap() + 2).offset(0);
+        self.prog_high_page = *maxvpage.unwrap() + 1;
+    }
+
+    pub fn prog_brk(&mut self, va: VirtualAddr) -> VirtualAddr {
         if self.prog_break.0 == 0 {
-            let maxvpage = self
-                .segments
-                .keys()
-                .into_iter()
-                .max_by(|lvp, rvp| lvp.0.cmp(&rvp.0));
-            if let None = maxvpage {
-                panic!("Can't found max vpage in segments");
-            }
-            // 将当前最高页面的高2个页面作为堆
-            self.prog_break = (*maxvpage.unwrap() + 2).offset(0);
-            self.prog_high_page = *maxvpage.unwrap() + 1;
+            self.init_prog_break()
         }
         // 返回之前的prog_break指针
         let retva = self.prog_break;
-        while self.prog_break + inc > self.prog_high_page.offset(PAGE_SIZE) {
+        if va.0 == 0 {
+            return retva
+        }
+        while va > self.prog_high_page.offset(PAGE_SIZE) {
             if self.segments().contains_key(&(self.prog_high_page + 1)) {
                 panic!(
                     "duplicated program break page 0x{:x}",
@@ -79,13 +84,8 @@ impl MemorySpace {
             );
             self.prog_high_page = self.prog_high_page + 1;
         }
-        self.prog_break = self.prog_break + inc;
-        retva
-    }
-
-    pub fn prog_brk(&mut self, va: VirtualAddr) -> Result<(), ()> {
         self.prog_break = va;
-        Ok(())
+        retva
     }
 
     pub fn trampoline_page() -> PageNum {
