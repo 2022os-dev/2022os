@@ -186,6 +186,10 @@ impl _Inode for MemRootInode {
         self.0.len()
     }
 
+    fn unlink_child(&self, name: &str, rm_dir: bool) -> Result<usize, FileErr> {
+        self.0.unlink_child(name, rm_dir)
+    }
+
     fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
         self.0.get_dirent(offset, dirent) 
     }
