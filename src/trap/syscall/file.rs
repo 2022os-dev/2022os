@@ -9,6 +9,7 @@ use crate::mm::*;
 use crate::process::*;
 use crate::sbi::sbi_legacy_call;
 use crate::vfs::*;
+use crate::user::INT;
 use spin::MutexGuard;
 
 const AT_FDCWD: isize = -100;
@@ -204,14 +205,14 @@ pub(super) fn sys_unlinkat(
 pub(super) fn sys_pipe(pcb: &mut MutexGuard<Pcb>, pipe: VirtualAddr) -> isize {
     let mut phys: PhysAddr = pipe.into();
     // sizeof(int) == 4
-    let pipe: &mut [u32; 2] = phys.as_mut();
+    let pipe: &mut [INT; 2] = phys.as_mut();
     if let Ok((reader, writer)) = make_pipe().and_then(|(reader, writer)| {
         pcb.fds_insert(reader)
             .and_then(|rfd| pcb.fds_insert(writer).and_then(|wfd| Some((rfd, wfd))))
             .ok_or(FileErr::NotDefine)
     }) {
-        pipe[0] = reader as u32;
-        pipe[1] = writer as u32;
+        pipe[0] = reader as INT;
+        pipe[1] = writer as INT;
         0
     } else {
         log!("syscall":"pipe">"fail");

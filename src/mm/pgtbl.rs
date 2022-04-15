@@ -47,7 +47,8 @@ impl Pgtbl {
                     pte.set_flags(PTEFlag::V);
                     ppn = page;
                 } else {
-                    // panic!("walk invalid 0x{:x}", va.0)
+                    // todo: remove panic
+                    panic!("walk invalid 0x{:x}", va.0)
                 }
             }
         }

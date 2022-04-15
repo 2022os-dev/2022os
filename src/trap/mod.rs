@@ -7,7 +7,7 @@ use riscv::register::{
     stval, stvec,
 };
 
-use crate::mm::MemorySpace;
+use crate::mm::*;
 use crate::process::cpu::*;
 use crate::task::*;
 
@@ -38,19 +38,41 @@ pub extern "C" fn trap_handler() {
         Trap::Exception(Exception::UserEnvCall) => {
             syscall::syscall_handler();
         }
-        Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
-            panic!(
-                "store fault sepc: 0x{:x}; stval 0x{:x}",
-                current_pcb().unwrap().lock().trapframe()["sepc"],
-                riscv::register::stval::read()
-            );
-            /*
-            if let riscv::register::sstatus::SPP::Supervisor = cx.sstatus.spp() {
-                panic!("PageFault in application, core dumped. sepc:0x{:x}", cx.sepc);
-            }else {
-                panic!("PageFault in application, core dumped. sepc:0x{:x}", cx.sepc);
+        Trap::Exception(Exception::StoreFault) | 
+        Trap::Exception(Exception::StorePageFault) => {
+            // 判断是否是lazy
+            let va = VirtualAddr(stval::read());
+            let pcb = current_pcb().unwrap();
+            let mut pcblock = pcb.lock();
+            if let Ok(_) = pcblock.memory_space.mmap_areas.check_lazy(va, MapProt::READ) {
+                // 已经分配物理页，由current_hart_run映射。
+                log!("mmap":"store">"Found mapped page va(0x{:x})", va.0);
+                drop(pcblock);
+                scheduler_ready_pcb(pcb);
+                schedule();
+            } else {
+                log!("mmap":"store">"Not Found mapped page va(0x{:x})", va.0);
+                pcblock.exit(-1);
             }
-            */
+        }
+        Trap::Exception(Exception::LoadFault) |
+        Trap::Exception(Exception::LoadPageFault) => {
+            // 判断是否是lazy
+            let va = VirtualAddr(stval::read());
+            let pte = current_hart_pgtbl().walk(va, false);
+            let pcb = current_pcb().unwrap();
+            let mut pcblock = pcb.lock();
+            if let Ok(_) = pcblock.memory_space.mmap_areas.check_lazy(va, MapProt::WRITE) {
+                // 已经分配物理页，由current_hart_run映射。
+                log!("mmap":"load">"Found mapped page va(0x{:x})", va.0);
+                drop(pcblock);
+                scheduler_ready_pcb(pcb);
+                schedule();
+            } else {
+                log!("mmap":"load">"Not Found mapped page va(0x{:x})", va.0);
+                pcblock.exit(-1);
+            }
+
         }
         Trap::Exception(Exception::IllegalInstruction) => {
             panic!(

@@ -7,6 +7,7 @@ use crate::trap::{__alltraps, __restore};
 use crate::vfs::*;
 use alloc::collections::BTreeMap;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::cmp::min;
 use core::mem::size_of;
 use core::mem::transmute;
@@ -29,6 +30,40 @@ pub struct MemorySpace {
     pub prog_break: VirtualAddr,
     // 堆内存映射的最高的一个页面
     prog_high_page: PageNum,
+    // mmap 区域
+    pub mmap_areas: MmapAreas,
+}
+
+pub struct MmapAreas {
+    mmap_pages: Vec<MmapPage>,
+    lowest_page: PageNum
+}
+
+bitflags! {
+    pub struct MapProt: usize {
+        const NONE = 0;
+        const READ = 1;
+        const WRITE = 2;
+        const EXEC = 4;
+        const GROWSDOWN = 0x1000000;
+        const GROWSUP = 0x2000000;
+    }
+
+    pub struct MapFlags: usize {
+        const FILE = 0;
+        const SHARED = 1;
+        const PRIVATE = 2;
+        const FAILED = -1 as isize as usize;
+    }
+}
+pub struct MmapPage {
+    pub vpage: PageNum,
+    pub ppage: Option<PageNum>,
+    pub inode: Option<Inode>,
+    pub offset: usize,
+    pub length: usize,
+    pub flags: MapFlags,
+    pub prot: MapProt,
 }
 
 impl MemorySpace {
@@ -42,6 +77,7 @@ impl MemorySpace {
             user_stack: stack,
             prog_break: VirtualAddr(0),
             prog_high_page: PageNum(0),
+            mmap_areas: MmapAreas::new()
         }
     }
 
@@ -66,7 +102,7 @@ impl MemorySpace {
         // 返回之前的prog_break指针
         let retva = self.prog_break;
         if va.0 == 0 {
-            return retva
+            return retva;
         }
         while va > self.prog_high_page.offset(PAGE_SIZE) {
             if self.segments().contains_key(&(self.prog_high_page + 1)) {
@@ -161,7 +197,7 @@ impl MemorySpace {
     pub fn from_elf_memory(data: &[u8]) -> Result<Self, ()> {
         let elf = elf_parser::Elf64::from_bytes(data);
         if elf.is_err() {
-            return Err(())
+            return Err(());
         }
         let elf = elf.unwrap();
         let mut ms = Self::new();
@@ -172,14 +208,13 @@ impl MemorySpace {
             ms.add_area_data_each_byte(
                 start_va..end_va,
                 map_perm | PTEFlag::V,
-                &data[phdr.p_offset as usize..(phdr.p_offset+phdr.p_filesz) as usize]
+                &data[phdr.p_offset as usize..(phdr.p_offset + phdr.p_filesz) as usize],
             );
-
         }
         ms.set_entry_point(elf.entry_point() as usize);
         let sp = Self::get_stack_sp().0;
         ms.trapframe().init(sp, elf.entry_point() as usize);
-        return Ok(ms)
+        return Ok(ms);
     }
 
     // 从elf中加载MemorySpace, ELF为Inode对于的文件
@@ -191,7 +226,7 @@ impl MemorySpace {
             let elf = elf_parser::Elf64::from_bytes(elf.as_slice());
             if let Err(e) = elf {
                 println!("{:?}", e);
-                return Err(FileErr::NotDefine)
+                return Err(FileErr::NotDefine);
             }
             let elf = elf.unwrap();
             let mut ms = Self::new();
@@ -200,7 +235,7 @@ impl MemorySpace {
                 let inode_offset = elf.ehdr().e_phoff + i as u64 * elf.ehdr().e_phentsize as u64;
                 let mut phdr = vec![0; size_of::<elf_parser::Elf64Phdr>()];
                 inode.read_offset(inode_offset as usize, phdr.as_mut_slice())?;
-                let phdr = unsafe {transmute::<*const u8, &elf_parser::Elf64Phdr>(phdr.as_ptr()) };
+                let phdr = unsafe { transmute::<*const u8, &elf_parser::Elf64Phdr>(phdr.as_ptr()) };
                 // Not LOAD
                 if phdr.p_type != 1 {
                     continue;
@@ -209,7 +244,8 @@ impl MemorySpace {
                 inode.read_offset(phdr.p_offset as usize, data.as_mut_slice())?;
                 let start_va = VirtualAddr(phdr.p_vaddr as usize);
                 let end_va = VirtualAddr((phdr.p_vaddr + phdr.p_memsz) as usize);
-                let map_perm = MemorySpace::get_pte_flags_from_phdr_flags(phdr.p_flags) | PTEFlag::U;
+                let map_perm =
+                    MemorySpace::get_pte_flags_from_phdr_flags(phdr.p_flags) | PTEFlag::U;
                 ms.add_area_data_each_byte(
                     start_va..end_va,
                     map_perm | PTEFlag::V,
@@ -219,7 +255,7 @@ impl MemorySpace {
             ms.set_entry_point(elf.entry_point() as usize);
             let sp = Self::get_stack_sp().0;
             ms.trapframe().init(sp, elf.entry_point() as usize);
-            return Ok(ms)
+            return Ok(ms);
         }
         Err(FileErr::NotDefine)
     }
@@ -297,7 +333,40 @@ impl MemorySpace {
             pte |= PTEFlag::X;
         }
         pte
+    }
+}
 
+impl MemorySpace {
+    pub fn mmap(
+        &mut self,
+        start: VirtualAddr,
+        inode: Option<Inode>,
+        offset: usize,
+        length: usize,
+        prot: MapProt,
+        flags: MapFlags,
+    ) -> Result<VirtualAddr, ()> {
+        // 只支持start == 0的情况
+        if start.0 != 0 {
+            return Err(())
+        }
+        if length == 0 {
+            return Err(())
+        }
+        let high_va = self.mmap_areas.lowest_page.offset(0);
+        let start_page = (high_va - length).floor();
+        if start_page <= self.prog_high_page {
+            // 映射区域会与堆内存重合，放弃
+            log!("mmap":"error">"mmap page reach heap 0x{:x}", start_page.page());
+            return Err(())
+        }
+        let mut mapped_len = 0;
+        while mapped_len < length {
+            let map_length = core::cmp::min(PAGE_SIZE, length - mapped_len);
+            self.mmap_areas.push_page(start_page + mapped_len / PAGE_SIZE, inode.clone(), offset + mapped_len, map_length, prot, flags)?;
+            mapped_len += map_length;
+        }
+        Ok(start_page.offset(0))
     }
 }
 
@@ -307,6 +376,118 @@ impl Drop for MemorySpace {
         KALLOCATOR.lock().kfree(self.trapframe);
         for (_, (page, _)) in self.segments.iter() {
             KALLOCATOR.lock().kfree(*page);
+        }
+    }
+}
+
+impl MmapAreas {
+    pub fn new() -> Self {
+        Self {
+            mmap_pages: Vec::new(),
+            lowest_page: VirtualAddr(USER_STACK_PAGE - PAGE_SIZE).floor()
+        }
+    }
+
+    pub fn push_page(
+        &mut self,
+        vpage: PageNum,
+        inode: Option<Inode>,
+        offset: usize, 
+        length: usize,
+        prot: MapProt,
+        flags: MapFlags
+    ) -> Result<(), ()> {
+        // vpage必须会比lowest_page要小
+        assert!(self.lowest_page > vpage);
+        if self.lowest_page > vpage {
+            self.lowest_page = vpage;
+        }
+        self.mmap_pages.push(MmapPage {
+            vpage,
+            inode,
+            offset,
+            length,
+            prot,
+            flags,
+            ppage: None,
+        });
+        log!("mmap":>"push vpage 0x{:x}", vpage.page());
+        Ok(())
+    }
+
+    // 检查某个虚拟地址是否存在mmap页, 返回映射的物理页
+    pub fn check_lazy(&mut self, va: VirtualAddr, prot: MapProt) -> Result<PageNum, ()> {
+        for mappage in self.mmap_pages.iter_mut() {
+            if mappage.vpage == va.floor() {
+                return mappage.check(prot)
+            }
+        }
+        // 不存在映射
+        Err(())
+    }
+
+    pub fn pages<'a>(&'a self) -> impl Iterator<Item=&MmapPage> + 'a {
+        self.mmap_pages.iter()
+    }
+}
+
+impl MmapPage {
+    fn check(&mut self, prot: MapProt) -> Result<PageNum, ()> {
+        if !self.prot.contains(prot) {
+            return Err(())
+        }
+        if let Some(ppage) = self.ppage {
+            return Ok(ppage)
+        } else {
+            // 保证存在Inode，因为ANONYMOUS映射时会直接分配内存
+            let inode = self.inode.clone().unwrap();
+            let ppage = KALLOCATOR.lock().kalloc();
+            let mut phys = ppage.offset_phys(0);
+            let mut buf: &mut [u8] = phys.as_slice_mut(self.length);
+            if inode.read_offset(self.offset, &mut buf).is_err() {
+                KALLOCATOR.lock().kfree(ppage);
+                return Err(())
+            }
+            self.ppage = Some(ppage);
+            return Ok(ppage)
+        }
+    }
+
+    pub fn get_pte_flags(&self) -> PTEFlag {
+        let mut pteflags = PTEFlag::empty();
+        if self.prot.contains(MapProt::READ) {
+            pteflags |= PTEFlag::R;
+        }
+        if self.prot.contains(MapProt::WRITE) {
+            pteflags |= PTEFlag::W;
+        }
+        if self.prot.contains(MapProt::EXEC) {
+            pteflags |= PTEFlag::X;
+        }
+        pteflags
+    }
+}
+
+impl Drop for MmapPage {
+    fn drop(&mut self) {
+        if let Some(ppage) = self.ppage {
+            // 写回文件
+            if self.flags.contains(MapFlags::SHARED) && self.prot.contains(MapProt::WRITE) {
+                // todo: 只在脏时写回
+                if let Some(ref inode) = self.inode {
+                    let buf = ppage.offset_phys(0);
+                    let buf = buf.as_slice(self.length);
+                    match inode.write_offset(self.offset, buf) {
+                        Ok(_) => {
+                            log!("mmap":"write_back""successed">"");
+                        }
+                        Err(e) => {
+                            log!("mmap":"write_back""failed">"{:?}", e);
+                        }
+                    }
+                }
+            }
+            KALLOCATOR.lock().kfree(ppage);
         }
     }
 }

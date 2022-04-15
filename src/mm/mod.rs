@@ -9,12 +9,12 @@ use crate::link_syms;
 use crate::process::cpu::*;
 use core::ops::Range;
 
-pub use kalloc::KALLOCATOR;
-pub use memory_space::MemorySpace;
-// use page_table::PageTable;
+pub use memory_space::*;
+pub use kalloc::*;
 pub use address::*;
-pub use pgtbl::Pgtbl;
+pub use pgtbl::*;
 pub use pte_sv39::*;
+pub use address::*;
 
 pub fn init() {
     // phys_frame::init();

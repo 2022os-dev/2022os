@@ -107,29 +107,51 @@ pub fn current_hart_set_trap_times(times: usize) -> usize {
 
 pub fn current_hart_leak() {
     if let Some(current) = current_hart().pcb.take() {
-        let pid = current.lock().pid;
-        log!("hart":"leak">"pid({}) unmap segments", pid);
-        current_hart_pgtbl().unmap_segments(current.lock().memory_space.segments(), false);
+        let pcblock = current.lock();
+        log!("hart":"leak">"pid({}) unmap segments", pcblock.pid);
+        current_hart_pgtbl().unmap_segments(pcblock.memory_space.segments(), false);
         unsafe {
             asm!("sfence.vma");
         }
         // 用户栈
         log!("hart":"leak">"pid({}) unmap user stack",pid);
         current_hart_pgtbl().unmap(MemorySpace::get_stack_start().floor(), false);
-        drop(current);
+        unmap_mmap_areas(&*pcblock);
+        drop(pcblock);
+    }
+}
+
+// 映射mmap区域
+fn map_mmap_areas(pcb: &Pcb) {
+    for mappage in pcb.memory_space.mmap_areas.pages() {
+        if let Some(ppage) = mappage.ppage {
+            log!("mmap":"map">"vpage 0x{:x} -> ppage 0x{:x} ({:?})", mappage.vpage.page(), ppage.page(), mappage.get_pte_flags());
+            current_hart_pgtbl().map(mappage.vpage, ppage, mappage.get_pte_flags() | PTEFlag::U);
+        }
+    }
+}
+
+// 取消映射mmap区域
+fn unmap_mmap_areas(pcb: &Pcb) {
+    for mappage in pcb.memory_space.mmap_areas.pages() {
+        if let Some(ppage) = mappage.ppage {
+            log!("mmap":"unmap">"vpage 0x{:x} -> ppage 0x{:x} ({:?})", mappage.vpage.page(), ppage.page(), mappage.get_pte_flags());
+            current_hart_pgtbl().unmap(mappage.vpage, false);
+        }
     }
 }
 
 pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> ! {
     current_hart_leak();
-    let pid = pcb.lock().pid;
-    log!("hart":"run">"pid({})", pid);
+    let mut pcblock = pcb.lock();
+    log!("hart":"run">"pid({})", pcblock.pid);
     // 需要设置进程的代码数据段、用户栈、trapframe、内核栈
     log!("hart":"run">"map segments");
     // map_segments将代码数据段映射到页表
-    current_hart_pgtbl().map_segments(pcb.lock().memory_space.segments());
+    current_hart_pgtbl().map_segments(pcblock.memory_space.segments());
+    map_mmap_areas(&*pcblock);
     // 映射用户栈,U flags
-    let stack = pcb.lock().memory_space.user_stack;
+    let stack = pcblock.memory_space.user_stack;
     log!("hart":"run">"map user stack page 0x{:x}", stack.page());
     current_hart_pgtbl().map(
         MemorySpace::get_stack_start().floor(),
@@ -138,12 +160,11 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> ! {
     );
 
     // 设置内核栈
-    pcb.lock().trapframe().kernel_sp = current_hart().kernel_sp;
-    let sepc = pcb.lock().trapframe()["sepc"];
-    log!("hart":"run">"sepc: 0x{:x}", sepc);
-    let tf = VirtualAddr(pcb.lock().trapframe() as *const _ as usize);
-    pcb.lock()
-        .stimes_add(get_time() - current_hart_set_trap_times(get_time()));
+    pcblock.trapframe().kernel_sp = current_hart().kernel_sp;
+    log!("hart":"run">"sepc: 0x{:x}", pcblock.trapframe()["sepc"]);
+    let tf = VirtualAddr(pcblock.trapframe() as *const _ as usize);
+    pcblock.stimes_add(get_time() - current_hart_set_trap_times(get_time()));
+    drop(pcblock);
     current_hart().pcb = Some(pcb);
     // 因为是在对当前使用的页表进行映射，所以可能需要刷新快表
     unsafe {

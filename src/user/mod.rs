@@ -2,6 +2,8 @@
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 
+pub type INT = i32;
+
 pub static HELLO_WORLD: &'static [u8] = include_bytes!("bin/hello_world");
 pub static LOOP10: &'static [u8] = include_bytes!("bin/loop10");
 pub static GET_PID: &'static [u8] = include_bytes!("bin/get_pid");
