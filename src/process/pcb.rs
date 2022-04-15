@@ -16,8 +16,8 @@ use spin::Mutex;
 pub type Pid = usize;
 
 lazy_static! {
-    // 0 用作不存在的根Pcb
-    static ref PIDALLOCATOR: AtomicUsize = AtomicUsize::new(1);
+    // 1 用作不存在的根Pcb
+    static ref PIDALLOCATOR: AtomicUsize = AtomicUsize::new(2);
 }
 
 pub fn alloc_pid() -> usize {

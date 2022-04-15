@@ -34,6 +34,7 @@ pub extern "C" fn trap_handler() {
         .utimes_add(get_time() - current_hart_set_trap_times(get_time()));
     let scause = scause::read();
     let stval = stval::read();
+    // println!("scause {:?}, stval 0x{:x}, sepc 0x{:x}", scause.cause(), stval, riscv::register::sepc::read());
     match scause.cause() {
         Trap::Exception(Exception::UserEnvCall) => {
             syscall::syscall_handler();

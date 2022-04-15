@@ -288,7 +288,7 @@ pub(super) fn sys_openat(
         .and_then(|file| pcb.fds_insert(file).ok_or(FileErr::NotDefine))
     {
         Ok(fd) => return fd as isize,
-        Err(FileErr::InodeNotChild) => {
+        Err(FileErr::InodeNotChild) if flags.contains(OpenFlags::CREATE) => {
             return get_parent_inode(&node, path.as_str())
                 .and_then(|(parent, name)| parent.create(name, FileMode::empty(), InodeType::File))
                 .and_then(|child| File::open(child, flags))

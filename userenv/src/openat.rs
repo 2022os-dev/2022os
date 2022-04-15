@@ -30,10 +30,10 @@ fn main() {
     assert!(syscall_openat(AT_FDCWD, "openatdir/file2\0", OpenFlags::RDONLY|OpenFlags::CREATE, mode) > 0);
 
     // 判断写入
-    assert!(syscall_write(fd, name.as_bytes()) == name.len() as isize);
+    assert!(syscall_write(fd, name.as_bytes()) == name.len() as INT);
     let mut buf: [u8; 6] = [0; 6];
     assert!(syscall_lseek(fd, 0, SEEK_SET) == 0);
-    assert!(syscall_read(fd, &mut buf) == name.len() as isize);
+    assert!(syscall_read(fd, &mut buf) == name.len() as INT);
     assert!(unsafe {core::str::from_utf8_unchecked(&buf)} == name);
     // EOF
     assert!(syscall_read(fd, &mut buf) == -1);
@@ -45,7 +45,7 @@ fn main() {
     // 写失败
     assert!(syscall_write(fd, name.as_bytes()) == -1);
     // 读出
-    assert!(syscall_read(fd, &mut buf) == name.len() as isize);
+    assert!(syscall_read(fd, &mut buf) == name.len() as INT);
     assert!(unsafe {core::str::from_utf8_unchecked(&buf)} == name);
     assert!(syscall_close(fd) == 0);
     drop(fd);
@@ -57,14 +57,14 @@ fn main() {
     // 读失败
     assert!(syscall_read(fd, &mut buf) == -1);
     // 写入 
-    assert!(syscall_write(fd, name.as_bytes()) == name.len() as isize);
+    assert!(syscall_write(fd, name.as_bytes()) == name.len() as INT);
     assert!(syscall_close(fd) == 0);
     drop(fd);
 
     // 重新读出
     let mut buf: [u8; 9] = [0; 9];
     assert!(syscall_lseek(oldfd, 0, SEEK_SET) == 0);
-    assert!(syscall_read(oldfd, &mut buf) == name.len() as isize);
+    assert!(syscall_read(oldfd, &mut buf) == name.len() as INT);
     assert!(unsafe {core::str::from_utf8_unchecked(&buf)} == name);
 
     // 相对路径创建文件
@@ -73,10 +73,10 @@ fn main() {
     let fd = syscall_openat(-100, name, flags, mode);
     assert!(fd >= 0);
     // 判断写入
-    assert!(syscall_write(fd, name.as_bytes()) == name.len() as isize);
+    assert!(syscall_write(fd, name.as_bytes()) == name.len() as INT);
     let mut buf: [u8; 6] = [0; 6];
     assert!(syscall_lseek(fd, 0, SEEK_SET) == 0);
-    assert!(syscall_read(fd, &mut buf) == name.len() as isize);
+    assert!(syscall_read(fd, &mut buf) == name.len() as INT);
     assert!(unsafe {core::str::from_utf8_unchecked(&buf)} == name);
     // EOF
     assert!(syscall_read(fd, &mut buf) == -1);
@@ -88,7 +88,7 @@ fn main() {
     // 写失败
     assert!(syscall_write(fd, name.as_bytes()) == -1);
     // 读出
-    assert!(syscall_read(fd, &mut buf) == name.len() as isize);
+    assert!(syscall_read(fd, &mut buf) == name.len() as INT);
     assert!(unsafe {core::str::from_utf8_unchecked(&buf)} == name);
     assert!(syscall_close(fd) == 0);
     drop(fd);
@@ -100,14 +100,14 @@ fn main() {
     // 读失败
     assert!(syscall_read(fd, &mut buf) == -1);
     // 写入 
-    assert!(syscall_write(fd, name.as_bytes()) == name.len() as isize);
+    assert!(syscall_write(fd, name.as_bytes()) == name.len() as INT);
     assert!(syscall_close(fd) == 0);
     drop(fd);
 
     // 重新读出
     let mut buf: [u8; 8] = [0; 8];
     assert!(syscall_lseek(oldfd, 0, SEEK_SET) == 0);
-    assert!(syscall_read(oldfd, &mut buf) == name.len() as isize);
+    assert!(syscall_read(oldfd, &mut buf) == name.len() as INT);
     assert!(unsafe {core::str::from_utf8_unchecked(&buf)} == name);
 
 

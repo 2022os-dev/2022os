@@ -322,6 +322,11 @@ pub fn syscall_handler() {
     let state = pcblock.state;
     drop(pcblock);
     if let PcbState::Zombie(_) = state {
+    }else if let PcbState::Blocking = state {
+        #[cfg(feature = "FCFS")]
+        scheduler_block_pcb(pcb.clone());
+        #[cfg(not(feature = "FCFS"))]
+        scheduler_ready_pcb(pcb.clone());
     } else {
         scheduler_ready_pcb(pcb.clone());
     }

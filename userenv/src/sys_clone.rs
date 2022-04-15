@@ -13,7 +13,7 @@ use core::assert;
 fn main() {
     assert!(syscall_chdir("/\0") == 0);
     assert!(syscall_openat(AT_FDCWD, "/clone\0", OpenFlags::CREATE, FileMode::empty()) > 0);
-    let mut pipe: [isize; 2] = [0, 0];
+    let mut pipe: [i32; 2] = [0, 0];
     assert!(syscall_pipe(&mut pipe) == 0);
     println!("pipe({}, {})", pipe[0], pipe[1]);
     let forkret = syscall_clone(CloneFlags::empty(), 0 as usize as *const u8, 0, 0, 0);

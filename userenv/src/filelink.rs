@@ -28,11 +28,11 @@ fn main() {
     let content = "12345678901234567890";
 
     // 往文件写入数据
-    assert!(syscall_write(fd1, content.as_bytes()) == content.len() as isize);
+    assert!(syscall_write(fd1, content.as_bytes()) == content.len() as INT);
 
     // 从链接处读出数据
     let mut buf: [u8; 20] = [0; 20];
-    assert!(syscall_read(fd2, &mut buf) == content.len() as isize);
+    assert!(syscall_read(fd2, &mut buf) == content.len() as INT);
 
     // 比较数据是否一致
     assert!(unsafe {core::str::from_utf8_unchecked(&buf)} == content);

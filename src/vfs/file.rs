@@ -328,10 +328,7 @@ impl _Inode for Console {
     }
     fn write_offset(&self, _: usize, buf: &[u8]) -> Result<usize, FileErr> {
         unsafe {
-            #[cfg(not(feature = "batch"))]
             print!("{}", core::str::from_utf8_unchecked(buf));
-            #[cfg(feature = "batch")]
-            log!("user_log":>"{}", core::str::from_utf8_unchecked(buf));
         }
         Ok(buf.len())
     }

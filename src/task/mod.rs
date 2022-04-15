@@ -12,12 +12,21 @@ lazy_static! {
 }
 
 pub fn scheduler_load_pcb(memory_space: MemorySpace) {
-    let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 0, String::from("/"))));
+    let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 1, String::from("/"))));
     scheduler_ready_pcb(pcb);
 }
 
 pub fn scheduler_ready_pcb(pcb: Arc<Mutex<Pcb>>) {
     log!("scheduler":"Ready">"pid({})", pcb.lock().pid);
+    #[cfg(feature = "FCFS")]
+    READYTASKS.lock().push(pcb);
+    #[cfg(not(feature = "FCFS"))]
+    READYTASKS.lock().insert(0, pcb);
+}
+
+#[cfg(feature = "FCFS")]
+pub fn scheduler_block_pcb(pcb: Arc<Mutex<Pcb>>) {
+    log!("scheduler":"Blocking">"pid({})", pcb.lock().pid);
     READYTASKS.lock().insert(0, pcb);
 }
 
@@ -25,9 +34,7 @@ pub fn schedule() -> ! {
     // FCFS
     log!("scheduler":>"Enter");
     loop {
-        let mut tasklist = READYTASKS.lock();
-        let pcb = tasklist.pop();
-        drop(tasklist);
+        let pcb = READYTASKS.lock().pop();
 
         if let Some(pcb) = pcb {
             // assert!(!pcb.is_locked());

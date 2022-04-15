@@ -11,7 +11,7 @@ use core::mem::size_of;
 use core::assert;
 
 fn main() {
-    let mut fds: [isize; 2] = [0,0];
+    let mut fds: [INT; 2] = [0,0];
     let hello = "hello world, it is a good day";
     let mut buf: [u8; 29] = [0; 29];
     assert!(syscall_pipe(&mut fds) == 0);

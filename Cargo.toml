@@ -12,17 +12,17 @@ overflow-check = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["multicore", "input_echo", "init_clock", "user_log", "print_lock"]
+default = ["multicore", "input_echo", "init_clock", "print_lock"]
 board_unleashed = []    # 使用unleashed开发板
 init_clock = ["board_unleashed"]    # 配置系统时钟，使用1G Hz
 read_buffer = []    # read调用使用缓存区
 input_echo  = []    # 输入回显示
 multicore   = []    # 开启多核
-batch = ["pcb"] # 默认会运行一个shell，在shell中输入程序名运行，batch会指定运行一系列特定的程序，方便调试多核(src/user/mod.rs)
-gitee_test = [] # 加载gitee的测试程序
+batch = []          # 默认会运行一个shell，在shell中输入程序名运行，batch会指定运行一系列特定的程序，方便调试多核(src/user/mod.rs)
+gitee_test = ["FCFS"] # 加载gitee的测试程序
+FCFS = []           # 优先调度先来的进程，用于gitee调试时查看结果
 
 # 下面的选项用于调试内核模块的输出
-user_log = []     # 打印用户态程序输出
 kernel_log = ["pcb", "path_resolve", "pipe", "vfs", "execve"] 
 print_lock = []   # 使用互斥锁防止多核打印格式混乱
 syscall = []

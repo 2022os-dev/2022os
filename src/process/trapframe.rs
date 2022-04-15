@@ -1,4 +1,5 @@
 use riscv::register::sstatus;
+use core::mem::size_of;
 
 #[repr(C)]
 pub struct TrapFrame {
@@ -108,12 +109,19 @@ impl core::ops::IndexMut<&str> for TrapFrame {
 
 impl TrapFrame {
     pub fn init(&mut self, sp: usize, sepc: usize) {
-        self["sp"] = sp;
-        self["sepc"] = sepc;
         let mut sstatus_reg = sstatus::read();
         sstatus_reg.set_spp(sstatus::SPP::User);
         sstatus_reg.set_spie(true);
         self["sstatus"] = sstatus_reg.bits();
+        self["sepc"] = sepc;
         self.trap_handler = crate::trap::trap_handler as usize;
+        // 设置argv envp
+        self["sp"] = sp - 2 * size_of::<usize>();
+        // argc = 0
+        self["a0"] = 0;
+        // argv
+        self["a1"] = sp - size_of::<usize>();
+        // envp
+        self["a2"] = self["a1"] - size_of::<usize>();
     }
 }

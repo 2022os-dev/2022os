@@ -4,6 +4,8 @@ use crate::println;
 use core::mem::size_of;
 use core::slice::from_raw_parts_mut;
 
+pub type INT = i32;
+
 const SYSCALL_GETCWD: usize = 17;
 const SYSCALL_DUP: usize = 23;
 const SYSCALL_DUP3:usize = 24;
@@ -70,7 +72,7 @@ const SYSCALL_LS: usize = 500;
 const SYSCALL_SHUTDOWN: usize = 501;
 const SYSCALL_CLEAR: usize = 502;
 
-pub const AT_FDCWD: isize = -100;
+pub const AT_FDCWD: INT = -100;
 bitflags! {
     // 表示openat(2) 中的flags
     pub struct OpenFlags: usize {
@@ -125,7 +127,7 @@ pub fn ls(path: &str) {
 
 }
 
-pub fn syscall_getcwd(buf: &mut [u8]) -> isize {
+pub fn syscall_getcwd(buf: &mut [u8]) -> INT {
     let mut a0 = buf.as_ptr() as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -133,7 +135,7 @@ pub fn syscall_getcwd(buf: &mut [u8]) -> isize {
             in("x17") SYSCALL_GETCWD
         )
     }
-    a0 as isize
+    a0 as INT
 }
 
 const PATH_LIMITS: usize = 512;
@@ -170,7 +172,7 @@ impl LinuxDirent {
     }
 }
 
-pub fn syscall_getdirents64(fd: isize, buf: &mut [u8], len: usize) -> isize {
+pub fn syscall_getdirents64(fd: INT, buf: &mut [u8], len: usize) -> INT {
     let mut a0 = fd as isize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -179,20 +181,20 @@ pub fn syscall_getdirents64(fd: isize, buf: &mut [u8], len: usize) -> isize {
             in("x17") SYSCALL_GETDENTS64
         )
     }
-    a0 as isize
+    a0 as INT
 }
 
-pub fn syscall_chdir(buf: &str) -> isize {
+pub fn syscall_chdir(buf: &str) -> INT {
     let mut a0 = buf.as_ptr() as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x17") SYSCALL_CHDIR
         )
     }
-    a0 as isize
+    a0 as INT
 }
 
-pub fn syscall_linkat(olddirfd: isize, oldpath: &str, newdirfd: isize, newpath: &str, flags: usize) -> isize {
+pub fn syscall_linkat(olddirfd: INT, oldpath: &str, newdirfd: INT, newpath: &str, flags: usize) -> INT {
     let mut a0 = olddirfd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -203,10 +205,10 @@ pub fn syscall_linkat(olddirfd: isize, oldpath: &str, newdirfd: isize, newpath: 
             in("x17") SYSCALL_LINKAT
         )
     }
-    a0 as isize
+    a0 as INT
 }
 
-pub fn syscall_unlinkat(dirfd: isize, path: &str, flags: usize) -> isize {
+pub fn syscall_unlinkat(dirfd: INT, path: &str, flags: usize) -> INT {
     let mut a0 = dirfd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -215,22 +217,22 @@ pub fn syscall_unlinkat(dirfd: isize, path: &str, flags: usize) -> isize {
             in("x17") SYSCALL_UNLINKAT
         )
     }
-    a0 as isize
+    a0 as INT
 }
 
 
-pub fn syscall_pipe(pipe: &mut [isize; 2]) -> isize {
+pub fn syscall_pipe(pipe: &mut [i32; 2]) -> INT {
     let mut a0 = pipe as *const _ as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x17") SYSCALL_PIPE
         )
     }
-    a0 as isize
+    a0 as INT
 
 }
 
-pub fn syscall_openat(fd: isize, filename: &str, flags: OpenFlags, mode: FileMode) -> isize {
+pub fn syscall_openat(fd: INT, filename: &str, flags: OpenFlags, mode: FileMode) -> INT {
     let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -240,20 +242,20 @@ pub fn syscall_openat(fd: isize, filename: &str, flags: OpenFlags, mode: FileMod
             in("x17") SYSCALL_OPENAT
         )
     }
-    a0 as isize
+    a0 as INT
 }
 
-pub fn syscall_dup(fd: isize) -> isize {
+pub fn syscall_dup(fd: INT) -> INT {
     let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x17") SYSCALL_DUP
         )
     }
-    a0 as isize
+    a0 as INT
 }
 
-pub fn syscall_dup3(oldfd: isize, newfd: isize) -> isize {
+pub fn syscall_dup3(oldfd: INT, newfd: INT) -> INT {
     let mut a0 = oldfd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -261,10 +263,10 @@ pub fn syscall_dup3(oldfd: isize, newfd: isize) -> isize {
             in("x17") SYSCALL_DUP3
         )
     }
-    a0 as isize
+    a0 as INT
 }
 
-pub fn syscall_mkdirat(fd: isize, path: &str, mode: FileMode) -> isize {
+pub fn syscall_mkdirat(fd: INT, path: &str, mode: FileMode) -> INT {
     let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -273,24 +275,24 @@ pub fn syscall_mkdirat(fd: isize, path: &str, mode: FileMode) -> isize {
             in("x17") SYSCALL_MKDIRAT
         )
     }
-    a0 as isize
+    a0 as INT
 }
 
-pub fn syscall_close(fd: isize) -> isize {
+pub fn syscall_close(fd: INT) -> INT {
     let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x17") SYSCALL_CLOSE
         )
     }
-    a0 as isize
+    a0 as INT
 
 }
 
 pub const SEEK_SET: usize = 0;
 pub const SEEK_CUR : usize = 1;
 pub const SEEK_END : usize = 2;
-pub fn syscall_lseek(fd: isize, offset: isize, whence: usize) -> isize {
+pub fn syscall_lseek(fd: INT, offset: isize, whence: usize) -> INT {
     let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -299,10 +301,10 @@ pub fn syscall_lseek(fd: isize, offset: isize, whence: usize) -> isize {
             in("x17") SYSCALL_LSEEK
         )
     }
-    a0 as isize
+    a0 as INT
 }
 
-pub fn syscall_write(fd: isize, buf: &[u8]) -> isize {
+pub fn syscall_write(fd: INT, buf: &[u8]) -> INT {
     let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -311,9 +313,9 @@ pub fn syscall_write(fd: isize, buf: &[u8]) -> isize {
             in("x17") SYSCALL_WRITE
         )
     }
-    a0 as isize
+    a0 as INT
 }
-pub fn syscall_read(fd: isize, buf: &mut [u8]) -> isize {
+pub fn syscall_read(fd: INT, buf: &mut [u8]) -> INT {
     let mut a0 = fd as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -322,7 +324,7 @@ pub fn syscall_read(fd: isize, buf: &mut [u8]) -> isize {
             in("x17") SYSCALL_READ
         )
     }
-    a0 as isize
+    a0 as INT
 }
 
 pub fn syscall_exit(xcode: isize) -> !{
@@ -340,7 +342,7 @@ pub fn syscall_yield() {
     }
 }
 
-pub fn syscall_fork() -> isize {
+pub fn syscall_fork() -> INT {
     let mut ret = 0;
     unsafe {
         asm!("ecall", out("x10") ret, in("x17") SYSCALL_FORK);
@@ -356,7 +358,7 @@ bitflags! {
     }
 }
 
-pub fn syscall_clone(flags: CloneFlags, stack_top: *const u8, ptid: usize, ctid: usize, newtls: usize) -> isize {
+pub fn syscall_clone(flags: CloneFlags, stack_top: *const u8, ptid: usize, ctid: usize, newtls: usize) -> INT {
     let mut a0 = flags.bits() as usize;
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -366,7 +368,7 @@ pub fn syscall_clone(flags: CloneFlags, stack_top: *const u8, ptid: usize, ctid:
          in("x14") newtls,
          in("x17") SYSCALL_CLONE);
     }
-    a0 as isize
+    a0 as INT
 
 }
 
@@ -390,7 +392,7 @@ pub fn syscall_getpid() -> usize {
     ret
 }
 
-pub fn syscall_wait4(pid: isize, wstatus: &mut isize, options: usize, rusage: &mut usize) -> isize {
+pub fn syscall_wait4(pid: isize, wstatus: &mut isize, options: usize, rusage: &mut usize) -> INT {
     let mut pid = pid as usize;
     unsafe {
         asm!("ecall", inout("x10") pid, 
@@ -400,7 +402,7 @@ pub fn syscall_wait4(pid: isize, wstatus: &mut isize, options: usize, rusage: &m
             in("x17") SYSCALL_WAIT4
         )
     }
-    pid as isize
+    pid as INT
 }
 
 pub fn syscall_sbrk(mut inc: usize) -> *mut u8 {
@@ -412,14 +414,14 @@ pub fn syscall_sbrk(mut inc: usize) -> *mut u8 {
     inc as *mut u8
 }
 
-pub fn syscall_brk(addr: *const u8) -> isize {
+pub fn syscall_brk(addr: *const u8) -> *mut u8{
     let mut addr = addr as usize;
     unsafe {
         asm!("ecall", inout("x10") addr,
             in("x17") SYSCALL_BRK
         )
     }
-    addr as isize
+    addr as *mut u8
 }
 
 pub const SIGTMIN: usize = 32;
@@ -468,14 +470,14 @@ bitflags!{
         const SA_INTERRUPT = 0x20000000;    /* Historical no-op.  */
     }
 }
-pub fn syscall_kill(mut pid: isize, sig: Signal) -> isize {
+pub fn syscall_kill(mut pid: INT, sig: Signal) -> INT {
     unsafe {
         asm!("ecall", inout("x10") pid,
             in("x11") sig.bits(),
             in("x17") SYSCALL_KILL
         )
     }
-    pid as isize
+    pid as INT
 }
 
 #[repr(C)]
@@ -485,7 +487,7 @@ pub struct rt_sigaction {
     pub sa_mask: usize
 }
 
-pub fn syscall_sigaction(signal: Signal, act: &rt_sigaction, old: &rt_sigaction) -> isize {
+pub fn syscall_sigaction(signal: Signal, act: &rt_sigaction, old: &rt_sigaction) -> INT {
     let mut a0 = signal.bits();
     unsafe {
         asm!("ecall", inout("x10") a0,
@@ -494,7 +496,7 @@ pub fn syscall_sigaction(signal: Signal, act: &rt_sigaction, old: &rt_sigaction)
             in("x17") SYSCALL_SIGACTION
         )
     }
-    a0 as isize
+    a0 as INT
 }
 pub fn syscall_sigreturn() {
     unsafe {
@@ -527,7 +529,7 @@ pub struct TimeSpec {
     pub tv_nsec: usize
 }
 
-pub fn syscall_nanosleep(sec: usize, nsec: usize) -> isize {
+pub fn syscall_nanosleep(sec: usize, nsec: usize) -> INT {
     let ts = TimeSpec {
         tv_nsec: nsec,
         tv_sec: sec
@@ -538,5 +540,5 @@ pub fn syscall_nanosleep(sec: usize, nsec: usize) -> isize {
             in("x17") SYSCALL_NANOSLEEP
         )
     }
-    a0 as isize
+    a0 as INT
 }

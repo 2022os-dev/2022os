@@ -95,7 +95,74 @@ pub static GITEE_YIELD: &'static [u8] = include_bytes!("bin/gitee_yield");
 
 #[cfg(feature = "batch")]
 lazy_static! {
-    pub static ref BATCH: Box<[&'static [u8]]> = Box::new([CHDIR, SYS_CLONE]);
+    pub static ref BATCH: Box<[&'static [u8]]> = Box::new([
+        HELLO_WORLD,
+        #[cfg(feature = "gitee_test")]
+        GITEE_BRK,
+        #[cfg(feature = "gitee_test")]
+        GITEE_CHDIR,
+        #[cfg(feature = "gitee_test")]
+        GITEE_CLONE,
+        #[cfg(feature = "gitee_test")]
+        GITEE_CLONE,
+        #[cfg(feature = "gitee_test")]
+        GITEE_DUP,
+        #[cfg(feature = "gitee_test")]
+        GITEE_DUP2,
+        #[cfg(feature = "gitee_test")]
+        GITEE_EXECVE,
+        #[cfg(feature = "gitee_test")]
+        GITEE_EXIT,
+        #[cfg(feature = "gitee_test")]
+        GITEE_FORK,
+        // #[cfg(feature = "gitee_test")]
+        // GITEE_FSTAT
+        #[cfg(feature = "gitee_test")]
+        GITEE_GETCWD,
+        #[cfg(feature = "gitee_test")]
+        GITEE_GETDENTS,
+        #[cfg(feature = "gitee_test")]
+        GITEE_GETPID,
+        #[cfg(feature = "gitee_test")]
+        GITEE_GETPPID,
+        #[cfg(feature = "gitee_test")]
+        GITEE_GETTIMEOFDAY,
+        #[cfg(feature = "gitee_test")]
+        GITEE_MKDIR_,
+        #[cfg(feature = "gitee_test")]
+        GITEE_MMAP,
+        // #[cfg(feature = "gitee_test")]
+        // GITEE_MOUNT,
+        #[cfg(feature = "gitee_test")]
+        GITEE_MUNMAP,
+        // #[cfg(feature = "gitee_test")]
+        // GITEE_OPEN,
+        // #[cfg(feature = "gitee_test")]
+        // GITEE_OPENAT,
+        #[cfg(feature = "gitee_test")]
+        GITEE_PIPE,
+        #[cfg(feature = "gitee_test")]
+        GITEE_READ,
+        #[cfg(feature = "gitee_test")]
+        GITEE_SLEEP,
+        #[cfg(feature = "gitee_test")]
+        GITEE_TIMES,
+        // #[cfg(feature = "gitee_test")]
+        // GITEE_UMOUNT,
+        #[cfg(feature = "gitee_test")]
+        GITEE_UNAME,
+        #[cfg(feature = "gitee_test")]
+        GITEE_UNLINK,
+        #[cfg(feature = "gitee_test")]
+        GITEE_WAIT,
+        #[cfg(feature = "gitee_test")]
+        GITEE_WAITPID,
+        #[cfg(feature = "gitee_test")]
+        GITEE_WRITE,
+        #[cfg(feature = "gitee_test")]
+        GITEE_YIELD
+
+    ]);
 }
 
 lazy_static! {

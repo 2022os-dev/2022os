@@ -129,7 +129,7 @@ pub(super) fn sys_gettimeofday(timespec: VirtualAddr, _: VirtualAddr) -> isize {
     let timespec: &mut TimeSpec = timespec.as_mut();
     let time = cpu::get_time();
     timespec.tv_sec = time / RTCLK_FREQ;
-    timespec.tv_nsec = (time % RTCLK_FREQ) / 1000_000;
+    timespec.tv_nsec = (time % RTCLK_FREQ) * 1000_000 / RTCLK_FREQ;
     0
 }
 

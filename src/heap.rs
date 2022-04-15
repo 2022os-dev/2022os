@@ -1,4 +1,4 @@
-const KERNEL_HEAP_SIZE: usize = PAGE_SIZE * 16;
+const KERNEL_HEAP_SIZE: usize = PAGE_SIZE * 32;
 
 static mut HEAP_SPACE: [u8; KERNEL_HEAP_SIZE] = [0; KERNEL_HEAP_SIZE];
 
