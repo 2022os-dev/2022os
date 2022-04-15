@@ -253,6 +253,11 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] =
                 sys_mmap(&mut pcblock, start, length, prot, flags, fd, offset).0;
         }
+        SYSCALL_MUNMAP => {
+            let start = VirtualAddr(trapframe["a0"]);
+            let length = trapframe["a1"];
+            pcblock.trapframe()["a0"] = sys_munmap(&mut pcblock, start, length) as usize;
+        }
         SYSCALL_KILL => {
             let pid = trapframe["a0"];
             let sig = trapframe["a1"];

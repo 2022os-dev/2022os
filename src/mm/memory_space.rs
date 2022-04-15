@@ -11,6 +11,8 @@ use alloc::vec::Vec;
 use core::cmp::min;
 use core::mem::size_of;
 use core::mem::transmute;
+use core::ops::Index;
+use core::ops::IndexMut;
 use core::ops::Range;
 use core::slice;
 
@@ -375,6 +377,10 @@ impl MemorySpace {
         }
         Ok(start_page.offset(0))
     }
+
+    pub fn munmap(&mut self, start: VirtualAddr, length: usize) {
+        self.mmap_areas.remove_range(start, length);
+    }
 }
 
 impl Drop for MemorySpace {
@@ -422,6 +428,13 @@ impl MmapAreas {
         Ok(())
     }
 
+    pub fn remove_range(&mut self, start: VirtualAddr, length: usize) {
+        self.mmap_pages.retain(|mappage| {
+            mappage.vpage.offset(0) < start + length
+                && mappage.vpage.offset(PAGE_SIZE) > start + length
+        });
+    }
+
     // 检查某个虚拟地址是否存在mmap页, 返回映射的物理页
     pub fn check_lazy(&mut self, va: VirtualAddr, prot: MapProt) -> Result<PageNum, ()> {
         for mappage in self.mmap_pages.iter_mut() {
@@ -435,6 +448,19 @@ impl MmapAreas {
 
     pub fn pages<'a>(&'a self) -> impl Iterator<Item = &MmapPage> + 'a {
         self.mmap_pages.iter()
+    }
+}
+
+impl Index<usize> for MmapAreas {
+    type Output = MmapPage;
+    fn index(&self, idx: usize) -> &Self::Output {
+        &self.mmap_pages[idx]
+    }
+}
+
+impl IndexMut<usize> for MmapAreas {
+    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
+        &mut self.mmap_pages[idx]
     }
 }
 

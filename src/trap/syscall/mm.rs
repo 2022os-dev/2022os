@@ -41,3 +41,8 @@ pub(super) fn sys_mmap(
         return VirtualAddr(-1 as isize as usize);
     }
 }
+
+pub(super) fn sys_munmap(pcb: &mut MutexGuard<Pcb>, start: VirtualAddr, length: usize) -> isize {
+    pcb.memory_space.munmap(start, length);
+    0
+}
