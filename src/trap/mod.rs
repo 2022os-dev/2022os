@@ -38,13 +38,16 @@ pub extern "C" fn trap_handler() {
         Trap::Exception(Exception::UserEnvCall) => {
             syscall::syscall_handler();
         }
-        Trap::Exception(Exception::StoreFault) | 
-        Trap::Exception(Exception::StorePageFault) => {
+        Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
             // 判断是否是lazy
             let va = VirtualAddr(stval::read());
             let pcb = current_pcb().unwrap();
             let mut pcblock = pcb.lock();
-            if let Ok(_) = pcblock.memory_space.mmap_areas.check_lazy(va, MapProt::READ) {
+            if let Ok(_) = pcblock
+                .memory_space
+                .mmap_areas
+                .check_lazy(va, MapProt::READ)
+            {
                 // 已经分配物理页，由current_hart_run映射。
                 log!("mmap":"store">"Found mapped page va(0x{:x})", va.0);
                 drop(pcblock);
@@ -55,14 +58,17 @@ pub extern "C" fn trap_handler() {
                 pcblock.exit(-1);
             }
         }
-        Trap::Exception(Exception::LoadFault) |
-        Trap::Exception(Exception::LoadPageFault) => {
+        Trap::Exception(Exception::LoadFault) | Trap::Exception(Exception::LoadPageFault) => {
             // 判断是否是lazy
             let va = VirtualAddr(stval::read());
             let pte = current_hart_pgtbl().walk(va, false);
             let pcb = current_pcb().unwrap();
             let mut pcblock = pcb.lock();
-            if let Ok(_) = pcblock.memory_space.mmap_areas.check_lazy(va, MapProt::WRITE) {
+            if let Ok(_) = pcblock
+                .memory_space
+                .mmap_areas
+                .check_lazy(va, MapProt::WRITE)
+            {
                 // 已经分配物理页，由current_hart_run映射。
                 log!("mmap":"load">"Found mapped page va(0x{:x})", va.0);
                 drop(pcblock);
@@ -72,7 +78,6 @@ pub extern "C" fn trap_handler() {
                 log!("mmap":"load">"Not Found mapped page va(0x{:x})", va.0);
                 pcblock.exit(-1);
             }
-
         }
         Trap::Exception(Exception::IllegalInstruction) => {
             panic!(

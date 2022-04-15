@@ -122,18 +122,18 @@ pub fn syscall_handler() {
         }
         SYSCALL_LINKAT => {
             let olddirfd = trapframe["a0"] as isize;
-            let oldpath= VirtualAddr(trapframe["a1"]);
+            let oldpath = VirtualAddr(trapframe["a1"]);
             let newdirfd = trapframe["a2"] as isize;
             let newpath = VirtualAddr(trapframe["a3"]);
             let flags = trapframe["a4"];
-            pcblock.trapframe()["a0"] = sys_linkat(&mut pcblock, olddirfd, oldpath, newdirfd, newpath, flags) as usize;
+            pcblock.trapframe()["a0"] =
+                sys_linkat(&mut pcblock, olddirfd, oldpath, newdirfd, newpath, flags) as usize;
         }
         SYSCALL_UNLINKAT => {
             let dirfd = trapframe["a0"] as isize;
             let path = VirtualAddr(trapframe["a1"]);
             let flags = trapframe["a2"];
             pcblock.trapframe()["a0"] = sys_unlinkat(&mut pcblock, dirfd, path, flags) as usize;
-
         }
         SYSCALL_CHDIR => {
             let path = VirtualAddr(trapframe["a0"]);
@@ -250,7 +250,8 @@ pub fn syscall_handler() {
             let flags = trapframe["a3"];
             let fd = trapframe["a4"] as isize;
             let offset = trapframe["a5"];
-            pcblock.trapframe()["a0"] = sys_mmap(&mut pcblock, start, length, prot, flags, fd, offset).0;
+            pcblock.trapframe()["a0"] =
+                sys_mmap(&mut pcblock, start, length, prot, flags, fd, offset).0;
         }
         SYSCALL_KILL => {
             let pid = trapframe["a0"];

@@ -24,17 +24,20 @@ pub(super) fn sys_mmap(
     let flags = MapFlags::from_bits(flags).unwrap();
     // todo: 支持匿名映射
     if let Some(va) = pcb.get_fd(fd).and_then(|file| {
-        match pcb.memory_space.mmap(start, Some(file.read().inode.clone()), offset, length, prot, flags) {
-            Ok(va) => {
-                Some(va)
-            }
-            Err(e) => {
-                None
-            }
+        match pcb.memory_space.mmap(
+            start,
+            Some(file.read().inode.clone()),
+            offset,
+            length,
+            prot,
+            flags,
+        ) {
+            Ok(va) => Some(va),
+            Err(e) => None,
         }
     }) {
-        return va
+        return va;
     } else {
-        return VirtualAddr(-1 as isize as usize)
+        return VirtualAddr(-1 as isize as usize);
     }
 }

@@ -85,12 +85,11 @@ impl _Inode for MemInode {
         if inner.children.contains_key(&String::from(name)) {
             if inner.children.remove(&String::from(name)).is_some() {
                 // Memfs 剩余的链接数为0
-                return Ok(0)
+                return Ok(0);
             }
         }
-        return Err(FileErr::InodeNotChild)
+        return Err(FileErr::InodeNotChild);
     }
-
 
     fn read_offset(&self, mut offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
         log!("vfs":"mem_read">"offset ({})", offset);
@@ -191,7 +190,7 @@ impl _Inode for MemRootInode {
     }
 
     fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
-        self.0.get_dirent(offset, dirent) 
+        self.0.get_dirent(offset, dirent)
     }
 
     fn read_offset(&self, offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
@@ -207,9 +206,7 @@ impl _Inode for MemRootInode {
     fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
         // 用于将用户态程序放到根目录下，方便execve系统调用测试
         if let Some(app) = crate::user::APP.get(name) {
-            return Ok(Arc::new(ProgInode {
-                data: app
-            }))
+            return Ok(Arc::new(ProgInode { data: app }));
         } else {
             self.0.get_child(name)
         }
@@ -239,7 +236,7 @@ pub fn memfs_init() {
 }
 
 struct ProgInode {
-    pub data: &'static [u8]
+    pub data: &'static [u8],
 }
 
 impl _Inode for ProgInode {

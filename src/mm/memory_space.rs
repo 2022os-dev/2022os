@@ -36,7 +36,7 @@ pub struct MemorySpace {
 
 pub struct MmapAreas {
     mmap_pages: Vec<MmapPage>,
-    lowest_page: PageNum
+    lowest_page: PageNum,
 }
 
 bitflags! {
@@ -77,7 +77,7 @@ impl MemorySpace {
             user_stack: stack,
             prog_break: VirtualAddr(0),
             prog_high_page: PageNum(0),
-            mmap_areas: MmapAreas::new()
+            mmap_areas: MmapAreas::new(),
         }
     }
 
@@ -348,22 +348,29 @@ impl MemorySpace {
     ) -> Result<VirtualAddr, ()> {
         // 只支持start == 0的情况
         if start.0 != 0 {
-            return Err(())
+            return Err(());
         }
         if length == 0 {
-            return Err(())
+            return Err(());
         }
         let high_va = self.mmap_areas.lowest_page.offset(0);
         let start_page = (high_va - length).floor();
         if start_page <= self.prog_high_page {
             // 映射区域会与堆内存重合，放弃
             log!("mmap":"error">"mmap page reach heap 0x{:x}", start_page.page());
-            return Err(())
+            return Err(());
         }
         let mut mapped_len = 0;
         while mapped_len < length {
             let map_length = core::cmp::min(PAGE_SIZE, length - mapped_len);
-            self.mmap_areas.push_page(start_page + mapped_len / PAGE_SIZE, inode.clone(), offset + mapped_len, map_length, prot, flags)?;
+            self.mmap_areas.push_page(
+                start_page + mapped_len / PAGE_SIZE,
+                inode.clone(),
+                offset + mapped_len,
+                map_length,
+                prot,
+                flags,
+            )?;
             mapped_len += map_length;
         }
         Ok(start_page.offset(0))
@@ -384,7 +391,7 @@ impl MmapAreas {
     pub fn new() -> Self {
         Self {
             mmap_pages: Vec::new(),
-            lowest_page: VirtualAddr(USER_STACK_PAGE - PAGE_SIZE).floor()
+            lowest_page: VirtualAddr(USER_STACK_PAGE - PAGE_SIZE).floor(),
         }
     }
 
@@ -392,10 +399,10 @@ impl MmapAreas {
         &mut self,
         vpage: PageNum,
         inode: Option<Inode>,
-        offset: usize, 
+        offset: usize,
         length: usize,
         prot: MapProt,
-        flags: MapFlags
+        flags: MapFlags,
     ) -> Result<(), ()> {
         // vpage必须会比lowest_page要小
         assert!(self.lowest_page > vpage);
@@ -419,14 +426,14 @@ impl MmapAreas {
     pub fn check_lazy(&mut self, va: VirtualAddr, prot: MapProt) -> Result<PageNum, ()> {
         for mappage in self.mmap_pages.iter_mut() {
             if mappage.vpage == va.floor() {
-                return mappage.check(prot)
+                return mappage.check(prot);
             }
         }
         // 不存在映射
         Err(())
     }
 
-    pub fn pages<'a>(&'a self) -> impl Iterator<Item=&MmapPage> + 'a {
+    pub fn pages<'a>(&'a self) -> impl Iterator<Item = &MmapPage> + 'a {
         self.mmap_pages.iter()
     }
 }
@@ -434,10 +441,10 @@ impl MmapAreas {
 impl MmapPage {
     fn check(&mut self, prot: MapProt) -> Result<PageNum, ()> {
         if !self.prot.contains(prot) {
-            return Err(())
+            return Err(());
         }
         if let Some(ppage) = self.ppage {
-            return Ok(ppage)
+            return Ok(ppage);
         } else {
             // 保证存在Inode，因为ANONYMOUS映射时会直接分配内存
             let inode = self.inode.clone().unwrap();
@@ -446,10 +453,10 @@ impl MmapPage {
             let mut buf: &mut [u8] = phys.as_slice_mut(self.length);
             if inode.read_offset(self.offset, &mut buf).is_err() {
                 KALLOCATOR.lock().kfree(ppage);
-                return Err(())
+                return Err(());
             }
             self.ppage = Some(ppage);
-            return Ok(ppage)
+            return Ok(ppage);
         }
     }
 
