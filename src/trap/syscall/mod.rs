@@ -3,6 +3,7 @@ mod file;
 mod mm;
 mod process;
 mod signal;
+mod sysinfo;
 use crate::config::RTCLK_FREQ;
 use crate::mm::address::*;
 use crate::process::cpu::{current_hart, get_time};
@@ -11,6 +12,7 @@ use crate::{process::*, trap};
 use alloc::sync::Arc;
 use file::*;
 use mm::*;
+use sysinfo::*;
 use process::*;
 use signal::*;
 
@@ -289,6 +291,10 @@ pub fn syscall_handler() {
             drop(trapframe);
             pcblock.trapframe()["a0"] = sys_times(&mut pcblock, VirtualAddr(tms));
             log!("syscall":"times">"pid({})", pcblock.pid);
+        }
+        SYSCALL_UNAME => {
+            let uts = VirtualAddr(trapframe["a0"]);
+            pcblock.trapframe()["a0"] = sys_uname(&mut pcblock, uts) as usize;
         }
         SYSCALL_GET_TIME_OF_DAY => {
             let timespec = VirtualAddr(trapframe["a0"]);
