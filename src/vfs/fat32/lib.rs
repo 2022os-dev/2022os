@@ -25,3 +25,4 @@ pub use fat::FAT;
 pub use fat32_manager::Fat32Manager;
 pub use fsinfo::*;
 pub use vfs::VFSFile;
+use super::*;

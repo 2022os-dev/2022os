@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use spin::RwLock;
 
 
+
 #[allow(unused)]
 use super::{
     BLOCK_SIZE,
@@ -663,7 +664,7 @@ impl LongDirEntry {
         Self {
             flag,
             name1,
-            dir_flag: 0,
+            dir_flag: LONG_DIR_ENTRY,
             reserved: 0,
             check_sum,
             name2,

@@ -2,6 +2,7 @@ use alloc::sync::Arc;
 use alloc::string::String;
 use alloc::vec::Vec;
 use spin::RwLock;
+use lazy_static::*;
 
 #[allow(unused)]
 use super::{
@@ -16,12 +17,14 @@ use super::{
     Buffer,
     BufferManager,
 };
-use 2022os::{_Inode, FileErr, File, LinuxDirent};
+use super::*;
 
 #[allow(unused)]
 const LONG_DIR_ENTRY: u8 = 0b00001111;
 #[allow(unused)]
 const SUB_DIRECTORY: u8 = 0b00010000;
+#[allow(unused)]
+const READ_AND_WRITE: u8 = 0b00000000;
 
 
 #[allow(unused)]
@@ -537,21 +540,24 @@ impl VFSFile {
 
     }
 
-    pub fn get_dirent_info(&self, offset: u32) -> Option<(String, u32 ,u32 ,u8)> {
+    //返回<name, firstcluster, offset, flag>
+    //用firstcluster为0表示非目录，1表示offset大于目录长度
+    pub fn get_dirent_info(&self, offset: u32) -> (String, u32 ,u32 ,u8) {
         if !self.is_dir() {
-            println!("it should be directory!");
-            return None
+            //用firstcluster为0表示非目录
+            return (String::new(), 0, 0, 0)
         }
         let mut name = String::new(); 
         let mut off = offset;
         let long_dirent = LongDirEntry::empty();
         loop {
             if self.read_at(off, long_dirent.trans_to_mut_bytes()) < 32 || long_dirent.is_empty(){
-                return None
+                // 用firstcluster为1表示读到末尾
+                return (String::new(), 1, 0, 0)
             }
             if long_dirent.is_delete() {
-                println!("the finding result has been deleted!");
-                return None
+                off += 32;
+                continue;
             }
             if long_dirent.is_long_dir() {
                 name.insert_str(0, long_dirent.get_name().as_str());
@@ -564,7 +570,7 @@ impl VFSFile {
                 if name.len() == 0 {
                     name = short_dirent.get_name();
                 }
-                Some(name, short_dirent.get_start_cluster(), off + 32, short_dirent.get_flag())
+                return (name, short_dirent.get_start_cluster(), off + 32, short_dirent.get_flag())
             }
             off += 32;
         }
@@ -622,15 +628,16 @@ impl VFSFile {
 
     #[allow(unused)]
     //获取相关文件信息
-    pub fn stat(&self) -> (i64, i64, i64, i64, i64,) {
-        let mut size: i64;
+    //(ctime,atime,mtime,size,start_cluster)
+    pub fn stat(&self) -> (i64, i64, i64, u32, u32,) {
+        let mut size: u32;
         if self.is_dir() {
             size = self.get_dir_length()
         }
         else {
             size = self.get_file_length()
         }
-        (self.get_creation_time() as i64, self.get_last_access_time() as i64, self.get_last_modify_time() as i64, size, self.get_start_cluster() as i64)
+        (self.get_creation_time() as i64, self.get_last_access_time() as i64, self.get_last_modify_time() as i64, size, self.get_start_cluster())
         
     }
 
@@ -638,30 +645,35 @@ impl VFSFile {
 
 impl _Inode for VFSFile {
 
-    fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
-        if let child = self.find_name(&self, name).unwrap() {
-            Ok(child.clone())
-        }
-        else {
-            Err(FileErr::InodeNotChild)
-        }
-    }
+    // 获取一个目录项, offset用于供inode判断读取哪个dirent 返回需要File更新的offset量
+    //     读到目录结尾返回InodeEndOfDir
+    fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
+        //flag用于判断是文件还是目录，offset用于设置偏移量（如果需要）
 
-    // 在当前目录创建一个文件，文件类型由InodeType指定
-    fn create(&self, name: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
-        
-        if name.len() == 0 {
-            println!("illeagal file name!");
-            return Err(FileErr::NotDefine);
+        if cluster == 0 {
+            return Err(FileErr::InodeNotDir)
         }
-        //通过itype来创建flag
-        let flag: u8 = 0;
-        if let child = self.create(name, flag).unwrap() {
-            Ok(child.clone())
+        if cluster == 1 {
+            return Err(FileErr::InodeEndOfDir)
+        }
+        //用cluster号代替
+        if flag & SUB_DIRECTORY == 1 {
+            dirent.type = DT_DIR;
         }
         else {
-            return Err(FileErr::NotDefine);
+            dirent.type = DT_REG;
         }
+        dirent.d_ino = cluster as usize;
+        dirent.d_name[0..name.len()].copy_from_slice(name.as_bytes());
+        dirent.d_off = off as isize;
+        dirent.d_reclen = match u16::try_from(core::mem::size_of::<LinuxDirent>()) {
+            Ok(size) => size,
+            Err(_) => {
+                log!("vfs":"get_dirents">"invalid reclen");
+                return Err(FileErr::NotDefine);
+            }
+        };
+        Ok(1)
     }
 
     // 从Inode的某个偏移量读出
@@ -674,49 +686,87 @@ impl _Inode for VFSFile {
         Ok(self.write_at(offset as u32, buf))
     }
 
+
+
+    fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
+        if let child = self.find_name(&self, name).unwrap() {
+            Ok(child.clone())
+        }
+        else {
+            Err(FileErr::InodeNotChild)
+        }
+    }
+
+    // 在当前目录创建一个文件，文件类型由InodeType指定
+    fn create(&mut self, name: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
+        
+        if name.len() == 0 {
+            println!("illeagal file name!");
+            return Err(FileErr::NotDefine);
+        }
+        //通过itype来创建flag
+        let flag: u8 = 0;
+        match itype {
+            InodeType::Directory | InodeType::File => {
+
+                if let Some(_) = self.find_name(name) {
+                    log!("already exist {}", name);
+                    return Err(FileErr::InodeChildExist);
+                }
+                if InodeType::Directory == itype {
+                    self.create(name, SUB_DIRECTORY);
+                }
+                else {
+                    self.create(name, FILING);
+                }
+            }
+            // 硬链接,实际上是start_cluster相同，link数变成难题？未解决
+            InodeType::HardLink(inode) => {
+                if inode.is_dir() {
+                    let hl = self.create(name, SUB_DIRECTORY);
+                    hl.set_start_cluster = inode.get_start_cluster();
+                }
+                else {
+                    let hl = self.create(name, FLING);
+                    hl.set_start_cluster = inode.get_start_cluster();
+                }
+                
+            }
+            _ => {
+                log!("create child {} fail, do not have this type",name);
+                Err(FileErr::NotDefine)
+            }
+        }
+    }
+
     // Inode表示的文件都长度, 必须实现，用于read检测EOF,注意，fat32文件系统目录长度始终置0
     fn len(&self) -> usize {
         self.get_file_length(&self,) as usize
     }
 
-    // 获取一个目录项, offset用于供inode判断读取哪个dirent 返回需要File更新的offset量
-    //     读到目录结尾返回InodeEndOfDir
-    fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
-        //flag用于判断是文件还是目录，offset用于设置偏移量（如果需要）
-        let (name, cluster, offset, flag) = self.get_dirent_info(&self, offset: u32).unwrap();
-        //用cluster号代替
-        dirent.d_ino = cluster;
-        dirent.d_reclen = match u16::try_from(core::mem::size_of::<LinuxDirent>()) {
-            Ok(size) => size,
-            Err(_) => {
-                return Err(FileErr::NotDefine);
-            }
-        };
-        dirent.d_off = match isize::try_from(offset + 1) {
-            Ok(size) => size,
-            Err(_) => {
-                return Err(FileErr::NotDefine);
-            }
-        };
-        dirent.d_type = DT_REG;
-        if name.len() > PATH_LIMITS {
-            return Err(FileErr::NotDefine);
+    fn get_kstat(&self, kstat: &mut Kstat) {
+        let (ctime,atime,mtime,size,id) = self.stat();
+        let mode: u32;
+        if self.is_dir() {
+            mode = kstat::S_IFDIR | kstat::S_IRWXU | kstat::S_IRWXG | kstat::S_IRWXO
         }
-        dirent.d_name[0..name.len()].copy_from_slice(name.as_bytes());
-        Ok(1)
-        
-    }
-
-    // 打开子文件，可能为普通文件或目录
-    fn open_child(&self, name: &str, flags: OpenFlags) -> Result<Fd, FileErr> {
-        if let Ok(file) = self
-            .get_child(name)
-            .and_then(|inode| File::open(inode, flags))
-        {
-            Ok(file)
-        } else {
-            Err(FileErr::NotDefine)
+        else {
+            mode = kstat::S_IFREG | kstat::S_IRWXU | kstat::S_IRWXG | kstat::S_IRWXO
         }
+        Kstat::create(atime, mtime, ctime, size, 0, id, mode, 1);
     }
-
 }
+
+
+
+lazy_static! {
+    pub static ref ROOT_INODE: Arc<VFSFile> = {
+        let fat32_manager = FAT32Manager::open_fat32(DEV);
+        let fat32_manager_reader = fat32_manager.read();
+        fat32_manager_reader.initialize_root_dirent();
+        Arc::new(manager_reader.get_root_vfsfile(&fat32_manager))
+    };
+}
+
+
+

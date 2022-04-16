@@ -317,6 +317,19 @@ pub(super) fn sys_lseek(
     }
 }
 
+pub(super) fn sys_fstat(
+    pcb: &mut MutexGuard<Pcb>,
+    fd: isize,
+    kstat: &mut Kstat,
+) -> isize {
+    if let Some(file) = pcb.get_fd(fd) {
+        file.write().fstat(kstat);
+        1
+    } else {
+        -1
+    }
+}
+
 pub(super) fn sys_write(
     pcb: &mut MutexGuard<Pcb>,
     fd: isize,
