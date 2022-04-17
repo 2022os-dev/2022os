@@ -80,7 +80,6 @@ pub fn init_hart() {
         PTEFlag::R | PTEFlag::W,
     );
 
-    current_hart_pgtbl().map_trampoline();
     unsafe {
         riscv::register::sstatus::set_sum();
         // 内核态不支持中断
@@ -114,7 +113,7 @@ pub fn current_hart_leak() {
             asm!("sfence.vma");
         }
         // 用户栈
-        log!("hart":"leak">"pid({}) unmap user stack",pid);
+        log!("hart":"leak">"pid({}) unmap user stack", pcblock.pid);
         current_hart_pgtbl().unmap(MemorySpace::get_stack_start().floor(), false);
         unmap_mmap_areas(&*pcblock);
         drop(pcblock);

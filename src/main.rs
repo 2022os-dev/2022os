@@ -12,7 +12,6 @@
 use crate::{
     clock::clock_init,
     process::cpu::{hart_enable_timer_interrupt, init_hart},
-    sbi::sbi_hsm_hart_start,
 };
 use core::arch::asm;
 
@@ -92,7 +91,7 @@ extern "C" fn kernel_start() {
         #[cfg(feature = "multicore")]
         for i in 1..=4 {
             if hartid() != i {
-                sbi_hsm_hart_start(i, 0x80200000, 0);
+                sbi::sbi_hsm_hart_start(i, 0x80200000, 0);
             }
         }
     } else {
@@ -100,6 +99,5 @@ extern "C" fn kernel_start() {
     }
     trap::init();
     hart_enable_timer_interrupt();
-    log!(debug "Start schedule");
     schedule();
 }

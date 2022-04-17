@@ -2,7 +2,6 @@ use super::address::*;
 use super::pte_sv39::{PTEFlag, PTE};
 use crate::config::*;
 use crate::mm::memory_space::Segments;
-use crate::mm::MemorySpace;
 use core::mem::size_of;
 use core::ops::Range;
 
@@ -180,18 +179,6 @@ impl Pgtbl {
 
     pub fn print(&self) {
         self._print(self.root, 0, 1);
-    }
-
-    pub fn map_trampoline(&mut self) {
-        let page = MemorySpace::trampoline_page();
-        let pn = KALLOCATOR.lock().kalloc();
-        self.map(page, pn, PTEFlag::R | PTEFlag::X | PTEFlag::V);
-        pn.offset_phys(0).write(unsafe {
-            core::slice::from_raw_parts(
-                crate::trap::__alltraps as *const u8,
-                crate::trap::trampoline as usize - crate::trap::__alltraps as usize,
-            )
-        });
     }
 
     pub fn unmap_segments(&mut self, segments: &Segments, do_free: bool) {

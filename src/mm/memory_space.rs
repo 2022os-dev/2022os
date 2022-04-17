@@ -126,15 +126,9 @@ impl MemorySpace {
         retva
     }
 
-    pub fn trampoline_page() -> PageNum {
-        PageNum::highest_page()
-    }
-
     // Return (alltraps, restore)
     pub fn trampoline_entry() -> (usize, usize) {
-        let alltraps = Self::trampoline_page().offset(0);
-        let restore = alltraps + (__restore as usize - __alltraps as usize);
-        (alltraps.0, restore.0)
+        (__alltraps as usize, __restore as usize)
     }
 
     pub fn trapframe(&mut self) -> &mut TrapFrame {
