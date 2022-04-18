@@ -14,7 +14,7 @@ qemu:
 	make kernel.bin
 	qemu-system-riscv64 -M sifive_u -smp 5 \
 		-bios bootloader/fw_jump.bin \
-		-drive file=sdcard.img,if=sd,format=raw \
+		-drive file=sdcard.img,format=raw \
 		-device loader,file=kernel.bin,addr=0x80200000 \
 		-nographic
 
