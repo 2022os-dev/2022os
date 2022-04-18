@@ -91,7 +91,7 @@ extern "C" fn kernel_start() {
         #[cfg(feature = "multicore")]
         for i in 1..=4 {
             if hartid() != i {
-                sbi::sbi_hsm_hart_start(i, 0x80200000, 0);
+                sbi::sbi_hsm_hart_start(i, crate::link_syms::skernel as usize, 0);
             }
         }
     } else {
