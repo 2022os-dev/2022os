@@ -14,7 +14,6 @@ use crate::task::*;
 extern "C" {
     pub fn __alltraps();
     pub fn __restore(cx: usize, satp: usize);
-    pub fn trampoline();
 }
 
 global_asm!(include_str!("traps.s"));
