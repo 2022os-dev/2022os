@@ -54,10 +54,8 @@ __alltraps:
 .endm
 .globl __restore
 __restore:
-    # a0: *TrapContext in user space(Constant); a1: user space token
+    # a0: *TrapFrame 
     # switch to user space
-    # csrw satp, a1
-    # sfence.vma
     csrw sscratch, a0
     mv sp, a0
     # now sp points to TrapContext in user space, start restoring based on it

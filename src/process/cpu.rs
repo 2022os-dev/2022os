@@ -8,7 +8,6 @@ use crate::link_syms;
 use crate::mm::address::PhysAddr;
 use crate::mm::pgtbl::Pgtbl;
 use crate::mm::*;
-use crate::process::restore_trapframe;
 use crate::sbi::*;
 
 // 最多支持4核
@@ -169,7 +168,8 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> ! {
     unsafe {
         asm!("sfence.vma");
     }
-    restore_trapframe(tf);
+    unsafe { crate::trap::__restore(tf.0); }
+    loop {}
 }
 
 pub fn current_hart_pgtbl() -> &'static mut Pgtbl {
