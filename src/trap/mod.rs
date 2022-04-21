@@ -20,8 +20,7 @@ global_asm!(include_str!("traps.s"));
 
 pub fn init() {
     unsafe {
-        let (alltraps, _) = MemorySpace::trampoline_entry();
-        stvec::write(alltraps, TrapMode::Direct);
+        stvec::write(__alltraps as usize, TrapMode::Direct);
     }
 }
 
@@ -61,7 +60,6 @@ pub extern "C" fn trap_handler() {
         Trap::Exception(Exception::LoadFault) | Trap::Exception(Exception::LoadPageFault) => {
             // 判断是否是lazy
             let va = VirtualAddr(stval::read());
-            let pte = current_hart_pgtbl().walk(va, false);
             let pcb = current_pcb().unwrap();
             let mut pcblock = pcb.lock();
             if let Ok(_) = pcblock

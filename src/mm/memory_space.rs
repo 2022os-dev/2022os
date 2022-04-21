@@ -3,7 +3,6 @@ use super::PTEFlag;
 use super::KALLOCATOR;
 use crate::config::*;
 use crate::process::TrapFrame;
-use crate::trap::{__alltraps, __restore};
 use crate::vfs::*;
 use alloc::collections::BTreeMap;
 use alloc::vec;
@@ -126,10 +125,6 @@ impl MemorySpace {
         retva
     }
 
-    // Return (alltraps, restore)
-    pub fn trampoline_entry() -> (usize, usize) {
-        (__alltraps as usize, __restore as usize)
-    }
 
     pub fn trapframe(&mut self) -> &mut TrapFrame {
         let phys = self.trapframe.offset_phys(0).0;
