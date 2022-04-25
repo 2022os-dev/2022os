@@ -322,6 +322,22 @@ pub fn syscall_fork() -> isize {
     ret
 }
 
+pub fn syscall_mount() -> isize {
+    let mut ret = 0;
+    unsafe {
+        asm!("ecall", out("x10") ret, in("x17") SYSCALL_MOUNT);
+    }
+    ret
+}
+
+pub fn syscall_umount2() -> isize {
+    let mut ret = 0;
+    unsafe {
+        asm!("ecall", out("x10") ret, in("x17") SYSCALL_UMOUNT2);
+    }
+    ret
+}
+
 bitflags! {
     pub struct CloneFlags: usize{
         const SIGCHLD = 17;

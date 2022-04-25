@@ -317,18 +317,7 @@ pub(super) fn sys_lseek(
     }
 }
 
-pub(super) fn sys_fstat(
-    pcb: &mut MutexGuard<Pcb>,
-    fd: isize,
-    kstat: &mut Kstat,
-) -> isize {
-    if let Some(file) = pcb.get_fd(fd) {
-        file.write().fstat(kstat);
-        1
-    } else {
-        -1
-    }
-}
+
 
 pub(super) fn sys_write(
     pcb: &mut MutexGuard<Pcb>,
@@ -537,3 +526,30 @@ fn copy_execve_str_array(
     }
     Ok((arr_pa_ret, str_pa))
 }
+
+
+
+
+
+pub(super) fn sys_fstat(
+    pcb: &mut MutexGuard<Pcb>,
+    fd: isize,
+    kstat: &mut Kstat,
+) -> isize {
+    if let Some(file) = pcb.get_fd(fd) {
+        file.write().fstat(kstat);
+        1
+    } else {
+        -1
+    }
+}
+
+
+pub(super) fn sys_mount(special: String, dir: String, fstype: String, flag: u32, data: *const u8) -> isize {
+    FS_QUEUE.mount(special, dir, fstype, flag, data)
+}
+
+pub(super) fn sys_umount2(special: String, flags: u32,) -> isize {
+    FS_QUEUE.umount(special, flag)
+}
+

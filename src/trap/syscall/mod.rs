@@ -181,6 +181,26 @@ pub fn syscall_handler() {
             log!("syscall":"read" > "pid({}) ({}, 0x{:x}, {})", pcblock.pid, fd, buf.0, len);
             pcblock.trapframe()["a0"] = sys_read(&mut pcblock, fd, buf, len) as usize;
         }
+
+        SYSCALL_MOUNT => {
+            let _special = trapframe["a0"];
+            let _dir = trapframe["a1"];
+            let _fstype = trapframe["a2"];
+            let _flag = trapframe["a3"];
+            let _data = trapframe["a4"];
+            log!("syscall":"mount" > "pid({}) ({}, {}, {}, {}, {})", pcblock.pid, _special, _dir, _fstype, _flag, _data);
+            pcblock.trapframe()["a0"] = sys_mount(_special, _dir, _fstype, _flag, _data).0;
+        }
+
+        SYSCALL_UMOUNT2 => {
+            let _special = trapframe["a0"];
+            let _flag = trapframe["a1"];
+            log!("syscall":"umount2" > "pid({}) ({}, {})", pcblock.pid, _special, _flag);
+            pcblock.trapframe()["a0"] = sys_umount2(_special, _flag).0;
+        }
+
+        
+
         SYSCALL_EXIT => {
             let xcode = trapframe["a0"];
             drop(trapframe);
