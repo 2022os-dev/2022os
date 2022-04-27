@@ -37,7 +37,7 @@ pub(super) fn sys_clone(
     if stack_top.0 != 0 {
         child.lock().trapframe()["sp"] = stack_top.0;
     }
-    scheduler_ready_pcb(child);
+    scheduler_insert_front(child);
     childpid as isize
 }
 

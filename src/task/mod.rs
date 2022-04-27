@@ -13,21 +13,18 @@ lazy_static! {
 
 pub fn scheduler_load_pcb(memory_space: MemorySpace) {
     let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 1, String::from("/"))));
-    scheduler_ready_pcb(pcb);
+    scheduler_insert_front(pcb);
 }
 
-pub fn scheduler_ready_pcb(pcb: Arc<Mutex<Pcb>>) {
+pub fn scheduler_insert_front(pcb: Arc<Mutex<Pcb>>) {
     log!("scheduler":"Ready">"pid({})", pcb.lock().pid);
-    #[cfg(feature = "FCFS")]
-    READYTASKS.lock().push(pcb);
-    #[cfg(not(feature = "FCFS"))]
     READYTASKS.lock().insert(0, pcb);
 }
 
-#[cfg(feature = "FCFS")]
-pub fn scheduler_block_pcb(pcb: Arc<Mutex<Pcb>>) {
-    log!("scheduler":"Blocking">"pid({})", pcb.lock().pid);
-    READYTASKS.lock().insert(0, pcb);
+
+#[allow(unused)]
+pub fn scheduler_push(pcb: Arc<Mutex<Pcb>>) {
+    READYTASKS.lock().push(pcb);
 }
 
 pub fn schedule() -> ! {
@@ -60,7 +57,7 @@ pub fn schedule() -> ! {
                         log!("scheduler":"block">"still blocking");
                     }
                     drop(pcblock);
-                    scheduler_ready_pcb(pcb);
+                    scheduler_insert_front(pcb);
                     continue;
                 }
                 PcbState::SigHandling(_, _) => {}

@@ -50,7 +50,7 @@ pub extern "C" fn trap_handler() {
                 // 已经分配物理页，由current_hart_run映射。
                 log!("mmap":"store">"Found mapped page va(0x{:x})", va.0);
                 drop(pcblock);
-                scheduler_ready_pcb(pcb);
+                scheduler_insert_front(pcb);
                 schedule();
             } else {
                 log!("mmap":"store">"Not Found mapped page va(0x{:x})", va.0);
@@ -70,7 +70,7 @@ pub extern "C" fn trap_handler() {
                 // 已经分配物理页，由current_hart_run映射。
                 log!("mmap":"load">"Found mapped page va(0x{:x})", va.0);
                 drop(pcblock);
-                scheduler_ready_pcb(pcb);
+                scheduler_insert_front(pcb);
                 schedule();
             } else {
                 log!("mmap":"load">"Not Found mapped page va(0x{:x})", va.0);
@@ -97,7 +97,7 @@ pub extern "C" fn trap_handler() {
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             log!("trap":"time_interrupt">"");
             hart_set_next_trigger();
-            scheduler_ready_pcb(current_hart().pcb.take().unwrap());
+            scheduler_insert_front(current_hart().pcb.take().unwrap());
             schedule();
         }
         _ => {

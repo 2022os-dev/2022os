@@ -330,11 +330,11 @@ pub fn syscall_handler() {
     if let PcbState::Zombie(_) = state {
     }else if let PcbState::Blocking = state {
         #[cfg(feature = "FCFS")]
-        scheduler_block_pcb(pcb.clone());
+        scheduler_insert_front(pcb.clone());
         #[cfg(not(feature = "FCFS"))]
-        scheduler_ready_pcb(pcb.clone());
+        scheduler_push(pcb.clone());
     } else {
-        scheduler_ready_pcb(pcb.clone());
+        scheduler_insert_front(pcb.clone());
     }
     // Note: 这里必须显式调用drop释放进程锁
     drop(pcb);
