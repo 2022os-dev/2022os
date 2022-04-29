@@ -2,6 +2,8 @@
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 
+pub static MOUNT: &'static [u8] = include_bytes!("bin/mount");
+pub static UMOUNT: &'static [u8] = include_bytes!("bin/umount");
 pub static HELLO_WORLD: &'static [u8] = include_bytes!("bin/hello_world");
 pub static LOOP10: &'static [u8] = include_bytes!("bin/loop10");
 pub static GET_PID: &'static [u8] = include_bytes!("bin/get_pid");
@@ -34,6 +36,8 @@ lazy_static! {
 lazy_static! {
     pub static ref APP: BTreeMap<&'static str, Box<&'static [u8]>> = {
         let mut map = BTreeMap::new();
+        map.insert("mount", Box::new(MOUNT));
+        map.insert("umount", Box::new(UMOUNT));
         map.insert("hello_world", Box::new(HELLO_WORLD));
         map.insert("loop10", Box::new(LOOP10));
         map.insert("get_pid", Box::new(GET_PID));

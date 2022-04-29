@@ -429,7 +429,7 @@ impl VFSFile {
 
     #[allow(unused)]
     // 返回值注意，加arc要
-    pub fn create(&mut self, name: &str, flag: u8) -> Option<VFSFile> {
+    pub fn create(&mut self, name: &str, flag: u8) -> Option<Arc<VFSFile>> {
         // 判断该文件是否合法
         if self.is_long_dir() {
             println!("illeagal dirent entry!");
@@ -536,7 +536,7 @@ impl VFSFile {
             } 
             res.write_at(dir_offset as u32, parent_dirent.trans_to_bytes());
         }
-        Some(res)
+        Some(Arc::new(res))
 
     }
 
@@ -621,12 +621,6 @@ impl VFSFile {
     }
 
     #[allow(unused)]
-    //罗列目录中所有文件
-    pub fn ls(&self) {
-
-    }
-
-    #[allow(unused)]
     //获取相关文件信息
     //(ctime,atime,mtime,size,start_cluster)
     pub fn stat(&self) -> (i64, i64, i64, u32, u32,) {
@@ -699,6 +693,11 @@ impl _Inode for VFSFile {
 
     // 在当前目录创建一个文件，文件类型由InodeType指定
     fn create(&mut self, name: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
+
+        if let child = self.find_name_by_path(name).unwrap() {
+            println!("{} has been created", name);
+            return Err(FileErr::InodeChildExist);
+        }
         
         if name.len() == 0 {
             println!("illeagal file name!");
@@ -719,18 +718,6 @@ impl _Inode for VFSFile {
                 else {
                     self.create(name, FILING);
                 }
-            }
-            // 硬链接,实际上是start_cluster相同，link数变成难题？未解决
-            InodeType::HardLink(inode) => {
-                if inode.is_dir() {
-                    let hl = self.create(name, SUB_DIRECTORY);
-                    hl.set_start_cluster = inode.get_start_cluster();
-                }
-                else {
-                    let hl = self.create(name, FLING);
-                    hl.set_start_cluster = inode.get_start_cluster();
-                }
-                
             }
             _ => {
                 log!("create child {} fail, do not have this type",name);

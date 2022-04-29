@@ -183,21 +183,28 @@ pub fn syscall_handler() {
         }
 
         SYSCALL_MOUNT => {
-            let _special = trapframe["a0"];
-            let _dir = trapframe["a1"];
-            let _fstype = trapframe["a2"];
-            let _flag = trapframe["a3"];
-            let _data = trapframe["a4"];
-            log!("syscall":"mount" > "pid({}) ({}, {}, {}, {}, {})", pcblock.pid, _special, _dir, _fstype, _flag, _data);
-            pcblock.trapframe()["a0"] = sys_mount(_special, _dir, _fstype, _flag, _data).0;
+            let special = VirtualAddr(trapframe["a0"]);
+            let dir = VirtualAddr(trapframe["a1"]);
+            let fstype = VirtualAddr(trapframe["a2"]);
+            let flag = trapframe["a3"];
+            let data = trapframe["a4"];
+            log!("syscall":"mount" > "pid({}) ({}, {}, {}, {}, {})", pcblock.pid, special, dir, fstype, flag, data);
+            pcblock.trapframe()["a0"] = sys_mount(special, dir, fstype, flag, data) as usize;
         }
 
         SYSCALL_UMOUNT2 => {
-            let _special = trapframe["a0"];
-            let _flag = trapframe["a1"];
-            log!("syscall":"umount2" > "pid({}) ({}, {})", pcblock.pid, _special, _flag);
-            pcblock.trapframe()["a0"] = sys_umount2(_special, _flag).0;
+            let special = VirtualAddr(trapframe["a0"]);
+            let flag = trapframe["a1"] as u32;
+            log!("syscall":"umount2" > "pid({}) ({}, {})", pcblock.pid, special, flag);
+            pcblock.trapframe()["a0"] = sys_umount2(special, flag) as usize;
         }
+
+        // SYSCALL_FSTAT => {
+        //     let _special = trapframe["a0"];
+        //     let _flag = trapframe["a1"];
+        //     log!("syscall":"umount2" > "pid({}) ({}, {})", pcblock.pid, _special, _flag);
+        //     pcblock.trapframe()["a0"] = sys_fstat(_special, _flag).0;
+        // }
 
         
 

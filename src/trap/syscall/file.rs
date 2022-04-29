@@ -409,6 +409,26 @@ pub(super) fn sys_read(
     }
 }
 
+pub(super) fn sys_mount(special: VirtualAddr, dir: VirtualAddr, fstype: VirtualAddr, flag: usize, data: usize) -> isize {
+    let special: PhysAddr = special.into();
+    let special = get_str(&special);
+    let special = String::from(special);
+    let dir: PhysAddr = dir.into();
+    let dir = get_str(&dir);
+    let dir = String::from(dir);
+    let fstype: PhysAddr = fstype.into();
+    let fstype = get_str(&fstype);
+    let fstype = String::from(fstype);
+    FS_QUEUE.lock().mount(special, dir, fstype)
+}
+
+pub(super) fn sys_umount2(special: VirtualAddr, flags: u32,) -> isize {
+    let special: PhysAddr = special.into();
+    let special = get_str(&special);
+    let special = String::from(special);
+    FS_QUEUE.lock().umount(special)
+}
+
 pub(super) fn sys_execve(
     pcb: &mut MutexGuard<Pcb>,
     path: VirtualAddr,
@@ -545,11 +565,5 @@ pub(super) fn sys_fstat(
 }
 
 
-pub(super) fn sys_mount(special: String, dir: String, fstype: String, flag: u32, data: *const u8) -> isize {
-    FS_QUEUE.mount(special, dir, fstype, flag, data)
-}
 
-pub(super) fn sys_umount2(special: String, flags: u32,) -> isize {
-    FS_QUEUE.umount(special, flag)
-}
 

@@ -299,6 +299,39 @@ pub fn syscall_read(fd: isize, buf: &mut [u8]) -> isize {
     a0 as isize
 }
 
+pub fn syscall_mount(special: &str, dir: &str, fstype: &str, flags: u32, data: *const u8) -> isize {
+    let mut a0 = special.as_ptr() as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0, 
+            in("x11") dir.as_ptr() as usize,
+            in("x12") fstype.as_ptr() as usize,
+            in("x13") flags as usize,
+            in("x14") data as usize,
+            in("x17") SYSCALL_MOUNT
+        );
+    }
+    a0 as isize
+}
+
+pub fn syscall_umount2(special: &str, flags: u32) -> isize {
+    let mut a0 = special.as_ptr() as usize;
+    unsafe {
+        asm!("ecall", inout("x10") a0, 
+            in("x11") flags as usize,
+            in("x17") SYSCALL_UMOUNT2,
+        );
+    }
+    a0 as isize
+}
+
+pub fn syscall_fstat() -> isize {
+    let mut ret = 0;
+    unsafe {
+        asm!("ecall", out("x10") ret, in("x17") SYSCALL_FSYNC);
+    }
+    ret
+}
+
 pub fn syscall_exit(xcode: isize) -> !{
     unsafe {
         asm!("ecall", in("x10") xcode,
@@ -322,21 +355,8 @@ pub fn syscall_fork() -> isize {
     ret
 }
 
-pub fn syscall_mount() -> isize {
-    let mut ret = 0;
-    unsafe {
-        asm!("ecall", out("x10") ret, in("x17") SYSCALL_MOUNT);
-    }
-    ret
-}
 
-pub fn syscall_umount2() -> isize {
-    let mut ret = 0;
-    unsafe {
-        asm!("ecall", out("x10") ret, in("x17") SYSCALL_UMOUNT2);
-    }
-    ret
-}
+
 
 bitflags! {
     pub struct CloneFlags: usize{
