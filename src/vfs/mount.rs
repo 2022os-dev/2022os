@@ -21,7 +21,7 @@ const MAX_MOUNT_NUM: usize = 16;
 pub type MountItem = (Special, FsType, FsType);
 
 pub struct FileSystems {
-    pub fs_queue: Vec<(Special, FsType, FsType)>
+    pub fs_queue: Vec<(Special, Path, FsType)>
 }
 
 impl FileSystems {

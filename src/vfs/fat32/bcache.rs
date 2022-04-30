@@ -21,8 +21,8 @@ pub struct Buffer {
     
     block_id: Ino,
     dev: u8,
-    //测试
-    pub data: [u8; BLOCK_SIZE],
+    
+    data: [u8; BLOCK_SIZE],
     modified: bool,
 }
 

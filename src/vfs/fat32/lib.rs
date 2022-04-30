@@ -4,8 +4,8 @@ extern crate alloc;
 pub const BLOCK_SIZE : usize = 512;
 pub const DEV : u8 = 1;
 
-pub mod console;
-pub mod sbi;
+
+
 pub mod dir_entry;
 pub mod bcache;
 pub mod bpb;
