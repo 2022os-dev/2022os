@@ -72,6 +72,7 @@ impl Fat32Manager {
         let total_sector: u32 = bpb.get_total_sector();
         log!("fat32":>"total_sector {}",total_sector);
         let root_cluster_num: u32 = bpb.get_root_cluster_number();
+        log!("fat32":>"root_cluster_num {}", root_cluster_num);
 
         let fsinfo_sector_num: u16 = bpb.get_fsinfo_sector_num();
         log!("fat32":>"fsinfo_sector_num {}",fsinfo_sector_num);
@@ -149,7 +150,7 @@ impl Fat32Manager {
         VFSFile::new(
             DEV,
             Arc::clone(fs),
-            0,
+            2,
             0,
             Vec::new(),
             String::from("/"),

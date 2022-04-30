@@ -2,6 +2,7 @@
 // See https://github.com/rcore-os/rCore-Tutorial-v3/blob/main/LICENSE
 // Distributed under GPLv3
 
+#![allow(non_snake_case)]
 pub mod abstraction;
 pub mod pac;
 
@@ -21,6 +22,7 @@ pub struct SDCard<T> {
  */
 /** Data token start byte, Start Single Block Read */
 pub const SD_START_DATA_SINGLE_BLOCK_READ: u8 = 0xFE;
+#[allow(unused)]
 /** Data token start byte, Start Multiple Block Read */
 pub const SD_START_DATA_MULTIPLE_BLOCK_READ: u8 = 0xFE;
 /** Data token start byte, Start Single Block Write */
@@ -237,7 +239,7 @@ impl<T: SPIActions> SDCard<T> {
   */
   fn get_response(&self) -> u8 {
     let result = &mut [0xffu8];
-    let mut timeout = 0x0FFF;
+    let timeout = 0x0FFF;
     /* Check if response is got or a timeout is happen */
     while timeout != 0 {
       self.read_data(result);
@@ -467,7 +469,7 @@ impl<T: SPIActions> SDCard<T> {
     }
 
     self.send_cmd(CMD::CMD8, 0x1aa, 0x87);
-    ret = self.get_response();
+    _ = self.get_response();
     self.end_cmd();
 
     /*
@@ -743,8 +745,7 @@ pub fn init_sdcard() -> SDCard<SPIImpl> {
 
   let spi = SPIImpl::new(pac::SPIDevice::QSPI2);
   let sd = SDCard::new(spi, SD_CS);
-  let info = sd.init().unwrap();
-  let num_sectors = info.CardCapacity / 512;
+  let _ = sd.init().unwrap();
   // assert!(num_sectors > 0);
 
   println!("[kernel] init sdcard!");
@@ -755,7 +756,7 @@ pub struct SDCardWrapper(SDCard<SPIImpl>);
 
 impl SDCardWrapper {
   pub fn new() -> Self {
-    unsafe { Self(init_sdcard()) }
+    Self(init_sdcard())
   }
 
   pub fn init(&self) { }
