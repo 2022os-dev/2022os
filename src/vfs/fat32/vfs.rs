@@ -3,11 +3,10 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use spin::RwLock;
 use lazy_static::*;
+use core::convert::TryFrom;
 
 #[allow(unused)]
 use super::{
-    println,
-    log,
     get_info_buffer,
     get_data_block_buffer,
     fat32_manager::*,
@@ -25,6 +24,8 @@ const LONG_DIR_ENTRY: u8 = 0b00001111;
 const SUB_DIRECTORY: u8 = 0b00010000;
 #[allow(unused)]
 const READ_AND_WRITE: u8 = 0b00000000;
+
+const FILING: u8 = 0b00100000;
 
 
 #[allow(unused)]
@@ -134,7 +135,7 @@ impl VFSFile {
 
     #[allow(unused)]
     //和时间相关的方法暂时通通不实现
-    pub fn get_creation_time(&self) {
+    pub fn get_creation_time(&self) -> usize {
         self.read_short_dir_entry(|sd: &ShortDirEntry| {
             sd.get_creation_time()
         })
@@ -142,14 +143,14 @@ impl VFSFile {
 
 
     #[allow(unused)]
-    pub fn get_last_modify_time(&self) {
+    pub fn get_last_modify_time(&self) -> usize {
         self.read_short_dir_entry(|sd: &ShortDirEntry| {
             sd.get_last_modify_time()
         })
     }
 
     #[allow(unused)]
-    pub fn get_last_access_time(&self) {
+    pub fn get_last_access_time(&self) -> usize {
         self.read_short_dir_entry(|sd: &ShortDirEntry| {
             sd.get_last_access_time()
         })
@@ -429,7 +430,7 @@ impl VFSFile {
 
     #[allow(unused)]
     // 返回值注意，加arc要
-    pub fn create(&mut self, name: &str, flag: u8) -> Option<Arc<VFSFile>> {
+    pub fn create_file(&self, name: &str, flag: u8) -> Option<Arc<VFSFile>> {
         // 判断该文件是否合法
         if self.is_long_dir() {
             println!("illeagal dirent entry!");
@@ -549,7 +550,7 @@ impl VFSFile {
         }
         let mut name = String::new(); 
         let mut off = offset;
-        let long_dirent = LongDirEntry::empty();
+        let mut long_dirent = LongDirEntry::empty();
         loop {
             if self.read_at(off, long_dirent.trans_to_mut_bytes()) < 32 || long_dirent.is_empty(){
                 // 用firstcluster为1表示读到末尾
@@ -644,6 +645,7 @@ impl _Inode for VFSFile {
     fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
         //flag用于判断是文件还是目录，offset用于设置偏移量（如果需要）
 
+        let (name, cluster, off, flag) = self.get_dirent_info(offset as u32);
         if cluster == 0 {
             return Err(FileErr::InodeNotDir)
         }
@@ -652,10 +654,10 @@ impl _Inode for VFSFile {
         }
         //用cluster号代替
         if flag & SUB_DIRECTORY == 1 {
-            dirent.type = DT_DIR;
+            dirent.d_type = DT_DIR;
         }
         else {
-            dirent.type = DT_REG;
+            dirent.d_type = DT_REG;
         }
         dirent.d_ino = cluster as usize;
         dirent.d_name[0..name.len()].copy_from_slice(name.as_bytes());
@@ -672,19 +674,19 @@ impl _Inode for VFSFile {
 
     // 从Inode的某个偏移量读出
     fn read_offset(&self, mut offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
-        Ok(self.read_at(offset as u32, buf))
+        Ok(self.read_at(offset as u32, buf) as usize)
     }
 
     // 在Inode的某个偏移量写入
     fn write_offset(&self, offset: usize, buf: &[u8]) -> Result<usize, FileErr> {
-        Ok(self.write_at(offset as u32, buf))
+        Ok(self.write_at(offset as u32, buf) as usize)
     }
 
 
 
     fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
-        if let child = self.find_name(&self, name).unwrap() {
-            Ok(child.clone())
+        if let child = self.find_name(name).unwrap() {
+            Ok(Arc::new(child.clone()))
         }
         else {
             Err(FileErr::InodeNotChild)
@@ -692,7 +694,9 @@ impl _Inode for VFSFile {
     }
 
     // 在当前目录创建一个文件，文件类型由InodeType指定
-    fn create(&mut self, name: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
+    fn create(&self, name: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
+
+        
 
         if let child = self.find_name_by_path(name).unwrap() {
             println!("{} has been created", name);
@@ -706,21 +710,25 @@ impl _Inode for VFSFile {
         //通过itype来创建flag
         let flag: u8 = 0;
         match itype {
-            InodeType::Directory | InodeType::File => {
+            InodeType::Directory => {
 
                 if let Some(_) = self.find_name(name) {
-                    log!("already exist {}", name);
+                    println!("already exist {}", name);
                     return Err(FileErr::InodeChildExist);
                 }
-                if InodeType::Directory == itype {
-                    self.create(name, SUB_DIRECTORY);
-                }
-                else {
-                    self.create(name, FILING);
-                }
+                Ok(self.create_file(name, SUB_DIRECTORY).unwrap())
             }
+            InodeType::File => {
+
+                if let Some(_) = self.find_name(name) {
+                    println!("already exist {}", name);
+                    return Err(FileErr::InodeChildExist);
+                }
+                Ok(self.create_file(name, FILING).unwrap())
+            }
+            | 
             _ => {
-                log!("create child {} fail, do not have this type",name);
+                println!("create child {} fail, do not have this type",name);
                 Err(FileErr::NotDefine)
             }
         }
@@ -728,7 +736,7 @@ impl _Inode for VFSFile {
 
     // Inode表示的文件都长度, 必须实现，用于read检测EOF,注意，fat32文件系统目录长度始终置0
     fn len(&self) -> usize {
-        self.get_file_length(&self,) as usize
+        self.get_file_length() as usize
     }
 
     fn get_kstat(&self, kstat: &mut Kstat) {
@@ -740,7 +748,7 @@ impl _Inode for VFSFile {
         else {
             mode = kstat::S_IFREG | kstat::S_IRWXU | kstat::S_IRWXG | kstat::S_IRWXO
         }
-        Kstat::create(atime, mtime, ctime, size, 0, id, mode, 1);
+        kstat.create(atime, mtime, ctime, size, 0, id, mode, 1);
     }
 }
 
@@ -748,10 +756,10 @@ impl _Inode for VFSFile {
 
 lazy_static! {
     pub static ref ROOT_INODE: Arc<VFSFile> = {
-        let fat32_manager = FAT32Manager::open_fat32(DEV);
+        let fat32_manager = Fat32Manager::open_fat32(DEV);
         let fat32_manager_reader = fat32_manager.read();
         fat32_manager_reader.initialize_root_dirent();
-        Arc::new(manager_reader.get_root_vfsfile(&fat32_manager))
+        Arc::new(fat32_manager_reader.get_root_vfsfile(&fat32_manager))
     };
 }
 

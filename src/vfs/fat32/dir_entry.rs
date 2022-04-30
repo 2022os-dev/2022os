@@ -14,9 +14,8 @@ use super::{
     get_data_block_buffer,
     fat32_manager::Fat32Manager,
     fat::FAT,
-    println,
-    log,
 };
+use super::*;
 
 #[allow(unused)]
 const READ_AND_WRITE: u8 = 0b00000000;
@@ -133,18 +132,18 @@ impl ShortDirEntry {
 
     #[allow(unused)]
     //和时间相关的方法暂时通通不实现
-    pub fn get_creation_time(&self) {
-
+    pub fn get_creation_time(&self) -> usize {
+        return 0;
     }
 
     #[allow(unused)]
-    pub fn get_last_modify_time(&self) {
-        
+    pub fn get_last_modify_time(&self) -> usize {
+        return 0;
     }
 
     #[allow(unused)]
-    pub fn get_last_access_time(&self) {
-
+    pub fn get_last_access_time(&self) -> usize {
+        return 0;
     }
 
     #[allow(unused)]
@@ -397,7 +396,6 @@ impl ShortDirEntry {
         }
         else {
             let last_cluster = fat_read.get_file_last_cluster(self.get_start_cluster(), dev);
-            println!("last {}",last_cluster);
             fat_read.set_next_cluster(last_cluster, first, dev);
         }
         if !self.is_dir() {
@@ -542,7 +540,7 @@ impl ShortDirEntry {
     pub fn find_next_free_dirent(&mut self, dev: u8, fat: &Arc<RwLock<FAT>>, fat32_manager: &Arc<RwLock<Fat32Manager>>) -> Option<u32> {
         
         if !self.is_dir() {
-            println!("can not find dirent entry in no-dirent file");
+            // println!("can not find dirent entry in no-dirent file");
             return None
         }
         let mut offset: u32 = 0;

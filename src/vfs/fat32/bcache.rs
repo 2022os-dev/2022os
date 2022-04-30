@@ -1,7 +1,7 @@
-use std::fs::OpenOptions;
-use std::io::prelude::*;
-use std::fs::File;
-use std::io::SeekFrom;
+// use std::fs::OpenOptions;
+// use std::io::prelude::*;
+// use std::fs::File;
+// use std::io::SeekFrom;
 
 const BLOCK_SIZE : usize = 512;
 #[allow(unused)]
@@ -229,22 +229,22 @@ pub fn block_cache_sync_all() {
 
 #[allow(unused)]
 pub fn read_block(id: Ino, buf: &mut [u8]) {
-    let mut f = File::open("D:/gittest/disk").unwrap();
-    let off = id * 512;
-    f.seek(SeekFrom::Start(off as u64));
-    let n = f.read(&mut buf[..]).unwrap();
-    if n !=BLOCK_SIZE {
-        panic!("do not read 512 bytes from disk!");
-    }
+    // let mut f = File::open("D:/gittest/disk").unwrap();
+    // let off = id * 512;
+    // f.seek(SeekFrom::Start(off as u64));
+    // let n = f.read(&mut buf[..]).unwrap();
+    // if n !=BLOCK_SIZE {
+    //     panic!("do not read 512 bytes from disk!");
+    // }
 }
 
 #[allow(unused)]
 pub fn write_block(id: Ino, buf: &[u8]) {
-    let mut f = OpenOptions::new().read(true).write(true).open("D:/gittest/disk").unwrap();
-    let off = id * 512;
-    f.seek(SeekFrom::Start(off as u64));
-    let n = f.write(& buf[..]).unwrap();
-    if n !=BLOCK_SIZE {
-        panic!("do not write 512 bytes from disk!");
-    }
+    // let mut f = OpenOptions::new().read(true).write(true).open("D:/gittest/disk").unwrap();
+    // let off = id * 512;
+    // f.seek(SeekFrom::Start(off as u64));
+    // let n = f.write(& buf[..]).unwrap();
+    // if n !=BLOCK_SIZE {
+    //     panic!("do not write 512 bytes from disk!");
+    // }
 }
