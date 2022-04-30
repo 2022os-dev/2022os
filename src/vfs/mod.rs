@@ -6,6 +6,9 @@ mod pipe;
 mod kstat;
 mod mount;
 
+#[path = "fat32/lib.rs"]
+mod fat32;
+
 pub use dentry::*;
 pub use file::*;
 pub use memfs::*;
