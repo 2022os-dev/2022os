@@ -6,7 +6,10 @@ mod pipe;
 mod kstat;
 mod mount;
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> e2bc99d275e1005a72d819e61fb3eeeefce434d6
 #[path = "fat32/lib.rs"]
 mod fat32;
 
