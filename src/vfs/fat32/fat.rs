@@ -4,11 +4,7 @@ use alloc::sync::Arc;
 use spin::RwLock;
 
 #[allow(unused)]
-use super::{
-    BLOCK_SIZE,
-    DEV,
-    get_info_buffer,
-};
+use super::{get_info_buffer, BLOCK_SIZE, DEV};
 
 extern crate alloc;
 
@@ -17,7 +13,6 @@ const FAT_ENTRY_PER_SECTOR: u32 = BLOCK_SIZE as u32 / FAT32_ENTRY_SIZE;
 const FREE_CLUSTER_ENTRY: u32 = 0x00000000;
 const BAD_CLUSTER: u32 = 0x0ffffff7;
 const LAST_CLUSTER: u32 = 0x0fffffff;
-
 
 #[allow(unused)]
 #[derive(Clone, Copy)]
@@ -29,17 +24,17 @@ pub struct FAT {
 }
 
 impl FAT {
-
-    pub fn new(fat1: u32, fat2: u32,) -> FAT {
-        Self {
-            fat1,
-            fat2,
-        }
+    pub fn new(fat1: u32, fat2: u32) -> FAT {
+        Self { fat1, fat2 }
     }
 
-    pub fn get_position(self, cluster: u32,) -> (u32, u32, u32) {
+    pub fn get_position(self, cluster: u32) -> (u32, u32, u32) {
         //需要-2吗
-        (self.fat1 + cluster / FAT_ENTRY_PER_SECTOR, self.fat2 + cluster / FAT_ENTRY_PER_SECTOR, cluster % FAT_ENTRY_PER_SECTOR * FAT32_ENTRY_SIZE)
+        (
+            self.fat1 + cluster / FAT_ENTRY_PER_SECTOR,
+            self.fat2 + cluster / FAT_ENTRY_PER_SECTOR,
+            cluster % FAT_ENTRY_PER_SECTOR * FAT32_ENTRY_SIZE,
+        )
     }
 
     #[allow(unused)]
@@ -49,93 +44,87 @@ impl FAT {
         // 这个循环不可能走到尽头
         while current < (self.fat2 - self.fat1) * FAT_ENTRY_PER_SECTOR {
             let (fat1, fat2, off) = self.get_position(current);
-            let res = get_info_buffer(fat1, dev).read().read(off as usize,|&fat32_entry: &u32| {
-                fat32_entry
-            });
+            let res = get_info_buffer(fat1, dev)
+                .read()
+                .read(off as usize, |&fat32_entry: &u32| fat32_entry);
             if res == FREE_CLUSTER_ENTRY {
                 break;
-            }
-            else {
+            } else {
                 current = current + 1;
             }
-        }   
-        current                                
+        }
+        current
     }
 
     #[allow(unused)]
     pub fn get_next_cluster(&self, current: u32, dev: u8) -> u32 {
         let (fat1, fat2, off) = self.get_position(current);
-        let res = get_info_buffer(fat1, dev).read().read(off as usize,|&fat32_entry: &u32| {
-            fat32_entry
-        });
+        let res = get_info_buffer(fat1, dev)
+            .read()
+            .read(off as usize, |&fat32_entry: &u32| fat32_entry);
         if res == BAD_CLUSTER {
-            println!(" {} is bad cluster!",current);
+            println!(" {} is bad cluster!", current);
             0
-        }
-        else {
+        } else {
             res
-        }                                   
+        }
     }
 
     #[allow(unused)]
     pub fn set_next_cluster(&self, current: u32, next: u32, dev: u8) {
         let (fat1, fat2, off) = self.get_position(current);
-        let res = get_info_buffer(fat1, dev).write().modify(off as usize,|fat32_entry: &mut u32| {
-            *fat32_entry = next
-        }); 
-        let res = get_info_buffer(fat2, dev).write().modify(off as usize,|fat32_entry: &mut u32| {
-            *fat32_entry = next
-        });                               
+        let res = get_info_buffer(fat1, dev)
+            .write()
+            .modify(off as usize, |fat32_entry: &mut u32| *fat32_entry = next);
+        let res = get_info_buffer(fat2, dev)
+            .write()
+            .modify(off as usize, |fat32_entry: &mut u32| *fat32_entry = next);
     }
 
     #[allow(unused)]
     pub fn get_cluster_num(&self, current: u32, dev: u8) -> u32 {
         let mut cnt = 0;
         let (fat1, fat2, off) = self.get_position(current);
-        let mut next = get_info_buffer(fat1, dev).read().read(off as usize,|&fat32_entry: &u32| {
-            fat32_entry
-        });
+        let mut next = get_info_buffer(fat1, dev)
+            .read()
+            .read(off as usize, |&fat32_entry: &u32| fat32_entry);
         if next == FREE_CLUSTER_ENTRY {
             return 0;
         }
         let mut current = next;
         cnt += 1;
-    
-        while current != LAST_CLUSTER{
+
+        while current != LAST_CLUSTER {
             let (fat1, fat2, off) = self.get_position(current);
-            next = get_info_buffer(fat1, dev).read().read(off as usize,|&fat32_entry: &u32| {
-                fat32_entry
-            });
+            next = get_info_buffer(fat1, dev)
+                .read()
+                .read(off as usize, |&fat32_entry: &u32| fat32_entry);
             current = next;
             cnt += 1;
         }
-        cnt                           
+        cnt
     }
 
     #[allow(unused)]
     pub fn get_file_last_cluster(&self, current: u32, dev: u8) -> u32 {
-        
         let (fat1, fat2, off) = self.get_position(current);
-        let mut next = get_info_buffer(fat1, dev).read().read(off as usize,|&fat32_entry: &u32| {
-            fat32_entry
-        });
-        
+        let mut next = get_info_buffer(fat1, dev)
+            .read()
+            .read(off as usize, |&fat32_entry: &u32| fat32_entry);
+
         if next == LAST_CLUSTER {
             return current;
         }
         let mut current = next;
         loop {
-            
             let (fat1, fat2, off) = self.get_position(current);
-            next = get_info_buffer(fat1, dev).read().read(off as usize,|&fat32_entry: &u32| {
-                fat32_entry
-            });
+            next = get_info_buffer(fat1, dev)
+                .read()
+                .read(off as usize, |&fat32_entry: &u32| fat32_entry);
             if next == LAST_CLUSTER {
                 return current;
             }
             current = next;
-        }   
+        }
     }
-
 }
-

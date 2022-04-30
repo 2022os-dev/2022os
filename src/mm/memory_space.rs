@@ -168,7 +168,7 @@ impl MemorySpace {
             let elf = elf_parser::Elf64::from_bytes(elf.as_slice());
             if let Err(e) = elf {
                 println!("{:?}", e);
-                return Err(FileErr::NotDefine)
+                return Err(FileErr::NotDefine);
             }
             let elf = elf.unwrap();
             let mut ms = Self::new();
@@ -177,7 +177,7 @@ impl MemorySpace {
                 let inode_offset = elf.ehdr().e_phoff + i as u64 * elf.ehdr().e_phentsize as u64;
                 let mut phdr = vec![0; size_of::<elf_parser::Elf64Phdr>()];
                 inode.read_offset(inode_offset as usize, phdr.as_mut_slice())?;
-                let phdr = unsafe {transmute::<*const u8, &elf_parser::Elf64Phdr>(phdr.as_ptr()) };
+                let phdr = unsafe { transmute::<*const u8, &elf_parser::Elf64Phdr>(phdr.as_ptr()) };
                 // Not LOAD
                 if phdr.p_type != 1 {
                     continue;
@@ -186,7 +186,8 @@ impl MemorySpace {
                 inode.read_offset(phdr.p_offset as usize, data.as_mut_slice())?;
                 let start_va = VirtualAddr(phdr.p_vaddr as usize);
                 let end_va = VirtualAddr((phdr.p_vaddr + phdr.p_memsz) as usize);
-                let map_perm = MemorySpace::get_pte_flags_from_phdr_flags(phdr.p_flags) | PTEFlag::U;
+                let map_perm =
+                    MemorySpace::get_pte_flags_from_phdr_flags(phdr.p_flags) | PTEFlag::U;
                 ms.add_area_data_each_byte(
                     start_va..end_va,
                     map_perm | PTEFlag::V,
@@ -196,7 +197,7 @@ impl MemorySpace {
             ms.set_entry_point(elf.entry_point() as usize);
             let sp = Self::get_stack_sp().0;
             ms.trapframe().init(sp, elf.entry_point() as usize);
-            return Ok(ms)
+            return Ok(ms);
         }
         Err(FileErr::NotDefine)
     }
@@ -315,7 +316,6 @@ impl MemorySpace {
             pte |= PTEFlag::X;
         }
         pte
-
     }
 }
 

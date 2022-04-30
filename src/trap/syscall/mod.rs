@@ -123,11 +123,12 @@ pub fn syscall_handler() {
         }
         SYSCALL_LINKAT => {
             let olddirfd = trapframe["a0"] as isize;
-            let oldpath= VirtualAddr(trapframe["a1"]);
+            let oldpath = VirtualAddr(trapframe["a1"]);
             let newdirfd = trapframe["a2"] as isize;
             let newpath = VirtualAddr(trapframe["a3"]);
             let flags = trapframe["a4"];
-            pcblock.trapframe()["a0"] = sys_linkat(&mut pcblock, olddirfd, oldpath, newdirfd, newpath, flags) as usize;
+            pcblock.trapframe()["a0"] =
+                sys_linkat(&mut pcblock, olddirfd, oldpath, newdirfd, newpath, flags) as usize;
         }
         SYSCALL_CHDIR => {
             let path = VirtualAddr(trapframe["a0"]);
@@ -205,9 +206,6 @@ pub fn syscall_handler() {
         //     log!("syscall":"umount2" > "pid({}) ({}, {})", pcblock.pid, _special, _flag);
         //     pcblock.trapframe()["a0"] = sys_fstat(_special, _flag).0;
         // }
-
-        
-
         SYSCALL_EXIT => {
             let xcode = trapframe["a0"];
             drop(trapframe);

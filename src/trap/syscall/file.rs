@@ -66,12 +66,8 @@ fn make_path_tuple(pcb: &Pcb, fd: isize, path: &str) -> Option<(Inode, String)> 
         }
     } else {
         match pcb.get_fd(fd) {
-            Some(fd) => {
-                Some((fd.read().inode.clone(), String::from(path)))
-            }
-            None => {
-                None
-            }
+            Some(fd) => Some((fd.read().inode.clone(), String::from(path))),
+            None => None,
         }
     }
 }
@@ -317,8 +313,6 @@ pub(super) fn sys_lseek(
     }
 }
 
-
-
 pub(super) fn sys_write(
     pcb: &mut MutexGuard<Pcb>,
     fd: isize,
@@ -409,7 +403,13 @@ pub(super) fn sys_read(
     }
 }
 
-pub(super) fn sys_mount(special: VirtualAddr, dir: VirtualAddr, fstype: VirtualAddr, flag: usize, data: usize) -> isize {
+pub(super) fn sys_mount(
+    special: VirtualAddr,
+    dir: VirtualAddr,
+    fstype: VirtualAddr,
+    flag: usize,
+    data: usize,
+) -> isize {
     let special: PhysAddr = special.into();
     let special = get_str(&special);
     let special = String::from(special);
@@ -422,7 +422,7 @@ pub(super) fn sys_mount(special: VirtualAddr, dir: VirtualAddr, fstype: VirtualA
     FS_QUEUE.lock().mount(special, dir, fstype)
 }
 
-pub(super) fn sys_umount2(special: VirtualAddr, flags: u32,) -> isize {
+pub(super) fn sys_umount2(special: VirtualAddr, flags: u32) -> isize {
     let special: PhysAddr = special.into();
     let special = get_str(&special);
     let special = String::from(special);
@@ -448,7 +448,7 @@ pub(super) fn sys_execve(
         log!("syscall":"execve">"invalid path {}", path);
         return;
     }
-    let (node, path)= path_tuple.unwrap();
+    let (node, path) = path_tuple.unwrap();
     log!("execve":>"path {}", path);
     if let Ok(_) = parse_path(&node, path.as_str()).and_then(|inode| {
         let mut ms = MemorySpace::from_elf_inode(inode)?;
@@ -547,15 +547,7 @@ fn copy_execve_str_array(
     Ok((arr_pa_ret, str_pa))
 }
 
-
-
-
-
-pub(super) fn sys_fstat(
-    pcb: &mut MutexGuard<Pcb>,
-    fd: isize,
-    kstat: &mut Kstat,
-) -> isize {
+pub(super) fn sys_fstat(pcb: &mut MutexGuard<Pcb>, fd: isize, kstat: &mut Kstat) -> isize {
     if let Some(file) = pcb.get_fd(fd) {
         file.write().fstat(kstat);
         1
@@ -563,7 +555,3 @@ pub(super) fn sys_fstat(
         -1
     }
 }
-
-
-
-

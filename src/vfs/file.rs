@@ -4,9 +4,9 @@ use core::mem::size_of;
 use core::slice::from_raw_parts_mut;
 use spin::RwLock;
 
+use super::Kstat;
 use super::LinuxDirent;
 use crate::sbi::*;
-use super::Kstat;
 
 pub enum InodeType {
     File,
@@ -199,8 +199,6 @@ impl Drop for File {
     }
 }
 pub trait _Inode {
-
-
     fn get_kstat(&self, kstat: &mut Kstat) {
         log!("vfs":"inode">"get_kstat");
     }

@@ -27,10 +27,7 @@ pub static SHELL: &'static [u8] = include_bytes!("bin/shell");
 
 #[cfg(feature = "batch")]
 lazy_static! {
-    pub static ref BATCH: Box<[&'static [u8]]> = Box::new([
-        CHDIR,
-        SYS_CLONE
-    ]);
+    pub static ref BATCH: Box<[&'static [u8]]> = Box::new([CHDIR, SYS_CLONE]);
 }
 
 lazy_static! {

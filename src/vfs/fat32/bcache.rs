@@ -3,13 +3,12 @@
 // use std::fs::File;
 // use std::io::SeekFrom;
 
-const BLOCK_SIZE : usize = 512;
+const BLOCK_SIZE: usize = 512;
 #[allow(unused)]
-const DEV : u8 = 1;
+const DEV: u8 = 1;
 const DATA_BLOCK_BUFFER_SIZE: u32 = 1024;
 const INFO_BUFFER_SIZE: u32 = 20;
 pub type Ino = u32; // 磁盘块号
-
 
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
@@ -18,10 +17,9 @@ use spin::RwLock;
 
 #[allow(unused)]
 pub struct Buffer {
-    
     block_id: Ino,
     dev: u8,
-    
+
     data: [u8; BLOCK_SIZE],
     modified: bool,
 }
@@ -101,16 +99,12 @@ impl BufferManager {
         }
     }
 
-    pub fn get_buffer(
-        &mut self,
-        block_id: Ino,
-        dev: u8,
-    ) -> Arc<RwLock<Buffer>> {
+    pub fn get_buffer(&mut self, block_id: Ino, dev: u8) -> Arc<RwLock<Buffer>> {
         if let Some(pair) = self.queue.iter().find(|pair| pair.0 == block_id) {
             Arc::clone(&pair.1)
         } else {
             // substitute
-            if self.queue.len() == self.volume as usize{
+            if self.queue.len() == self.volume as usize {
                 // from front to tail
                 if let Some((idx, _)) = self
                     .queue
@@ -124,10 +118,7 @@ impl BufferManager {
                 }
             }
             // load block into mem and push back
-            let buffer = Arc::new(RwLock::new(Buffer::new(
-                block_id,
-                dev,
-            )));
+            let buffer = Arc::new(RwLock::new(Buffer::new(block_id, dev)));
             self.queue.push_back((block_id, Arc::clone(&buffer)));
             buffer
         }
@@ -146,22 +137,20 @@ impl BufferManager {
     // }
 
     #[allow(unused)]
-    pub fn set_start_sector(&mut self , new_start_sector: u32) {
+    pub fn set_start_sector(&mut self, new_start_sector: u32) {
         self.start_sector = new_start_sector;
     }
 
     #[allow(unused)]
-    pub fn get_start_sector(&self) -> u32{
-        self.start_sector 
+    pub fn get_start_sector(&self) -> u32 {
+        self.start_sector
     }
 
     //测试
     // pub fn add(&mut self ,id: Ino) {
     //     self.queue.push_back((id, Arc::new(RwLock::new(Buffer::new(id, DEV)))));
     // }
-
 }
-
 
 lazy_static! {
     pub static ref DATA_BLOCK_BUFFER_MANAGER: RwLock<BufferManager> =
@@ -171,7 +160,6 @@ lazy_static! {
 lazy_static! {
     pub static ref INFO_BUFFER_MANAGER: RwLock<BufferManager> =
         RwLock::new(BufferManager::new(INFO_BUFFER_SIZE));
-
 }
 
 // #[derive(PartialEq,Copy,Clone,Debug)]
@@ -180,10 +168,7 @@ lazy_static! {
 //     WRITE,
 // }
 
-pub fn get_data_block_buffer(
-    block_id: Ino,
-    dev: u8,
-) -> Arc<RwLock<Buffer>> {
+pub fn get_data_block_buffer(block_id: Ino, dev: u8) -> Arc<RwLock<Buffer>> {
     let id = block_id + DATA_BLOCK_BUFFER_MANAGER.read().start_sector;
     // if op == RwOption::READ {
     //     DATA_BLOCK_BUFFER_MANAGER.write().get_buffer(id, dev);
@@ -194,10 +179,7 @@ pub fn get_data_block_buffer(
     DATA_BLOCK_BUFFER_MANAGER.write().get_buffer(id, dev)
 }
 
-pub fn get_info_buffer(
-    block_id: Ino,
-    dev: u8,
-) -> Arc<RwLock<Buffer>> {
+pub fn get_info_buffer(block_id: Ino, dev: u8) -> Arc<RwLock<Buffer>> {
     let id = block_id + INFO_BUFFER_MANAGER.read().start_sector;
     // if op == RwOption::READ {
     //     INFO_BUFFER_MANAGER.write().get_buffer(id, dev);
@@ -205,7 +187,7 @@ pub fn get_info_buffer(
     // }else {
     //     INFO_BUFFER_MANAGER.write().get_buffer(id, dev)
     // }
-    
+
     INFO_BUFFER_MANAGER.write().get_buffer(id, dev)
 }
 
@@ -213,7 +195,6 @@ pub fn set_start_sector(new_start_sector: u32) {
     DATA_BLOCK_BUFFER_MANAGER.write().start_sector = new_start_sector;
     INFO_BUFFER_MANAGER.write().start_sector = new_start_sector;
 }
-
 
 #[allow(unused)]
 pub fn block_cache_sync_all() {
