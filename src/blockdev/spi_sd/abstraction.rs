@@ -8,6 +8,7 @@ pub struct SPIImpl {
 }
 
 pub trait SPIActions {
+  fn init(&self);
   fn configure(
     &self,
     // work_mode: work_mode,  // changes clock mode (sckmode) support master mode only
@@ -15,6 +16,7 @@ pub trait SPIActions {
     data_bit_length: u8,  // bits per word, basically 8
     msb_first: bool,  // endianness
   );
+  fn switch_cs(&self, enable: bool, csid: u32);
   fn set_clk_rate(&self, spi_clk: u32) -> u32;
   fn recv_data(&self, chip_select: u32, rx: &mut [u8]);
   fn send_data(&self, chip_select: u32, tx: &[u8]);
@@ -25,9 +27,44 @@ impl SPIImpl {
   pub fn new(spi: pac::SPIDevice) -> Self {
     Self { spi }
   }
+}
 
+
+impl SPIImpl {
+  fn tx_enque(&self, data: u8) {
+    if self.spi.txdata.is_full() {
+      println!("[kernel] spi warning: overwritting existing data to transmit");
+    }
+    self.spi.txdata.write(data as u32);
+  }
+
+  fn rx_deque(&self) -> u8 {
+    /*if self.spi.rxdata.is_empty() {
+      println!("spi warning: attempting to read empty fifo");
+    }*/
+    let result: u32 = self.spi.rxdata.read();
+    if (result & (1u32<<31)) != 0 {
+      println!("[kernel] spi warning: attempting to read empty fifo");
+    }
+    result as u8
+  }
+
+  fn rx_wait(&self) {
+    while !self.spi.ip.receive_pending() {
+      // loop
+    }
+  }
+
+  fn tx_wait(&self) {
+    while !self.spi.ip.transmit_pending() {
+      // loop
+    }
+  }
+}
+
+impl SPIActions for SPIImpl {
   // This function references spi-sifive.c:sifive_spi_init()
-  pub fn init(&self) { 
+  fn init(&self) { 
     let spi = self.spi;
     
     //  Watermark interrupts are disabled by default
@@ -47,38 +84,7 @@ impl SPIImpl {
     // Exit specialized memory-mapped SPI flash mode
     spi.fctrl.set_flash_mode(false);
   }
-}
 
-
-impl SPIImpl {
-  fn tx_enque(&self, data: u8) {
-    if self.spi.txdata.is_full() {
-      println!("spi warning: overwritting existing data to transmit");
-    }
-    self.spi.txdata.write(data as u32);
-  }
-
-  fn rx_deque(&self) -> u8 {
-    if self.spi.txdata.is_full() {
-      println!("spi warning: attempting to read empty fifo");
-    }
-    self.spi.rxdata.read() as u8
-  }
-
-  fn rx_wait(&self) {
-    while !self.spi.ip.receive_pending() {
-      // loop
-    }
-  }
-
-  fn tx_wait(&self) {
-    while !self.spi.ip.transmit_pending() {
-      // loop
-    }
-  }
-}
-
-impl SPIActions for SPIImpl {
   fn configure(&self, use_lines: u8, data_bit_length: u8, msb_first: bool) {
     let spi = self.spi;
     // bit per word
@@ -94,8 +100,12 @@ impl SPIActions for SPIImpl {
     spi.fmt.set_endian(msb_first);
     // clock mode: from sifive_spi_prepare_message
     spi.sckmode.reset();
-    // auto cs: from sifive_spi_set_cs
-    spi.csmode.switch_csmode(Mode::AUTO);
+  }
+
+  fn switch_cs(&self, enable: bool, csid: u32) {
+    // manual cs
+    self.spi.csmode.switch_csmode(if enable { Mode::HOLD } else { Mode::OFF } );
+    self.spi.csid.write(csid);
   }
 
   fn set_clk_rate(&self, spi_clk: u32) -> u32 {
@@ -116,19 +126,19 @@ impl SPIActions for SPIImpl {
 
     while remaining != 0usize {
       // words need to be transferred in a single round
-      let n_words = if 8usize < remaining { 8u32 } else { remaining as u32 };
+      let n_words = if 8usize < remaining { 8 } else { remaining };
       // enqueue n_words junk for transmission
       for i in 0..n_words {
         self.tx_enque(0xffu8);
       }
       // set watermark
-      self.spi.rxmark.write(n_words - 1);
+      self.spi.rxmark.write(n_words as u32 - 1);
       // wait for spi
       // TODO implement yielding in wait
       self.rx_wait();
       // read out all data from rx fifo
       for i in 0..n_words {
-        rx_buf[len - remaining] = self.spi.rxdata.read() as u8;
+        rx_buf[len - remaining] = self.rx_deque();
         remaining = remaining - 1;
       }
     }
@@ -144,12 +154,17 @@ impl SPIActions for SPIImpl {
     let mut remaining = len;
     while remaining != 0usize {
       // words need to be transferred in a single round
-      let n_words = if 8usize < remaining { 8u32 } else { remaining as u32 };
+      let n_words = if 8usize < remaining { 8 } else { remaining };
       // set watermark
-      self.spi.txmark.write(n_words - 1);
+      self.spi.txmark.write(1);
       // wait for spi
       // TODO implement yielding in wait
       self.tx_wait();
+      // enque spi
+      for _ in 0..n_words {
+        self.tx_enque(tx_buf[len - remaining]);
+        remaining = remaining - 1;
+      }
     }
   }
 }

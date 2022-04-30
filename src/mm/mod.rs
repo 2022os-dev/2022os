@@ -7,6 +7,7 @@ use kalloc::KALLOCATOR;
 use memory_space::MemorySpace;
 // use page_table::PageTable;
 use crate::{config::PHYS_FRAME_END, link_syms};
+use crate::config::{PERI_START, PERI_END};
 use address::*;
 use pgtbl::Pgtbl;
 use pte_sv39::PTEFlag;
@@ -30,7 +31,12 @@ pub fn init() {
             (link_syms::skernel as usize).into()..PHYS_FRAME_END.into(),
             (Into::<PhysAddr>::into(link_syms::skernel as usize)).into(),
             PTEFlag::V | PTEFlag::R | PTEFlag::W | PTEFlag::X,
-        )
+        );
+        KERNEL_MEMORY_SPACE.page_table.mappages(
+            PERI_START.into()..PERI_END.into(),
+            (Into::<PhysAddr>::into(PERI_START)).into(),
+            PTEFlag::V | PTEFlag::R | PTEFlag::W | PTEFlag::X,
+        );
     };
     set_sstatus_sum();
     // set_sstatus_mxr();

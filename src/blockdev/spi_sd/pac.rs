@@ -123,11 +123,12 @@ mod registers {
 
   impl<T: Sized + Clone + Copy, U> Reg<T, U> {
     pub fn read(&self) -> T {
-      self.value
+      let ptr: *const T = &self.value;
+      unsafe { ptr.read_volatile() }
     }
     pub fn write(&self, val: T) {
-      let ptr = self as *const Self as usize as *mut Self;
-      unsafe { (*ptr).value = val; }
+      let ptr: *mut T = &self.value as *const _ as usize as *mut T;
+      unsafe { ptr.write_volatile(val); }
     }
   }
 
@@ -150,9 +151,9 @@ mod registers {
     }
   }
   impl SCKMODE {
-    pub fn set_phase(&self, phabit: bool) {
+    pub fn set_phase(&self, phasebit: bool) {
       let mut data = self.read();
-      data = if phabit {
+      data = if phasebit {
         data | 0x1u32
       } else {
         data & 0xfffeu32
@@ -293,7 +294,7 @@ mod registers {
       let p = match proto {
         Protocol::Single => 0u32,
         Protocol::Dual   => 1u32,
-        Protocol::Quad   => 3u32,
+        Protocol::Quad   => 2u32,
       };
       let r = self.read();
       self.write((r & (!0b011u32)) | p);
@@ -301,13 +302,13 @@ mod registers {
 
     // TODO FIX BITWISE OPS
     pub fn set_endian(&self, msb: bool) {
-      let end = if msb { 0u32 } else { 1u32 };
+      let end = if msb { 0b100u32 } else { 0u32 };
       let r = self.read();
       self.write((r & (!0b100u32)) | end);
     }
 
     pub fn set_direction(&self, tx: bool) {
-      let dir = if tx { 1u32 } else { 0u32 };
+      let dir = if tx { 0b1000u32 } else { 0u32 };
       let r = self.read();
       self.write((r & (!0b1000u32)) | dir);
     }

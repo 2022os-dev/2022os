@@ -9,3 +9,6 @@ pub const PHYS_FRAME_END: usize = 0x80800000;
 
 pub const PTE_FLAG_SIZE: usize = 8;
 pub const PTE_PPN_OFFSET: usize = 10;
+
+pub const PERI_START: usize = 0x10040000;
+pub const PERI_END: usize = 0x10060000;

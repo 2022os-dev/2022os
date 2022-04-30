@@ -43,6 +43,8 @@ extern crate spin;
 #[macro_use]
 extern crate bitflags;
 
+use blockdev::BlockDevice;
+
 /// Clear .bss section
 fn clear_bss() {
     (link_syms::sbss as usize..link_syms::ebss as usize)
@@ -79,5 +81,10 @@ extern "C" fn kernel_start() {
     TASKMANAGER.lock().load_pcb(virtual_space);
 
     trap::enable_timer_interupt();
+    println!("[kernel] before init sd");
+    blockdev::init_sdcard();
+    blockdev::write_block(0, &[0xab; 2048]);
+    blockdev::write_block(4096, &[0x23; 2048]);
+    println!("[kernel] after init sd");
     schedule_pcb();
 }

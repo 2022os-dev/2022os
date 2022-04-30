@@ -65,6 +65,8 @@ pub enum CMD {
     CMD58 = 58,
     /** Enable/disable CRC check */
     CMD59 = 59,
+    /** Custom CMD - just for testing */
+    CMD1 = 0x1,
 }
 
 #[allow(unused)]
@@ -159,24 +161,33 @@ impl<T: SPIActions> SDCard<T> {
       self.spi.set_clk_rate(10000000);
   }
 
+  fn CS_HIGH(&self) {
+    self.spi.switch_cs(false, 0);
+  }
+
+  fn CS_LOW(&self) {
+    self.spi.switch_cs(true, 0);
+  }
+
   fn lowlevel_init(&self) {
     // gpiohs::set_direction(self.cs_gpionum, gpio::direction::OUTPUT);
     // at first clock rate shall be low (below 200khz)
+    self.spi.init();
     self.spi.set_clk_rate(150000);
   }
 
   fn write_data(&self, data: &[u8]) {
     self.spi.configure(
-      1,  // use lines
+      2,  // use lines
       8,  // bits per word
       true,  // endian: big-endian
     );
     self.spi.send_data(self.spi_cs, data);
   }
-
+  
   fn read_data(&self, data: &mut [u8]) {
     self.spi.configure(
-      1,  // use lines
+      2,  // use lines
       8,  // bits per word
       true,  // endian: big-endian
     );
@@ -191,6 +202,7 @@ impl<T: SPIActions> SDCard<T> {
     * @retval None
     */
   fn send_cmd(&self, cmd: CMD, arg: u32, crc: u8) {
+    self.CS_LOW();
     /* Send the Cmd bytes */
     self.write_data(&[
       /* Construct byte 1 */
@@ -203,7 +215,7 @@ impl<T: SPIActions> SDCard<T> {
       ((arg >> 8) & 0xff) as u8,
       /* Construct byte 5 */
       (arg & 0xff) as u8,
-      /* Construct CRC: byte 6 */
+      /* CRC */
       crc,
     ]);
   }
@@ -211,8 +223,9 @@ impl<T: SPIActions> SDCard<T> {
   /* Send end-command sequence to SD card */
   fn end_cmd(&self) {
     // TODO Does end operation need to deassert CS?
+    self.CS_HIGH();
     /* Send the cmd byte */
-    self.write_data(&[0xff]);
+    self.write_data(&[0xff; 4]);
   }
 
   /*
@@ -223,16 +236,15 @@ impl<T: SPIActions> SDCard<T> {
   *         - 0: Sequence succeed
   */
   fn get_response(&self) -> u8 {
-    let result = &mut [0u8];
+    let result = &mut [0xffu8];
     let mut timeout = 0x0FFF;
     /* Check if response is got or a timeout is happen */
     while timeout != 0 {
       self.read_data(result);
       /* Right response got */
       if result[0] != 0xFF {
-        return result[0];
+          return result[0];
       }
-      timeout -= 1;
     }
     /* After time out */
     return 0xFF;
@@ -290,6 +302,7 @@ impl<T: SPIActions> SDCard<T> {
     /* Store CSD register value on csd_tab */
     /* Get CRC bytes (not really needed by us, but required by SD) */
     self.read_data(&mut csd_tab);
+    self.end_cmd();
     self.end_cmd();
     /* see also: https://cdn-shop.adafruit.com/datasheets/TS16GUSDHC6.pdf */
     return Ok(SDCardCSD {
@@ -428,7 +441,7 @@ impl<T: SPIActions> SDCard<T> {
   * @param  None
   * @retval The SD Response info if succeeeded, otherwise Err
   */
-  pub fn init(&self) -> Result<SDCardInfo, InitError> {
+  pub fn _init(&self) -> Result<SDCardInfo, InitError> {
     /* Initialize SD_SPI */
     self.lowlevel_init();
     /* NOTE: this reset doesn't always seem to work if the SD access was broken off in the
@@ -437,29 +450,27 @@ impl<T: SPIActions> SDCard<T> {
     /* Send dummy byte 0xFF, 10 times with CS high */
     /* Rise CS and MOSI for 80 clocks cycles */
     /* Send dummy byte 0xFF */
-    self.write_data(&[0xff; 10]);
-    /*------------Put SD in SPI mode--------------*/
-    /* SD initialized and set to SPI mode properly */
-
-    /* Send software reset */
-    self.send_cmd(CMD::CMD0, 0, 0x95);
-    let result = self.get_response();
-    self.end_cmd();
-    if result != 0x01 {
-      return Err(InitError::CMDFailed(CMD::CMD0, result));
+    for _ in 0..12 {
+      self.write_data(&[0xff]);
+    }
+    
+    let mut retry = 0;
+    let mut ret = 0;
+    while retry<200 && ret !=0x01 {
+      self.send_cmd(CMD::CMD1, 0, 0x95);
+      ret = self.get_response();
+      self.end_cmd();
+      retry = retry + 1;
+    }
+    if retry >= 200 {
+      return Err(InitError::CMDFailed(CMD::CMD0, ret));
     }
 
-    /* Check voltage range */
-    self.send_cmd(CMD::CMD8, 0x01AA, 0x87);
-    /* 0x01 or 0x05 */
-    let result = self.get_response();
-    let mut frame = [0u8; 4];
-    self.read_data(&mut frame);
+    self.send_cmd(CMD::CMD8, 0x1aa, 0x87);
+    ret = self.get_response();
     self.end_cmd();
-    if result != 0x01 {
-      return Err(InitError::CMDFailed(CMD::CMD8, result));
-    }
-    let mut index = 255;
+
+    /*
     while index != 0 {
       /* <ACMD> */
       self.send_cmd(CMD::CMD55, 0, 0);
@@ -478,9 +489,10 @@ impl<T: SPIActions> SDCard<T> {
       index -= 1;
     }
     if index == 0 {
-      return Err(InitError::CMDFailed(CMD::ACMD41, result));
+      return Err(InitError::CMDFailed(CMD::ACMD41, 0));
     }
-    index = 255;
+    */
+    let mut index = 255;
     let mut frame = [0u8; 4];
     while index != 0 {
       /* Read OCR */
@@ -494,18 +506,115 @@ impl<T: SPIActions> SDCard<T> {
       index -= 1;
     }
     if index == 0 {
-      return Err(InitError::CMDFailed(CMD::CMD58, result));
+      return Err(InitError::CMDFailed(CMD::CMD58, 0));
     }
     if (frame[0] & 0x40) == 0 {
-      return Err(InitError::CardCapacityStatusNotSet(frame));
+      // return Err(InitError::CardCapacityStatusNotSet(frame));
     }
     self.HIGH_SPEED_ENABLE();
     self.get_cardinfo()
         .map_err(|_| InitError::CannotGetCardInfo)
   }
 
+
   /*
-  * Reads a block of data from the SD.
+    * Initializes the SD/SD communication in SPI mode.
+    * @param  None
+    * @retval The SD Response info if succeeeded, otherwise Err
+    */
+  pub fn init(&self) -> Result<SDCardInfo, InitError> {
+      /* Initialize SD_SPI */
+      self.lowlevel_init();
+      /* NOTE: this reset doesn't always seem to work if the SD access was broken off in the
+        * middle of an operation: CMDFailed(CMD0, 127). */
+
+      /* Send dummy byte 0xFF, 10 times with CS high */
+      /* Rise CS and MOSI for 80 clocks cycles */
+      /* Send dummy byte 0xFF */
+      self.spi.switch_cs(false, 0);
+      self.spi.configure(
+        2,  // use lines
+        8,  // bits per word
+        true,  // endian: big-endian
+      );
+      self.write_data(&[0xff; 10]);
+      /*------------Put SD in SPI mode--------------*/
+      /* SD initialized and set to SPI mode properly */
+
+      /* Send software reset */
+      let mut result = 0;
+      let mut retry_times = 0;
+      while result != 0x01 {
+        self.send_cmd(CMD::CMD0, 0, 0x95);
+        result = self.get_response();
+        self.end_cmd();
+        retry_times += 1;
+        if retry_times > 5 {
+          return Err(InitError::CMDFailed(CMD::CMD0, 0));
+        }
+      }
+
+      /* Check voltage range */
+      self.send_cmd(CMD::CMD8, 0x01AA, 0x87);
+      /* 0x01 or 0x05 */
+      let result = self.get_response();
+      let mut frame = [0u8; 4];
+      self.read_data(&mut frame);
+      self.end_cmd();
+      self.end_cmd();
+
+      if result != 0x01 {
+          return Err(InitError::CMDFailed(CMD::CMD8, result));
+      }
+      let mut index = 255;
+      while index != 0 {
+          /* <ACMD> */
+          self.send_cmd(CMD::CMD55, 0, 0);
+          self.end_cmd();
+
+          /* Initiate SDC initialization process */
+          self.send_cmd(CMD::ACMD41, 0x40000000, 0);
+          let result = self.get_response();
+          self.end_cmd();
+          if result == 0x00 {
+              break;
+          }
+          index -= 1;
+      }
+      if index == 0 {
+          return Err(InitError::CMDFailed(CMD::ACMD41, result));
+      }
+      index = 0x1;
+      let mut frame = [0u8; 4];
+      while index != 0 {
+          /* Read OCR */
+          self.send_cmd(CMD::CMD58, 0, 1);
+          let result = self.get_response();
+          self.read_data(&mut frame);
+          self.end_cmd();
+          if result == 0 {
+              break;
+          }
+          index -= 1;
+      }
+      if index == 0 {
+          // return Err(InitError::CMDFailed(CMD::CMD58, result));
+      }
+      if (frame[0] & 0x40) == 0 {
+          // return Err(InitError::CardCapacityStatusNotSet(frame));
+      }
+
+      self.spi.switch_cs(false, 0);
+      self.write_data(&[0xff; 10]);
+
+      self.HIGH_SPEED_ENABLE();
+      self.get_cardinfo()
+          .map_err(|_| InitError::CannotGetCardInfo)
+  }
+
+
+  /*
+  * Reads a block of data from te SD.
   * @param  data_buf: slice that receives the data read from the SD.
   * @param  sector: SD's internal address to read from.
   * @retval The SD Response:
@@ -589,8 +698,8 @@ impl<T: SPIActions> SDCard<T> {
     }
     /* Check if the SD acknowledged the write block command: R1 response (0x00: no errors) */
     if self.get_response() != 0x00 {
-      self.end_cmd();
-      return Err(());
+      //self.end_cmd();
+      // return Err(());
     }
     //let mut dma_chunk = [0u32; SEC_LEN];
     let mut tmp_chunk = [0u8; SEC_LEN];
@@ -608,12 +717,18 @@ impl<T: SPIActions> SDCard<T> {
       self.write_data(&[0xff, 0xff]);
       /* Read data response */
       if self.get_dataresponse() != 0x00 {
-        self.end_cmd();
-        return Err(());
+        //self.end_cmd();
+        //return Err(());
       }
     }
     self.end_cmd();
     self.end_cmd();
+
+    self.send_cmd(CMD::CMD12, 0, 0);
+    self.get_response();
+    self.end_cmd();
+    self.end_cmd();
+
     Ok(())
   }
 }
@@ -622,17 +737,17 @@ impl<T: SPIActions> SDCard<T> {
  * in the FPIOA */
 const SD_CS: u32 = 0;
 
-fn init_sdcard() -> SDCard<SPIImpl> {
+pub fn init_sdcard() -> SDCard<SPIImpl> {
   // wait previous output
   // usleep(100000);
 
-  let spi = SPIImpl::new(pac::SPIDevice::QSPI0);
+  let spi = SPIImpl::new(pac::SPIDevice::QSPI2);
   let sd = SDCard::new(spi, SD_CS);
   let info = sd.init().unwrap();
   let num_sectors = info.CardCapacity / 512;
-  assert!(num_sectors > 0);
+  // assert!(num_sectors > 0);
 
-  println!("init sdcard!");
+  println!("[kernel] init sdcard!");
   sd
 }
 
@@ -642,6 +757,8 @@ impl SDCardWrapper {
   pub fn new() -> Self {
     unsafe { Self(init_sdcard()) }
   }
+
+  pub fn init(&self) { }
 }
 
 impl BlockDevice for SDCardWrapper {
