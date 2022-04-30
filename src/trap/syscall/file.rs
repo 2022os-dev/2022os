@@ -442,6 +442,32 @@ pub(super) fn sys_read(
     }
 }
 
+pub(super) fn sys_mount(
+    special: VirtualAddr,
+    dir: VirtualAddr,
+    fstype: VirtualAddr,
+    flag: usize,
+    data: usize,
+) -> isize {
+    let special: PhysAddr = special.into();
+    let special = get_str(&special);
+    let special = String::from(special);
+    let dir: PhysAddr = dir.into();
+    let dir = get_str(&dir);
+    let dir = String::from(dir);
+    let fstype: PhysAddr = fstype.into();
+    let fstype = get_str(&fstype);
+    let fstype = String::from(fstype);
+    FS_QUEUE.lock().mount(special, dir, fstype)
+}
+
+pub(super) fn sys_umount2(special: VirtualAddr, flags: u32) -> isize {
+    let special: PhysAddr = special.into();
+    let special = get_str(&special);
+    let special = String::from(special);
+    FS_QUEUE.lock().umount(special)
+}
+
 pub(super) fn sys_execve(
     pcb: &mut MutexGuard<Pcb>,
     path: VirtualAddr,
@@ -557,4 +583,13 @@ fn copy_execve_str_array(
         arr_pa = arr_pa + size_of::<usize>();
     }
     Ok((arr_pa_ret, str_pa))
+}
+
+pub(super) fn sys_fstat(pcb: &mut MutexGuard<Pcb>, fd: isize, kstat: &mut Kstat) -> isize {
+    if let Some(file) = pcb.get_fd(fd) {
+        file.write().fstat(kstat);
+        1
+    } else {
+        -1
+    }
 }

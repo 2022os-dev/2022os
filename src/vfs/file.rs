@@ -4,6 +4,7 @@ use core::mem::size_of;
 use core::slice::from_raw_parts_mut;
 use spin::RwLock;
 
+use super::Kstat;
 use super::LinuxDirent;
 use crate::sbi::*;
 
@@ -93,6 +94,10 @@ impl File {
             flags,
             inode,
         })))
+    }
+
+    pub fn fstat(&self, kstat: &mut Kstat) {
+        self.inode.get_kstat(kstat);
     }
 
     pub fn lseek(&mut self, whence: usize, off: isize) -> Result<usize, FileErr> {
@@ -203,6 +208,9 @@ impl Drop for File {
     }
 }
 pub trait _Inode {
+    fn get_kstat(&self, kstat: &mut Kstat) {
+        log!("vfs":"inode">"get_kstat");
+    }
     // 如果Inode不是目录，返回Err(FileErr::NotDir)
     fn get_child(&self, _: &str) -> Result<Inode, FileErr> {
         Err(FileErr::NotDefine)

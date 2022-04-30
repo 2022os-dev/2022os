@@ -4,6 +4,8 @@ use alloc::collections::BTreeMap;
 
 pub type INT = i32;
 
+pub static MOUNT: &'static [u8] = include_bytes!("bin/mount");
+pub static UMOUNT: &'static [u8] = include_bytes!("bin/umount");
 pub static HELLO_WORLD: &'static [u8] = include_bytes!("bin/hello_world");
 pub static LOOP10: &'static [u8] = include_bytes!("bin/loop10");
 pub static GET_PID: &'static [u8] = include_bytes!("bin/get_pid");
@@ -95,6 +97,7 @@ pub static GITEE_YIELD: &'static [u8] = include_bytes!("bin/gitee_yield");
 
 #[cfg(feature = "batch")]
 lazy_static! {
+<<<<<<< HEAD
     pub static ref BATCH: Box<[&'static [u8]]> = Box::new([
         HELLO_WORLD,
         #[cfg(feature = "gitee_test")]
@@ -163,11 +166,16 @@ lazy_static! {
         GITEE_YIELD
 
     ]);
+=======
+    pub static ref BATCH: Box<[&'static [u8]]> = Box::new([CHDIR, SYS_CLONE]);
+>>>>>>> vv
 }
 
 lazy_static! {
     pub static ref APP: BTreeMap<&'static str, Box<&'static [u8]>> = {
         let mut map = BTreeMap::new();
+        map.insert("mount", Box::new(MOUNT));
+        map.insert("umount", Box::new(UMOUNT));
         map.insert("hello_world", Box::new(HELLO_WORLD));
         map.insert("loop10", Box::new(LOOP10));
         map.insert("get_pid", Box::new(GET_PID));

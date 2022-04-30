@@ -8,13 +8,13 @@ CARGO_BUILD_FLAGS = --release
 
 apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
 	  	forkboom signal_chld times nanosleep openat pipe dup \
-		mkdirat chdir get_dirents sys_clone execve shell read filelink
+		mkdirat chdir get_dirents sys_clone execve shell read mount umount filelink
 
 qemu:
 	make kernel.bin
 	qemu-system-riscv64 -M sifive_u -smp 5 \
 		-bios bootloader/fw_jump.bin \
-		-drive file=sdcard.img,format=raw \
+		-drive file=fat32.img,if=sd,format=raw \
 		-device loader,file=kernel.bin,addr=0x80200000 \
 		-nographic
 
@@ -55,7 +55,7 @@ sdcard.part: sdcard.raw
 			sdcard.img
 
 fat32.img:
-		dd if=/dev/zero of=fat32.img bs=1M count=3
+		dd if=/dev/zero of=fat32.img bs=1M count=512
 		mkfs.fat -F 32 fat32.img
 
 rootfs: sdcard.part fat32.img kernel.bin
