@@ -84,6 +84,8 @@ extern "C" fn kernel_start() {
 
         blockdev::init_sdcard();
 
+        test();
+
 
         // Load shell
         #[cfg(not(feature = "batch"))]
@@ -106,4 +108,28 @@ extern "C" fn kernel_start() {
     trap::init();
     hart_enable_timer_interrupt();
     schedule();
+}
+extern crate fat32;
+extern crate block_device;
+
+#[derive(Copy, Clone)]
+struct SDCard {}
+
+impl block_device::BlockDevice for SDCard {
+    type Error = ();
+    fn read(&self, buf: &mut[u8], address: usize, _number_of_blocks: usize) -> Result<(), Self::Error> {
+        blockdev::read_block(address, buf);
+        Ok(())
+    }
+    fn write(&self, buf: &[u8], address: usize, _number_of_blocks: usize) -> Result<(), Self::Error> {
+        blockdev::write_block(address, buf);
+        Ok(())
+    }
+}
+
+fn test() {
+    let sdcard = SDCard{};
+    let volumn = fat32::volume::Volume::new(sdcard);
+    let mut root = volumn.root_dir();
+    root.create_file("hello.txt").unwrap();
 }
