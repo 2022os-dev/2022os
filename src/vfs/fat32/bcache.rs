@@ -6,7 +6,7 @@
 const BLOCK_SIZE: usize = 512;
 #[allow(unused)]
 const DEV: u8 = 1;
-const DATA_BLOCK_BUFFER_SIZE: u32 = 1024;
+const DATA_BLOCK_BUFFER_SIZE: u32 = 42;
 const INFO_BUFFER_SIZE: u32 = 20;
 pub type Ino = u32; // 磁盘块号
 
@@ -73,6 +73,7 @@ impl Buffer {
         if self.modified {
             self.modified = false;
             // 待实现
+            
             write_block(self.block_id, &self.data);
         }
     }
@@ -210,6 +211,7 @@ pub fn block_cache_sync_all() {
 
 #[allow(unused)]
 pub fn read_block(id: Ino, buf: &mut [u8]) {
+    
     crate::blockdev::read_block(id as usize * 512, buf);
     // let mut f = File::open("D:/gittest/disk").unwrap();
     // let off = id * 512;
@@ -222,7 +224,8 @@ pub fn read_block(id: Ino, buf: &mut [u8]) {
 
 #[allow(unused)]
 pub fn write_block(id: Ino, buf: &[u8]) {
-    crate::blockdev::write_block(id as usize * 512, buf);
+    
+    crate::blockdev::write_block(id as usize, buf);
     // let mut f = OpenOptions::new().read(true).write(true).open("D:/gittest/disk").unwrap();
     // let off = id * 512;
     // f.seek(SeekFrom::Start(off as u64));

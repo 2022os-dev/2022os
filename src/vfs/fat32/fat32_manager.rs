@@ -142,7 +142,7 @@ impl Fat32Manager {
             first_sector,
             root_cluster_number: root_cluster_num,
         };
-
+        
         Arc::new(RwLock::new(fat32_manager))
     }
     #[allow(unused)]
@@ -150,7 +150,7 @@ impl Fat32Manager {
         VFSFile::new(
             DEV,
             Arc::clone(fs),
-            2,
+            0,
             0,
             Vec::new(),
             String::from("/"),

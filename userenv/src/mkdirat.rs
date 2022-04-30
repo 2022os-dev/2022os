@@ -16,6 +16,7 @@ fn main() {
 
     // 使用绝对路径创建文件夹
     assert!(syscall_mkdirat(0, "/absolute\0", mode) == 0);
+    
     // 路径解析错误
     assert!(syscall_mkdirat(0, "/absolute/a/b\0", mode) == -1);
     // 创建重复文件夹
@@ -36,7 +37,7 @@ fn main() {
     if syscall_fork() > 0 {
         return;
     }
-
+    
     // 创建重复文件夹
     assert!(syscall_mkdirat(0, "/absolute\0", mode) == -1);
     // 路径解析错误
@@ -53,11 +54,12 @@ fn main() {
     assert!(syscall_mkdirat(0, "/absolute/.\0", mode) == -1);
     assert!(syscall_mkdirat(0, "/absolute/..\0", mode) == -1);
     assert!(syscall_mkdirat(0, "/absolute/dir\0", mode) == 0);
-
+    
     assert!(syscall_mkdirat(0, "/absolute/dir/../test\0", mode) == 0);
     // 如果成功会重复创建导致失败
+    
     assert!(syscall_mkdirat(0, "/absolute/test\0", mode) == -1);
-
+    
     assert!(syscall_mkdirat(0, "/absolute/dir/./test\0", mode) == 0);
     // 如果成功会重复创建导致失败
     assert!(syscall_mkdirat(0, "/absolute/dir/test\0", mode) == -1);

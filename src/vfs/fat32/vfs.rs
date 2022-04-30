@@ -389,6 +389,7 @@ impl VFSFile {
     #[allow(unused)]
     // 返回值注意，加arc要
     pub fn create_file(&self, name: &str, flag: u8) -> Option<Arc<VFSFile>> {
+        
         // 判断该文件是否合法
         if self.is_long_dir() {
             println!("illeagal dirent entry!");
@@ -426,6 +427,7 @@ impl VFSFile {
                 let long_dir_entry =
                     LongDirEntry::new(attr, long_dir_entry_name.as_str().as_bytes(), checksum);
                 if let Some(offset) = self.find_next_free_dirent() {
+                    
                     dir_offset = offset;
                 } else {
                     return None;
@@ -448,7 +450,9 @@ impl VFSFile {
             short_dir_entry =
                 ShortDirEntry::new(&file_name_byte_arr, &extension_name_byte_arr, flag);
             let mut dir_offset;
+            
             if let Some(offset) = self.find_next_free_dirent() {
+                
                 dir_offset = offset;
             } else {
                 return None;
@@ -705,6 +709,7 @@ lazy_static! {
         let fat32_manager = Fat32Manager::open_fat32(DEV);
         let fat32_manager_reader = fat32_manager.read();
         fat32_manager_reader.initialize_root_dirent();
+        
         Arc::new(fat32_manager_reader.get_root_vfsfile(&fat32_manager))
     };
 }
