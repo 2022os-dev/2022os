@@ -221,10 +221,10 @@ impl VFSFile {
     }
 
     #[allow(unused)]
-    pub fn find_next_free_dirent(&mut self) -> Option<u32> {
+    pub fn find_next_free_dirent(&self) -> Option<u32> {
         
-        self.modify_short_dir_entry(|short_ent: &mut ShortDirEntry|{
-            short_ent.find_next_free_dirent(
+        self.read_short_dir_entry(|sd: &ShortDirEntry|{
+            sd.find_next_free_dirent(
                 self.dev,
                 &self.fs.read().get_fat(), 
                 &self.fs,

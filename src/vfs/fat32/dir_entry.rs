@@ -537,7 +537,8 @@ impl ShortDirEntry {
 
 
     #[allow(unused)]
-    pub fn find_next_free_dirent(&mut self, dev: u8, fat: &Arc<RwLock<FAT>>, fat32_manager: &Arc<RwLock<Fat32Manager>>) -> Option<u32> {
+    //调用此方法目录必须保证其startcluster被初始化，好像都被初始化？
+    pub fn find_next_free_dirent(&self, dev: u8, fat: &Arc<RwLock<FAT>>, fat32_manager: &Arc<RwLock<Fat32Manager>>) -> Option<u32> {
         
         if !self.is_dir() {
             // println!("can not find dirent entry in no-dirent file");
@@ -557,12 +558,12 @@ impl ShortDirEntry {
                     // 假如你的容量为0
                     let fat_write = fat.write();
                     let fat32_manager_read = fat32_manager.read();
-                    if self.get_start_cluster() == 0 {
-                        self.set_start_cluster(cluster);
-                    }
-                    else {
+                    // if self.get_start_cluster() == 0 {
+                    //     self.set_start_cluster(cluster);
+                    // }
+                    // else {
                         fat_write.set_next_cluster(fat_write.get_file_last_cluster(self.get_start_cluster(), dev), cluster, dev);
-                    }
+                    // }
                     let cluster_num = fat_write.get_cluster_num(self.get_start_cluster(), dev) as u32;
     
                     //返回值，仔细研究
