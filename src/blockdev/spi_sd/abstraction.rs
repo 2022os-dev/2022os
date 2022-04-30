@@ -1,4 +1,5 @@
-use pac;
+use super::pac as pac;
+use pac::*;
 
 const TLCLK_FREQ: u32 = 500000000;
 
@@ -13,46 +14,21 @@ pub trait SPIActions {
     use_lines: u8,  // SPI data line width, 1,2,4 allowed
     data_bit_length: u8,  // bits per word, basically 8
     msb_first: bool,  // endianness
-    wait_cycles: u8,  // u8
   );
   fn set_clk_rate(&self, spi_clk: u32) -> u32;
   fn recv_data(&self, chip_select: u32, rx: &mut [u8]);
-  fn send_data<X: Into<u32> + Copy>(&self, chip_select: u32, tx: &[X]);
-  fn fill_data(&self, chip_select: u32, value: u32, tx_len: usize);
+  fn send_data(&self, chip_select: u32, tx: &[u8]);
+  // fn fill_data(&self, chip_select: u32, value: u32, tx_len: usize);
 }
 
-impl<SPI: SPIImpl> SPI {
-  fn tx_enque(&self, data: u8) {
-    if self.spi.txdata.is_full() {
-      println!("spi warning: overwritting existing data to transmit");
-    }
-    self.spi.txdata.write(data as u32);
+impl SPIImpl {
+  pub fn new(spi: pac::SPIDevice) -> Self {
+    Self { spi }
   }
 
-  fn rx_deque(&self) -> u8 {
-    if self.spi.txdata.is_full() {
-      println!("spi warning: attempting to read empty fifo");
-    }
-    self.spi.rxdata.read() as u8;
-  }
-
-  fn rx_wait(&self) {
-    while !self.spi.ip.receive_pending() {
-      // loop
-    }
-  }
-
-  fn tx_wait(&self) {
-    while !self.spi.ip.transmit_pending() {
-      // loop
-    }
-  }
-}
-
-impl<SPI: SPIImpl> SPIActions for SPI {
   // This function references spi-sifive.c:sifive_spi_init()
-  fn init(&self) { 
-    let spi: &RegisterBlock = self.spi;
+  pub fn init(&self) { 
+    let spi = self.spi;
     
     //  Watermark interrupts are disabled by default
     spi.ie.set_transmit_watermark(false);
@@ -71,16 +47,47 @@ impl<SPI: SPIImpl> SPIActions for SPI {
     // Exit specialized memory-mapped SPI flash mode
     spi.fctrl.set_flash_mode(false);
   }
+}
 
+
+impl SPIImpl {
+  fn tx_enque(&self, data: u8) {
+    if self.spi.txdata.is_full() {
+      println!("spi warning: overwritting existing data to transmit");
+    }
+    self.spi.txdata.write(data as u32);
+  }
+
+  fn rx_deque(&self) -> u8 {
+    if self.spi.txdata.is_full() {
+      println!("spi warning: attempting to read empty fifo");
+    }
+    self.spi.rxdata.read() as u8
+  }
+
+  fn rx_wait(&self) {
+    while !self.spi.ip.receive_pending() {
+      // loop
+    }
+  }
+
+  fn tx_wait(&self) {
+    while !self.spi.ip.transmit_pending() {
+      // loop
+    }
+  }
+}
+
+impl SPIActions for SPIImpl {
   fn configure(&self, use_lines: u8, data_bit_length: u8, msb_first: bool) {
-    let spi: &RegisterBlock = self.spi;
+    let spi = self.spi;
     // bit per word
     spi.fmt.set_len(data_bit_length);
     // switch protocol (QSPI, DSPI, SPI)
     let fmt_proto = match use_lines {
-      4u32 => Protocol::Quad,
-      2u32 => Protocol::Dual,
-      _    => Protocol::Single,
+      4u8 => Protocol::Quad,
+      2u8 => Protocol::Dual,
+      _   => Protocol::Single,
     };
     spi.fmt.switch_protocol(fmt_proto);
     // endianness
@@ -91,10 +98,11 @@ impl<SPI: SPIImpl> SPIActions for SPI {
     spi.csmode.switch_csmode(Mode::AUTO);
   }
 
-  fn set_clk_rate(&self, spi_clk: u32) {
+  fn set_clk_rate(&self, spi_clk: u32) -> u32 {
     // calculate clock rate
     let div = TLCLK_FREQ / 2u32 / spi_clk - 1u32;
     self.spi.sckdiv.write(div);
+    TLCLK_FREQ / 2 / div
   }
 
   fn recv_data(&self, chip_select: u32, rx_buf: &mut [u8]) {
@@ -111,7 +119,7 @@ impl<SPI: SPIImpl> SPIActions for SPI {
       let n_words = if 8usize < remaining { 8u32 } else { remaining as u32 };
       // enqueue n_words junk for transmission
       for i in 0..n_words {
-        tx_enque(0xffu8);
+        self.tx_enque(0xffu8);
       }
       // set watermark
       self.spi.rxmark.write(n_words - 1);
@@ -121,7 +129,7 @@ impl<SPI: SPIImpl> SPIActions for SPI {
       // read out all data from rx fifo
       for i in 0..n_words {
         rx_buf[len - remaining] = self.spi.rxdata.read() as u8;
-        remaining --;
+        remaining = remaining - 1;
       }
     }
   }

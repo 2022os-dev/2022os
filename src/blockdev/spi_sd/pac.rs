@@ -1,5 +1,10 @@
-use std::ops::Deref;
+use core::ops::Deref;
 use registers::*;
+
+pub use registers::Protocol as Protocol;
+pub use registers::Mode as Mode;
+
+pub use registers::Reset as Reset;
 
 #[derive(Copy, Clone)]
 pub enum SPIDevice {
@@ -96,7 +101,7 @@ pub struct RegisterBlock {
 
 mod registers {
 
-  use std::marker::PhantomData;
+  use core::marker::PhantomData;
 
   pub trait Reset {
     fn reset(&self);
@@ -203,7 +208,7 @@ mod registers {
     OFF,
   }
   impl CSMODE {
-    fn switch_csmode(&self, mode: Mode) {
+    pub fn switch_csmode(&self, mode: Mode) {
       self.write(match mode {
         Mode::AUTO => 0u32,
         Mode::HOLD => 2u32,
@@ -220,21 +225,21 @@ mod registers {
     }
   }
   impl DELAY0 {
-    fn get_cssck(&self) -> u8 {
+    pub fn get_cssck(&self) -> u8 {
       let data = self.read();
       data as u8
     }
-    fn set_cssck(&self, value: u8) {
+    pub fn set_cssck(&self, value: u8) {
       let mut data = self.read();
       data = (data & 0xffff0000u32) | value as u32;
       self.write(data);
     }
 
-    fn get_sckcs(&self) -> u8 {
+    pub fn get_sckcs(&self) -> u8 {
       let data = self.read();
       (data >> 16) as u8
     }
-    fn set_sckcs(&self, value: u8) {
+    pub fn set_sckcs(&self, value: u8) {
       let mut data = self.read();
       data = (data & 0x0000ffffu32) | ((value as u32) << 16);
       self.write(data);
@@ -249,21 +254,21 @@ mod registers {
     }
   }
   impl DELAY1 {
-    fn get_intercs(&self) -> u8 {
+    pub fn get_intercs(&self) -> u8 {
       let data = self.read();
       data as u8
     }
-    fn set_intercs(&self, value: u8) {
+    pub fn set_intercs(&self, value: u8) {
       let mut data = self.read();
       data = (data & 0xffff0000u32) | value as u32;
       self.write(data);
     }
 
-    fn get_interxfr(&self) -> u8 {
+    pub fn get_interxfr(&self) -> u8 {
       let data = self.read();
       (data >> 16) as u8
     }
-    fn set_interxfr(&self, value: u8) {
+    pub fn set_interxfr(&self, value: u8) {
       let mut data = self.read();
       data = (data & 0x0000ffffu32) | ((value as u32) << 16);
       self.write(data);
