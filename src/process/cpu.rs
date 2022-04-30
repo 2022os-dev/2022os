@@ -79,6 +79,8 @@ pub fn init_hart() {
         PTEFlag::R | PTEFlag::W,
     );
 
+    current_hart_pgtbl().map_pages(0x10040.into()..0x10051.into(), 0x10040.into(), PTEFlag::R | PTEFlag::W);
+
     unsafe {
         riscv::register::sstatus::set_sum();
         // 内核态不支持中断
