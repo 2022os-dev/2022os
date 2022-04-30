@@ -12,7 +12,7 @@ overflow-check = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["multicore", "input_echo", "init_clock", "user_log", "print_lock"]
+default = ["multicore", "input_echo", "init_clock", "user_log", "print_lock", "fat32"]
 board_unleashed = []    # 使用unleashed开发板
 init_clock = ["board_unleashed"]    # 配置系统时钟，使用1G Hz
 read_buffer = []    # read调用使用缓存区
@@ -36,6 +36,7 @@ vfs = []
 pipe = []
 path_resolve = []
 execve = []
+fat32 = []
 
 [dependencies]
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
