@@ -633,8 +633,8 @@ impl<T: SPIActions> SDCard<T> {
     };
     /* Check if the SD acknowledged the read block command: R1 response (0x00: no errors) */
     if self.get_response() != 0x00 {
-      self.end_cmd();
-      return Err(());
+      // self.end_cmd();
+      // return Err(());
     }
     let mut error = false;
     //let mut dma_chunk = [0u32; SEC_LEN];
@@ -657,12 +657,11 @@ impl<T: SPIActions> SDCard<T> {
       self.read_data(&mut frame);
     }
     self.end_cmd();
-    if flag {
-      self.send_cmd(CMD::CMD12, 0, 0);
-      self.get_response();
-      self.end_cmd();
-      self.end_cmd();
-    }
+    
+    self.send_cmd(CMD::CMD12, 0, 0);
+    self.get_response();
+    self.end_cmd();
+    self.end_cmd();
     /* It is an error if not everything requested was read */
     if error {
       Err(())
@@ -763,9 +762,11 @@ impl SDCardWrapper {
 
 impl BlockDevice for SDCardWrapper {
   fn read_block(&self, block_id: usize, buf: &mut [u8]) {
+    println!("reading {}", block_id);
     self.0.read_sector(buf, block_id as u32).unwrap();
   }
   fn write_block(&self, block_id: usize, buf: &[u8]) {
+    println!("write {}", block_id);
     self.0.write_sector(buf, block_id as u32).unwrap();
   }
 }
