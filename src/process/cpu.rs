@@ -86,6 +86,8 @@ pub fn init_hart() {
         // 内核态不支持中断
         riscv::register::sstatus::clear_sie();
     }
+    // unleashed QSPI
+    current_hart_pgtbl().map_pages(0x10040.into()..0x10051.into(), 0x10040.into(), PTEFlag::R | PTEFlag::W);
     activate_vm();
 
     current_hart_set_trap_times(get_time());

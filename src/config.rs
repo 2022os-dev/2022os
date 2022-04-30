@@ -21,3 +21,6 @@ pub const MAX_FDS: usize = 1024;
 
 // 文件目录最大长度
 pub const PATH_LIMITS: usize = 512;
+
+pub const PERI_START: usize = 0x10040000;
+pub const PERI_END: usize = 0x10060000;

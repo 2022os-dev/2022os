@@ -23,6 +23,7 @@ mod sbi;
 #[macro_use]
 mod console;
 
+mod blockdev;
 mod entry;
 mod heap;
 mod link_syms;
@@ -48,6 +49,8 @@ extern crate elf_parser;
 use mm::*;
 use process::cpu::hartid;
 use task::*;
+
+use blockdev::BlockDevice;
 
 /// Clear .bss section
 fn clear_bss() {
@@ -79,6 +82,10 @@ extern "C" fn kernel_start() {
         mm::init();
 
         init_hart();
+
+        println!("[kernel] before init sd");
+        blockdev::init_sdcard();
+        println!("[kernel] after init sd");
 
         // Load shell
         #[cfg(not(feature = "batch"))]

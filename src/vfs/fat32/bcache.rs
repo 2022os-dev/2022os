@@ -210,6 +210,7 @@ pub fn block_cache_sync_all() {
 
 #[allow(unused)]
 pub fn read_block(id: Ino, buf: &mut [u8]) {
+    crate::blockdev::read_block(id as usize, buf);
     // let mut f = File::open("D:/gittest/disk").unwrap();
     // let off = id * 512;
     // f.seek(SeekFrom::Start(off as u64));
@@ -221,6 +222,7 @@ pub fn read_block(id: Ino, buf: &mut [u8]) {
 
 #[allow(unused)]
 pub fn write_block(id: Ino, buf: &[u8]) {
+    crate::blockdev::write_block(id as usize, buf);
     // let mut f = OpenOptions::new().read(true).write(true).open("D:/gittest/disk").unwrap();
     // let off = id * 512;
     // f.seek(SeekFrom::Start(off as u64));
