@@ -2,3 +2,4 @@ target
 /kernel.bin
 /fat32.img
 /src/user/user_app
+/sdcard.img

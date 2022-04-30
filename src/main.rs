@@ -22,6 +22,7 @@ mod sbi;
 mod console;
 
 mod batch;
+mod blockdev;
 mod entry;
 mod heap;
 mod link_syms;
