@@ -2,8 +2,9 @@
 // See https://github.com/rcore-os/rCore-Tutorial-v3/blob/main/LICENSE
 // Distributed under GPLv3
 
+#![allow(non_snake_case)]
 pub mod abstraction;
-pub mod pac;
+pub mod platform;
 
 use super::BlockDevice;
 use abstraction::*;
@@ -21,6 +22,7 @@ pub struct SDCard<T> {
  */
 /** Data token start byte, Start Single Block Read */
 pub const SD_START_DATA_SINGLE_BLOCK_READ: u8 = 0xFE;
+#[allow(unused)]
 /** Data token start byte, Start Multiple Block Read */
 pub const SD_START_DATA_MULTIPLE_BLOCK_READ: u8 = 0xFE;
 /** Data token start byte, Start Single Block Write */
