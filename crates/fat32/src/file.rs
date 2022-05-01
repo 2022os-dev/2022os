@@ -95,23 +95,19 @@ impl<'a, T> File<'a, T>
             }
             let off = self.bpb.offset(f.current_cluster) + index % cluster_size;
             let len = core::cmp::min(length, cluster_size - index % cluster_size);
-            self.device.write(&buf[(index - offset)..(index - offset +len)],
+            self.device.write(&buf[(index - offset)..(index+len-offset)],
                              off,
                              number_of_blocks).unwrap();
             index += len;
             length -= len;
         }).last();
         if length > 0 {
-            match self.write_with_type(&buf[(buf.len() - length)..], WriteType::Append) {
-                Ok(_) => {
-                    length += length;
-                } 
-                Err(_) => {
-                    return Err(FileError::WriteError)
-                }
+            if let Err(_) = self.write_with_type(&buf[(buf.len() - length)..], WriteType::Append) {
+                return Err(FileError::WriteError)
             }
         }
-        Ok(length)
+        self.update_length(offset + buf.len());
+        Ok(buf.len())
     }
 
     /// Write Data To File, Using Append OR OverWritten

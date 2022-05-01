@@ -2,7 +2,7 @@ use core::str;
 use crate::tool::read_le_u32;
 use crate::dir::OpType;
 
-pub(crate) enum NameType {
+pub enum NameType {
     SFN,
     LFN,
 }

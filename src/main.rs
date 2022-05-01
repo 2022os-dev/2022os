@@ -83,7 +83,6 @@ extern "C" fn kernel_start() {
 
         blockdev::init_sdcard();
 
-        test();
 
 
         // Load shell
@@ -130,16 +129,19 @@ use alloc::sync::Arc;
 lazy_static!{
     static ref SDCARD: SDCard = SDCard {};
     static ref VOLUMN: fat32::volume::Volume<SDCard> = fat32::volume::Volume::new(*SDCARD);
-    static ref ROOT: fat32::dir::Dir<'static, SDCard> = VOLUMN.root_dir();
+    pub static ref FAT32ROOT: Inode = Arc::new(VOLUMN.root_dir());
 }
-fn test() {
-    let inode = ROOT.get_child("hello.txt").unwrap();
+
+#[allow(unused)]
+fn sd_test() {
+    ROOT.unlink_child("hello.txt", false).unwrap_or(0);
+    let inode = ROOT.create("hello.txt", FileMode::all(), InodeType::File).unwrap();
     let mut write_buf: [u8; 1025] = [0; 1025];
     for i in 0..write_buf.len() {
         write_buf[i] = 'A' as u8 + (i % 26) as u8;
     }
-    println!("write lenght {}", write_buf.len());
-    inode.write_offset(0, &write_buf).unwrap();
+    let write_len = inode.write_offset(0, &write_buf).unwrap();
+    println!("write lenght {}", write_len);
     let mut buf: [u8; 1] = [69];
     println!("inode lenght {}", inode.len());
     for i in 0..inode.len() {
@@ -185,26 +187,69 @@ impl crate::vfs::_Inode for fat32::file::File<'_, SDCard> {
     }
 }
 
-impl crate::vfs::_Inode for fat32::dir::Dir<'static, SDCard> {
-    fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
-        match self.open_file(name) {
-            Ok(file) => {
-                Ok(Arc::new(file.clone()))
+impl From<fat32::dir::DirError> for FileErr {
+    fn from(err: fat32::dir::DirError) -> FileErr {
+        match err {
+            fat32::dir::DirError::DirHasExist => {
+                FileErr::InodeChildExist
             }
-            Err(fat32::dir::DirError::NoMatchDir) | Err(fat32::dir::DirError::NoMatchFile) => {
-                Err(FileErr::InodeNotDir)
+            fat32::dir::DirError::FileHasExist => {
+                FileErr::InodeChildExist
             }
-            Err(fat32::dir::DirError::IllegalChar) => {
-                Err(FileErr::NotDefine)
+            fat32::dir::DirError::IllegalChar => {
+                FileErr::FdInvalid
             }
-            Err(fat32::dir::DirError::DirHasExist) | Err(fat32::dir::DirError::FileHasExist) => {
-                Err(FileErr::InodeChildExist)
+            _ => {
+                FileErr::NotDefine
             }
         }
     }
+}
 
-    fn get_dirent(&self, _: usize, _: &mut LinuxDirent) -> Result<usize, FileErr> {
+impl crate::vfs::_Inode for fat32::dir::Dir<'static, SDCard> {
+    fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
+        let file = self.open_file(name)?;
+        Ok(Arc::new(file.clone()))
+    }
+
+    fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
+        /*
+        let dir_iter = self.direntry_iter();
+        if let None = dir_iter {
+            return Err(FileErr::NotDefine)
+        }
+        let dir_iter = dir_iter.unwrap();
+        let ent = dir_iter.skip(offset).take(1).last();
+        if let None = ent {
+            return Err(FileErr::InodeEndOfDir)
+        }
+        let ent = ent.unwrap();
+        match fat32::tool::sfn_or_lfn(name) {
+            fat32::entry::NameType::LFN => {
+
+            }
+            fat32::entry::NameType::SFN => {
+            }
+        }
+        */
         Err(FileErr::NotDefine)
+    }
+
+    fn create(&self, name: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {
+        let _self = unsafe { (self as *const Self as *mut Self).as_mut().unwrap()};
+        match itype {
+            InodeType::Directory => {
+                _self.create_dir(name)?;
+                _self.get_child(name)
+            }
+            InodeType::File => {
+                _self.create_file(name)?;
+                _self.get_child(name)
+            }
+            _ => {
+                Err(FileErr::NotDefine)
+            }
+        }
     }
 
     fn unlink_child(&self, name: &str, rm_dir: bool) -> Result<usize, FileErr> {
@@ -212,22 +257,16 @@ impl crate::vfs::_Inode for fat32::dir::Dir<'static, SDCard> {
         match _self.delete_file(name) {
             Err(fat32::dir::DirError::NoMatchFile) => {
             }
-            Err(_) => {
-                return Err(FileErr::NotDefine)
+            Err(e) => {
+                return Err(e.into())
             }
             Ok(_) => {
                 return Ok(0)
             }
         }
         if rm_dir {
-            match _self.delete_dir(name) {
-                Err(_) => {
-                    return Err(FileErr::NotDefine)
-                }
-                Ok(_) => {
-                    return Ok(0)
-                }
-            }
+            _self.delete_dir(name)?;
+            return Ok(0)
         } else {
             return Err(FileErr::NotDefine)
         }

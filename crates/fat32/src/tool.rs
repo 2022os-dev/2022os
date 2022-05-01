@@ -28,7 +28,7 @@ pub(crate) fn is_illegal(chs: &str) -> bool {
     false
 }
 
-pub(crate) fn sfn_or_lfn(value: &str) -> NameType {
+pub fn sfn_or_lfn(value: &str) -> NameType {
     let (name, extension) = match value.find('.') {
         Some(i) => (&value[0..i], &value[i + 1..]),
         None => (&value[0..], "")

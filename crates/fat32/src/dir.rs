@@ -124,6 +124,10 @@ impl<'a, T> Dir<'a, T>
         }
     }
 
+    pub fn direntry_iter(&self) -> Option<DirIter<T>> {
+        Some(DirIter::new(self.device, self.fat, self.bpb))
+    }
+
     /// Find Long File Name Item, Return Option Type
     fn find_lfn(&self, iter: &mut DirIter<T>, value: &str) -> Option<Entry> {
         let count = get_count_of_lfn(value);

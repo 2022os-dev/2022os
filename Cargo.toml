@@ -25,6 +25,7 @@ FCFS = []           # 优先调度先来的进程，用于gitee调试时查看�
 # 下面的选项用于调试内核模块的输出
 kernel_log = ["pcb", "path_resolve", "pipe", "vfs", "execve"] 
 print_lock = []   # 使用互斥锁防止多核打印格式混乱
+sd = []
 syscall = []
 trap = []
 scheduler = []

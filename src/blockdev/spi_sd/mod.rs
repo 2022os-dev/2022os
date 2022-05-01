@@ -762,11 +762,11 @@ impl SDCardWrapper {
 
 impl BlockDevice for SDCardWrapper {
   fn read_block(&self, block_id: usize, buf: &mut [u8]) {
-    println!("reading {}", block_id);
+    log!("sd":"read">"{}", block_id);
     self.0.read_sector(buf, block_id as u32).unwrap();
   }
   fn write_block(&self, block_id: usize, buf: &[u8]) {
-    println!("write {}", block_id);
+    log!("sd":"write">"{}", block_id);
     self.0.write_sector(buf, block_id as u32).unwrap();
   }
 }
