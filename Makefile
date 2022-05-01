@@ -52,9 +52,9 @@ qemu-unleashed: sdcard-unleashed
 qemu-unleashed-jump: kernel.bin
 		qemu-system-riscv64 -M sifive_u\
 			-bios bootloader/fw_jump.bin \
-			-drive file=sdcard.img,if=sd,format=raw \
+      			-sd sdcard.img \
 			-device loader,file=kernel.bin,addr=0x80200000 \
-			-nographic
+			-nographic -d guest_errors,unimp
 
 clean:
 		@rm -f sdcard.img
