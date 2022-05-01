@@ -144,8 +144,8 @@ impl<'a, T> Dir<'a, T>
         }
     }
 
-    pub fn direntry_iter(&self) -> Option<DirIter<T>> {
-        Some(DirIter::new(self.device, self.fat, self.bpb))
+    pub fn direntry_iter(&self) -> DirIter<T> {
+        DirIter::new(self.device, self.fat, self.bpb)
     }
 
     /// Find Long File Name Item, Return Option Type

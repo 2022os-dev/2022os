@@ -30,7 +30,16 @@ impl block_device::BlockDevice for SDCard {
 #[allow(unused)]
 pub fn sd_test() {
     let mut root = VOLUMN.root_dir();
-    root.create_dir("from_root_dir").unwrap();
+    // root.create_dir("from_root_dir").unwrap();
+    root.direntry_iter().map(|dent| {
+        if dent.is_lfn() {
+            let (buf, len) = dent.get_lfn().unwrap();
+            println!("Dent: {}", unsafe { core::str::from_utf8_unchecked(&buf[..len]) });
+        } else {
+            let (buf, len) = dent.get_sfn().unwrap();
+            println!("Dent: {}", unsafe { core::str::from_utf8_unchecked(&buf[..len]) });
+        }
+    }).count();
     /*
     ROOT.unlink_child("hello.txt", false).unwrap_or(0);
     let inode = ROOT.create("hello.txt", FileMode::all(), InodeType::File).unwrap();
@@ -135,26 +144,44 @@ impl crate::vfs::_Inode for fat32::dir::Dir<'static, SDCard> {
     }
 
     fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
-        /*
-        let dir_iter = self.direntry_iter();
-        if let None = dir_iter {
-            return Err(FileErr::NotDefine)
-        }
-        let dir_iter = dir_iter.unwrap();
-        let ent = dir_iter.skip(offset).take(1).last();
-        if let None = ent {
+        let dent_iter = self.direntry_iter();
+
+        let dent = dent_iter.skip(offset).take(1).last();
+        if let None = dent {
             return Err(FileErr::InodeEndOfDir)
         }
-        let ent = ent.unwrap();
-        match fat32::tool::sfn_or_lfn(name) {
-            fat32::entry::NameType::LFN => {
-
+        let dent = dent.unwrap();
+        dirent.d_ino = dent.cluster() as usize;
+        dirent.d_type = if dent.is_dir() {
+                DT_DIR
+            } else if dent.is_file() {
+                DT_REG
+            } else {
+                DT_UNKNOWN
+            };
+        use core::convert::TryFrom;
+        dirent.d_reclen = match u16::try_from(core::mem::size_of::<LinuxDirent>()) {
+            Ok(size) => size,
+            Err(_) => {
+                log!("vfs":"get_dirents">"invalid reclen");
+                return Err(FileErr::NotDefine);
             }
-            fat32::entry::NameType::SFN => {
+        };
+        dirent.d_off = match isize::try_from(offset + 1) {
+            Ok(size) => size,
+            Err(_) => {
+                log!("vfs":"get_dirents">"invalid d_off");
+                return Err(FileErr::NotDefine);
             }
+        };
+        if dent.is_lfn() {
+            let (buf, len) = dent.get_lfn().unwrap();
+            dirent.d_name[0..len].copy_from_slice(&buf[0..len]);
+        } else {
+            let (buf, len) = dent.get_sfn().unwrap();
+            dirent.d_name[0..len].copy_from_slice(&buf[0..len]);
         }
-        */
-        Err(FileErr::NotDefine)
+        Ok(1)
     }
 
     fn create(&self, name: &str, _: FileMode, itype: InodeType) -> Result<Inode, FileErr> {

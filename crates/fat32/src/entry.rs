@@ -314,7 +314,7 @@ impl Entry {
         self.sfn.unwrap().cluster
     }
 
-    fn get_sfn(&self) -> Option<([u8; 12], usize)> {
+    pub fn get_sfn(&self) -> Option<([u8; 12], usize)> {
         if self.sfn.is_some() {
             Some(self.sfn.as_ref().unwrap().get_full_name_bytes())
         } else {
@@ -322,12 +322,16 @@ impl Entry {
         }
     }
 
-    fn get_lfn(&self) -> Option<([u8; 13 * 3], usize)> {
+    pub fn get_lfn(&self) -> Option<([u8; 13 * 3], usize)> {
         if self.lfn.is_some() {
             Some(self.lfn.as_ref().unwrap().to_utf8())
         } else {
             None
         }
+    }
+
+    pub fn entry_size() -> usize {
+        32
     }
 
     pub(crate) fn count_of_name(&self) -> Option<usize> {
