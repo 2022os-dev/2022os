@@ -34,10 +34,10 @@ pub enum OpType {
 pub struct Dir<'a, T>
     where T: BlockDevice + Clone + Copy,
           <T as BlockDevice>::Error: core::fmt::Debug {
-    pub(crate) device: T,
-    pub(crate) bpb: &'a BIOSParameterBlock,
-    pub(crate) detail: Entry,
-    pub(crate) fat: FAT<T>,
+    pub device: T,
+    pub bpb: &'a BIOSParameterBlock,
+    pub detail: Entry,
+    pub fat: FAT<T>,
 }
 
 impl<'a, T> Dir<'a, T>
@@ -81,6 +81,26 @@ impl<'a, T> Dir<'a, T>
                 })
             } else {
                 Err(DirError::NoMatchFile)
+            }
+        }
+    }
+
+    pub fn open_dir(&self, file: &str) -> Result<Dir<'a, T>, DirError> {
+        if is_illegal(file) { return Err(DirError::IllegalChar); }
+        match self.exist(file) {
+            None => Err(DirError::NoMatchFile),
+            Some(di) => if di.is_dir() {
+                let fat = FAT::new(di.cluster(),
+                                   self.device,
+                                   self.bpb.fat1());
+                Ok(Dir::<T> {
+                    device: self.device,
+                    bpb: self.bpb,
+                    detail: di,
+                    fat,
+                })
+            } else {
+                Err(DirError::NoMatchDir)
             }
         }
     }

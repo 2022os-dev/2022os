@@ -18,7 +18,7 @@ pub struct FAT<T>
 impl<T> FAT<T>
     where T: BlockDevice + Clone + Copy,
           <T as BlockDevice>::Error: core::fmt::Debug {
-    pub(crate) fn new(cluster: u32, device: T, fat_offset: usize) -> Self {
+    pub fn new(cluster: u32, device: T, fat_offset: usize) -> Self {
         Self {
             device,
             fat_offset,

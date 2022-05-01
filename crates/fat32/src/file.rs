@@ -75,7 +75,7 @@ impl<'a, T> File<'a, T>
             length -= len;
         }).last();
 
-        Ok(length)
+        Ok(buf.len())
     }
 
     pub fn write_off(&mut self, offset: usize, buf: &[u8]) -> Result<usize, FileError> {

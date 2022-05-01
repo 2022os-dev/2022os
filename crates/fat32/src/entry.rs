@@ -310,7 +310,7 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub(crate) fn cluster(&self) -> u32 {
+    pub fn cluster(&self) -> u32 {
         self.sfn.unwrap().cluster
     }
 
@@ -446,19 +446,19 @@ impl Entry {
         self.sfn.as_mut().unwrap().length = length as u32;
     }
 
-    pub(crate) fn is_lfn(&self) -> bool {
+    pub fn is_lfn(&self) -> bool {
         EntryType::LFN == self.item_type
     }
 
-    pub(crate) fn is_deleted(&self) -> bool {
+    pub fn is_deleted(&self) -> bool {
         EntryType::Deleted == self.item_type
     }
 
-    pub(crate) fn is_dir(&self) -> bool {
+    pub fn is_dir(&self) -> bool {
         EntryType::Dir == self.item_type
     }
 
-    pub(crate) fn is_file(&self) -> bool {
+    pub fn is_file(&self) -> bool {
         EntryType::File == self.item_type
     }
 }

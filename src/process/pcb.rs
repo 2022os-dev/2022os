@@ -71,11 +71,11 @@ impl Pcb {
             state: PcbState::Running,
             cwd,
             memory_space,
-            fds: vec![Some(STDIN.clone()), Some(STDOUT.clone())],
+            fds: vec![Some(STDIN.clone()), Some(STDOUT.clone()), Some(STDOUT.clone())],
             children: Vec::new(),
             sabinds: SigActionBinds::new(),
             // 默认根目录
-            root: crate::FAT32ROOT.clone(),
+            root: crate::fat32_wrapper::FAT32ROOT.clone(),
 
             utimes: 0,
             stimes: 0,
