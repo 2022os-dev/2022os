@@ -30,6 +30,8 @@ pub const SD_START_DATA_SINGLE_BLOCK_WRITE: u8 = 0xFE;
 /** Data token start byte, Start Multiple Block Write */
 pub const SD_START_DATA_MULTIPLE_BLOCK_WRITE: u8 = 0xFC;
 
+pub const SD_STOP_DATA_MULTIPLE_BLOCK_WRITE: u8 = 0xFD;
+
 pub const SEC_LEN: usize = 512;
 
 /** SD commands */
@@ -247,6 +249,7 @@ impl<T: SPIActions> SDCard<T> {
       if result[0] != 0xFF {
           return result[0];
       }
+      timeout -= 1;
     }
     /* After time out */
     return 0xFF;
@@ -439,87 +442,6 @@ impl<T: SPIActions> SDCard<T> {
   }
 
   /*
-  * Initializes the SD/SD communication in SPI mode.
-  * @param  None
-  * @retval The SD Response info if succeeeded, otherwise Err
-  */
-  pub fn _init(&self) -> Result<SDCardInfo, InitError> {
-    /* Initialize SD_SPI */
-    self.lowlevel_init();
-    /* NOTE: this reset doesn't always seem to work if the SD access was broken off in the
-      * middle of an operation: CMDFailed(CMD0, 127). */
-
-    /* Send dummy byte 0xFF, 10 times with CS high */
-    /* Rise CS and MOSI for 80 clocks cycles */
-    /* Send dummy byte 0xFF */
-    for _ in 0..12 {
-      self.write_data(&[0xff]);
-    }
-    
-    let mut retry = 0;
-    let mut ret = 0;
-    while retry<200 && ret !=0x01 {
-      self.send_cmd(CMD::CMD1, 0, 0x95);
-      ret = self.get_response();
-      self.end_cmd();
-      retry = retry + 1;
-    }
-    if retry >= 200 {
-      return Err(InitError::CMDFailed(CMD::CMD0, ret));
-    }
-
-    self.send_cmd(CMD::CMD8, 0x1aa, 0x87);
-    ret = self.get_response();
-    self.end_cmd();
-
-    /*
-    while index != 0 {
-      /* <ACMD> */
-      self.send_cmd(CMD::CMD55, 0, 0);
-      let result = self.get_response();
-      self.end_cmd();
-      if result != 0x01 {
-        return Err(InitError::CMDFailed(CMD::CMD55, result));
-      }
-      /* Initiate SDC initialization process */
-      self.send_cmd(CMD::ACMD41, 0x40000000, 0);
-      let result = self.get_response();
-      self.end_cmd();
-      if result == 0x00 {
-        break;
-      }
-      index -= 1;
-    }
-    if index == 0 {
-      return Err(InitError::CMDFailed(CMD::ACMD41, 0));
-    }
-    */
-    let mut index = 255;
-    let mut frame = [0u8; 4];
-    while index != 0 {
-      /* Read OCR */
-      self.send_cmd(CMD::CMD58, 0, 1);
-      let result = self.get_response();
-      self.read_data(&mut frame);
-      self.end_cmd();
-      if result == 0 {
-          break;
-      }
-      index -= 1;
-    }
-    if index == 0 {
-      return Err(InitError::CMDFailed(CMD::CMD58, 0));
-    }
-    if (frame[0] & 0x40) == 0 {
-      // return Err(InitError::CardCapacityStatusNotSet(frame));
-    }
-    self.HIGH_SPEED_ENABLE();
-    self.get_cardinfo()
-        .map_err(|_| InitError::CannotGetCardInfo)
-  }
-
-
-  /*
     * Initializes the SD/SD communication in SPI mode.
     * @param  None
     * @retval The SD Response info if succeeeded, otherwise Err
@@ -635,8 +557,8 @@ impl<T: SPIActions> SDCard<T> {
     };
     /* Check if the SD acknowledged the read block command: R1 response (0x00: no errors) */
     if self.get_response() != 0x00 {
-      self.end_cmd();
-      return Err(());
+      // self.end_cmd();
+      // return Err(());
     }
     let mut error = false;
     //let mut dma_chunk = [0u32; SEC_LEN];
@@ -689,11 +611,10 @@ impl<T: SPIActions> SDCard<T> {
       self.send_cmd(CMD::CMD24, sector, 0);
     } else {
       frame[1] = SD_START_DATA_MULTIPLE_BLOCK_WRITE;
-      self.send_cmd(
-        CMD::ACMD23,
-        (data_buf.len() / SEC_LEN).try_into().unwrap(),
-        0,
-      );
+      self.send_cmd(CMD::CMD55, 0, 0x01);
+      self.get_response();
+      self.end_cmd();
+      self.send_cmd(CMD::ACMD23, (data_buf.len() / SEC_LEN).try_into().unwrap(), 0);
       self.get_response();
       self.end_cmd();
       self.send_cmd(CMD::CMD25, sector, 0);
@@ -718,18 +639,26 @@ impl<T: SPIActions> SDCard<T> {
       /* Put dummy CRC bytes */
       self.write_data(&[0xff, 0xff]);
       /* Read data response */
-      if self.get_dataresponse() != 0x00 {
+      if self.get_dataresponse() != 0x05 {
         //self.end_cmd();
         //return Err(());
       }
     }
+
+    if frame[1] == SD_START_DATA_MULTIPLE_BLOCK_WRITE {
+      frame[1] = SD_STOP_DATA_MULTIPLE_BLOCK_WRITE;
+      self.write_data(&frame);
+    }
+
     self.end_cmd();
     self.end_cmd();
 
+    /*
     self.send_cmd(CMD::CMD12, 0, 0);
     self.get_response();
     self.end_cmd();
     self.end_cmd();
+    */
 
     Ok(())
   }
@@ -743,10 +672,9 @@ pub fn init_sdcard() -> SDCard<SPIImpl> {
   // wait previous output
   // usleep(100000);
 
-  let spi = SPIImpl::new(pac::SPIDevice::QSPI2);
+  let spi = SPIImpl::new(abstraction::SPIDevice::QSPI2);
   let sd = SDCard::new(spi, SD_CS);
-  let info = sd.init().unwrap();
-  let num_sectors = info.CardCapacity / 512;
+  let _ = sd.init().unwrap();
   // assert!(num_sectors > 0);
 
   println!("[kernel] init sdcard!");
@@ -757,7 +685,7 @@ pub struct SDCardWrapper(SDCard<SPIImpl>);
 
 impl SDCardWrapper {
   pub fn new() -> Self {
-    unsafe { Self(init_sdcard()) }
+    Self(init_sdcard())
   }
 
   pub fn init(&self) { }
@@ -765,9 +693,15 @@ impl SDCardWrapper {
 
 impl BlockDevice for SDCardWrapper {
   fn read_block(&self, block_id: usize, buf: &mut [u8]) {
-    self.0.read_sector(buf, block_id as u32).unwrap();
+    println!("read block {}", block_id/512);
+    if let Err(_) = self.0.read_sector(buf, block_id as u32) {
+        panic!("read_block invalid {}", block_id);
+    }
   }
   fn write_block(&self, block_id: usize, buf: &[u8]) {
-    self.0.write_sector(buf, block_id as u32).unwrap();
+    println!("write block {}", block_id);
+    if let Err(_) = self.0.write_sector(buf, block_id as u32) {
+        panic!("write_block invalid {}", block_id/512);
+    }
   }
 }
