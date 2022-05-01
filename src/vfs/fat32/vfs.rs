@@ -646,6 +646,7 @@ impl _Inode for VFSFile {
     }
 
     fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
+        println!("fat32 get child {}", name);
         if let Some(child) = self.find_name(name) {
             Ok(Arc::new(child.clone()))
         } else {

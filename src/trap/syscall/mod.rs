@@ -196,14 +196,12 @@ pub fn syscall_handler() {
             let fstype = VirtualAddr(trapframe["a2"]);
             let flag = trapframe["a3"];
             let data = trapframe["a4"];
-            log!("syscall":"mount" > "pid({}) ({}, {}, {}, {}, {})", pcblock.pid, special, dir, fstype, flag, data);
             pcblock.trapframe()["a0"] = sys_mount(special, dir, fstype, flag, data) as usize;
         }
 
         SYSCALL_UMOUNT2 => {
             let special = VirtualAddr(trapframe["a0"]);
             let flag = trapframe["a1"] as u32;
-            log!("syscall":"umount2" > "pid({}) ({}, {})", pcblock.pid, special, flag);
             pcblock.trapframe()["a0"] = sys_umount2(special, flag) as usize;
         }
 
