@@ -622,7 +622,7 @@ impl<T: SPIActions> SDCard<T> {
   *         - `Ok(())`: Sequence succeed
   */
   pub fn read_sector(&self, data_buf: &mut [u8], sector: u32) -> Result<(), ()> {
-    assert!(data_buf.len() >= SEC_LEN && (data_buf.len() % SEC_LEN) == 0);
+    // assert!(data_buf.len() >= SEC_LEN && (data_buf.len() % SEC_LEN) == 0);
     /* Send CMD17 to read one block, or CMD18 for multiple */
     let flag = if data_buf.len() == SEC_LEN {
       self.send_cmd(CMD::CMD17, sector, 0);
@@ -679,7 +679,7 @@ impl<T: SPIActions> SDCard<T> {
     *         - `Ok(())`: Sequence succeed
     */
   pub fn write_sector(&self, data_buf: &[u8], sector: u32) -> Result<(), ()> {
-    assert!(data_buf.len() >= SEC_LEN && (data_buf.len() % SEC_LEN) == 0);
+    // assert!(data_buf.len() >= SEC_LEN && (data_buf.len() % SEC_LEN) == 0);
     let mut frame = [0xff, 0x00];
     if data_buf.len() == SEC_LEN {
       frame[1] = SD_START_DATA_SINGLE_BLOCK_WRITE;

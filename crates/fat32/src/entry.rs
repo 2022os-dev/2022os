@@ -346,7 +346,7 @@ impl Entry {
         }
     }
 
-    pub(crate) fn length(&self) -> Option<usize> {
+    pub fn length(&self) -> Option<usize> {
         if self.sfn.is_some() {
             Some(self.sfn.as_ref().unwrap().length as usize)
         } else {

@@ -24,11 +24,11 @@ pub enum WriteType {
 pub struct File<'a, T>
     where T: BlockDevice + Clone + Copy,
           <T as BlockDevice>::Error: core::fmt::Debug {
-    pub(crate) device: T,
-    pub(crate) bpb: &'a BIOSParameterBlock,
-    pub(crate) dir_cluster: u32,
-    pub(crate) detail: Entry,
-    pub(crate) fat: FAT<T>,
+    pub device: T,
+    pub bpb: &'a BIOSParameterBlock,
+    pub dir_cluster: u32,
+    pub detail: Entry,
+    pub fat: FAT<T>,
 }
 
 /// To Read File Per Sector By Iterator
@@ -49,34 +49,73 @@ impl<'a, T> File<'a, T>
           <T as BlockDevice>::Error: core::fmt::Debug {
     /// Read File To Buffer, Return File Length
     pub fn read(&self, buf: &mut [u8]) -> Result<usize, FileError> {
-        let length = self.detail.length().unwrap();
+        self.read_off(0, buf)
+    }
+
+    /// Read File To Buffer, Return Read Length
+    pub fn read_off(&self, offset: usize, buf: &mut [u8]) -> Result<usize, FileError> {
+        // let length = self.detail.length().unwrap();
+        let mut length = buf.len();
         let spc = self.bpb.sector_per_cluster_usize();
         let cluster_size = spc * BUFFER_SIZE;
-        let mut number_of_blocks = spc;
+        let number_of_blocks = spc;
 
-        if buf.len() < length { return Err(FileError::BufTooSmall); }
-
-        let mut index = 0;
-        self.fat.map(|f| {
-            let offset = self.bpb.offset(f.current_cluster);
-            let end = if (length - index) < cluster_size {
-                let bytes_left = length % cluster_size;
-                number_of_blocks = get_needed_sector(bytes_left);
-                index + bytes_left
-            } else {
-                index + cluster_size
-            };
-            self.device.read(&mut buf[index..end],
-                             offset,
+        // if buf.len() < length { return Err(FileError::BufTooSmall); }
+        let mut index = offset;
+        self.fat.skip(index / cluster_size).take((index % cluster_size + length + cluster_size - 1) / cluster_size).map(|f| {
+            if length <= 0 {
+                return;
+            }
+            let off = self.bpb.offset(f.current_cluster) + index % cluster_size;
+            let len = core::cmp::min(length, cluster_size - index % cluster_size);
+            self.device.read(&mut buf[(index - offset)..(index - offset +len)],
+                             off,
                              number_of_blocks).unwrap();
-            index += cluster_size;
+            index += len;
+            length -= len;
         }).last();
 
         Ok(length)
     }
 
+    pub fn write_off(&mut self, offset: usize, buf: &[u8]) -> Result<usize, FileError> {
+        // let length = self.detail.length().unwrap();
+        let mut length = buf.len();
+        let spc = self.bpb.sector_per_cluster_usize();
+        let cluster_size = spc * BUFFER_SIZE;
+        let number_of_blocks = spc;
+
+        // if buf.len() < length { return Err(FileError::BufTooSmall); }
+        let mut index = offset;
+        // 需要占用的cluster块数
+        let need_cluster = (index % cluster_size + length + cluster_size - 1) / cluster_size;
+        self.fat.skip(index / cluster_size).take(need_cluster).map(|f| {
+            if length <= 0 {
+                return;
+            }
+            let off = self.bpb.offset(f.current_cluster) + index % cluster_size;
+            let len = core::cmp::min(length, cluster_size - index % cluster_size);
+            self.device.write(&buf[(index - offset)..(index - offset +len)],
+                             off,
+                             number_of_blocks).unwrap();
+            index += len;
+            length -= len;
+        }).last();
+        if length > 0 {
+            match self.write_with_type(&buf[(buf.len() - length)..], WriteType::Append) {
+                Ok(_) => {
+                    length += length;
+                } 
+                Err(_) => {
+                    return Err(FileError::WriteError)
+                }
+            }
+        }
+        Ok(length)
+    }
+
     /// Write Data To File, Using Append OR OverWritten
-    pub fn write(&mut self, buf: &[u8], write_type: WriteType) -> Result<(), FileError> {
+    pub fn write_with_type(&mut self, buf: &[u8], write_type: WriteType) -> Result<(), FileError> {
         let num_cluster = match write_type {
             WriteType::OverWritten => self.num_cluster(buf.len()),
             WriteType::Append => self.num_cluster(buf.len() + self.detail.length().unwrap())
