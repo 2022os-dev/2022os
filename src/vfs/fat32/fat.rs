@@ -13,6 +13,7 @@ const FAT_ENTRY_PER_SECTOR: u32 = BLOCK_SIZE as u32 / FAT32_ENTRY_SIZE;
 const FREE_CLUSTER_ENTRY: u32 = 0x00000000;
 const BAD_CLUSTER: u32 = 0x0ffffff7;
 const LAST_CLUSTER: u32 = 0x0fffffff;
+const LAST_CLUSTER1: u32 = 0x0ffffff8;
 
 #[allow(unused)]
 #[derive(Clone, Copy)]
@@ -56,6 +57,20 @@ impl FAT {
         current
     }
 
+    
+
+    #[allow(unused)]
+    pub fn set_next_cluster(&self, current: u32, next: u32, dev: u8) {
+        let (fat1, fat2, off) = self.get_position(current);
+        let res = get_info_buffer(fat1, dev)
+            .write()
+            .modify(off as usize, |fat32_entry: &mut u32| *fat32_entry = next);
+        let res = get_info_buffer(fat2, dev)
+            .write()
+            .modify(off as usize, |fat32_entry: &mut u32| *fat32_entry = next);
+    }
+
+
     #[allow(unused)]
     pub fn get_next_cluster(&self, current: u32, dev: u8) -> u32 {
         let (fat1, fat2, off) = self.get_position(current);
@@ -71,17 +86,6 @@ impl FAT {
     }
 
     #[allow(unused)]
-    pub fn set_next_cluster(&self, current: u32, next: u32, dev: u8) {
-        let (fat1, fat2, off) = self.get_position(current);
-        let res = get_info_buffer(fat1, dev)
-            .write()
-            .modify(off as usize, |fat32_entry: &mut u32| *fat32_entry = next);
-        let res = get_info_buffer(fat2, dev)
-            .write()
-            .modify(off as usize, |fat32_entry: &mut u32| *fat32_entry = next);
-    }
-
-    #[allow(unused)]
     pub fn get_cluster_num(&self, current: u32, dev: u8) -> u32 {
         let mut cnt = 0;
         let (fat1, fat2, off) = self.get_position(current);
@@ -93,12 +97,14 @@ impl FAT {
         }
         let mut current = next;
         cnt += 1;
-
-        while current != LAST_CLUSTER {
+        
+        while current != LAST_CLUSTER && current != LAST_CLUSTER1 {
+            println!("hellosdjcbk,jdkaljcaljciahciu   {}",current);
             let (fat1, fat2, off) = self.get_position(current);
             next = get_info_buffer(fat1, dev)
                 .read()
                 .read(off as usize, |&fat32_entry: &u32| fat32_entry);
+            
             current = next;
             cnt += 1;
         }
@@ -121,7 +127,7 @@ impl FAT {
             next = get_info_buffer(fat1, dev)
                 .read()
                 .read(off as usize, |&fat32_entry: &u32| fat32_entry);
-            if next == LAST_CLUSTER {
+            if next == LAST_CLUSTER && current != LAST_CLUSTER1{
                 return current;
             }
             current = next;

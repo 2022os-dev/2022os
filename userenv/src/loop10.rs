@@ -9,6 +9,7 @@ use console::*;
 use syscall::*;
 
 pub fn main() {
+    
     for i in 0..=9 {
         println!("{}", i);
         syscall::syscall_yield();

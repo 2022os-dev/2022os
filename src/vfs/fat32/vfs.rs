@@ -234,6 +234,7 @@ impl VFSFile {
         let mut entry = ShortDirEntry::empty();
         let mut offset: u32 = 0;
         loop {
+            
             let length = dir.read_at(
                 offset,
                 entry.trans_to_mut_bytes(),
@@ -251,6 +252,7 @@ impl VFSFile {
             }
             // 啊哈哈哈找到了
             else if !entry.is_delete() && entry.get_name() == name {
+                
                 let (sector, offset) = self.get_sector_offset(offset);
                 return Some(VFSFile::new(
                     self.dev,
@@ -265,6 +267,7 @@ impl VFSFile {
             }
             // 该目录项不是要找的，则寻找下一个
             else {
+                
                 offset += 32;
             }
         }
@@ -343,7 +346,7 @@ impl VFSFile {
             panic!("can not find file in no-directory");
         }
         let (file_name, extension_name) = Fat32Manager::split_name_extension(name);
-
+        
         let file_name_byte_arr = file_name.as_bytes();
         let extension_name_byte_arr = extension_name.as_bytes();
 
@@ -359,6 +362,7 @@ impl VFSFile {
                 return self.find_long_name(name, short_ent);
             } else {
                 // 短文件名
+                
                 return self.find_short_name(name, short_ent);
             }
         })
@@ -608,7 +612,7 @@ impl _Inode for VFSFile {
     //     读到目录结尾返回InodeEndOfDir
     fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
         //flag用于判断是文件还是目录，offset用于设置偏移量（如果需要）
-
+        
         let (name, cluster, off, flag) = self.get_dirent_info(offset as u32);
         if cluster == 0 {
             return Err(FileErr::InodeNotDir);
@@ -648,8 +652,10 @@ impl _Inode for VFSFile {
     fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
         println!("fat32 get child {}", name);
         if let Some(child) = self.find_name(name) {
+            
             Ok(Arc::new(child.clone()))
         } else {
+            
             Err(FileErr::InodeNotChild)
         }
     }

@@ -289,7 +289,7 @@ impl ShortDirEntry {
         fat32_manager: &Arc<RwLock<Fat32Manager>>,
     ) -> u32 {
         // 1.前期准备工作
-
+        
         let fat_read = fat.read();
         let fat32_manager_read = fat32_manager.read();
         let bytes_per_sector = fat32_manager_read.get_bytes_per_sector();
@@ -304,6 +304,7 @@ impl ShortDirEntry {
             file_length = fat_read.get_cluster_num(self.get_start_cluster(), dev)
                 * bytes_per_sector as u32
                 * sectors_per_cluster as u32;
+                
         } else {
             file_length = self.file_length;
         }

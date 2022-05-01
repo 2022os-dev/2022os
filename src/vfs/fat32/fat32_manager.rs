@@ -12,6 +12,7 @@ use super::{
 use super::*;
 
 const LAST_CLUSTER: u32 = 0x0fffffff;
+const LAST_CLUSTER1: u32 = 0x0ffffff8;
 const FREE_CLUSTER_ENTRY: u32 = 0x00000000;
 const SUB_DIRECTORY: u8 = 0b00010000;
 
@@ -166,6 +167,7 @@ impl Fat32Manager {
     #[allow(unused)]
     pub fn initialize_root_dirent(&self) {
         let head = self.alloc_cluster(1, DEV).unwrap();
+        
         if head != self.root_cluster_number {
             self.dealloc_cluster(head, DEV);
             log!("fat32":>"root has initialized!");
@@ -184,7 +186,6 @@ impl Fat32Manager {
             None
         } else {
             let mut fat_write = self.fat.write();
-
             let res = fsinfo_write.get_first_free_cluster(DEV);
             let mut current: u32 = fsinfo_write.get_first_free_cluster(DEV);
             // 使用之前必须清空
@@ -198,6 +199,7 @@ impl Fat32Manager {
                 self.clean_cluster(current, dev);
                 i += 1;
             }
+            
             fat_write.set_next_cluster(current, LAST_CLUSTER, dev);
 
             // 分配完之后修改fsinfo信息
@@ -215,6 +217,9 @@ impl Fat32Manager {
     #[allow(unused)]
     // 注意，调用此方法是从传入的start参数开始依次释放所有后面的簇，故一般要释放簇时只有当要删除整个文件时，暂时不支持在不删除文件的情况下动态减小该文件大小
     pub fn dealloc_cluster(&self, start: u32, dev: u8) {
+        if start == LAST_CLUSTER || start == LAST_CLUSTER1 {
+            return;
+        }
         let mut start = start;
         let mut fsinfo_write = self.fsinfo.write();
         let fat_write = self.fat.write();
@@ -226,7 +231,7 @@ impl Fat32Manager {
             let next = fat_write.get_next_cluster(start, dev);
             fat_write.set_next_cluster(start, FREE_CLUSTER_ENTRY, dev);
             start = next;
-            if start == LAST_CLUSTER {
+            if start == LAST_CLUSTER || start == LAST_CLUSTER1{
                 break;
             }
         }
