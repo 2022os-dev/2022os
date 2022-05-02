@@ -13,6 +13,7 @@ use core::convert::TryInto;
 pub struct SDCard<T> {
     spi: T,
     spi_cs: u32,
+    is_hc: bool,
 }
 
 /*
@@ -151,13 +152,15 @@ pub struct SDCardInfo {
     pub SD_cid: SDCardCID,
     pub CardCapacity: u64,  /* Card Capacity */
     pub CardBlockSize: u64, /* Card Block Size */
+    pub is_hc: bool,        /* Card is SDHC */
 }
 
 impl<T: SPIActions> SDCard<T> {
   pub fn new(spi: T, spi_cs: u32) -> Self {
     Self {
-      spi,
-      spi_cs,
+      spi: spi,
+      spi_cs: spi_cs,
+      is_hc: false,
     }
   }
 
@@ -434,6 +437,7 @@ impl<T: SPIActions> SDCard<T> {
       SD_cid: self.get_cidregister()?,
       CardCapacity: 0,
       CardBlockSize: 0,
+      is_hc: false,
     };
     info.CardBlockSize = 1 << u64::from(info.SD_csd.RdBlockLen);
     info.CardCapacity = (u64::from(info.SD_csd.DeviceSize) + 1) * 1024 * info.CardBlockSize;
@@ -441,99 +445,125 @@ impl<T: SPIActions> SDCard<T> {
     Ok(info)
   }
 
+  fn retry_cmd(&self, cmd: CMD, arg: u32, crc: u8, expect: u8, retry_times: u32) -> Result<(), ()> {
+    for _ in 0..retry_times {
+      self.send_cmd(cmd, arg, crc);
+      let resp = self.get_response();
+      self.end_cmd();
+      if resp == expect {
+        return Ok(());
+      }
+    }
+    return Err(());
+  }
+
   /*
     * Initializes the SD/SD communication in SPI mode.
     * @param  None
     * @retval The SD Response info if succeeeded, otherwise Err
     */
-  pub fn init(&self) -> Result<SDCardInfo, InitError> {
-      /* Initialize SD_SPI */
-      self.lowlevel_init();
-      /* NOTE: this reset doesn't always seem to work if the SD access was broken off in the
-        * middle of an operation: CMDFailed(CMD0, 127). */
+  pub fn init(&mut self) -> Result<SDCardInfo, InitError> {
+    /* Initialize SD_SPI */
+    self.lowlevel_init();
+    /* An empty frame for commands */
+    let mut frame = [0u8; 4];
+    /* is hc card */
+    let mut is_hc = false;
+    /* NOTE: this reset doesn't always seem to work if the SD access was broken off in the
+      * middle of an operation: CMDFailed(CMD0, 127). */
 
-      /* Send dummy byte 0xFF, 10 times with CS high */
-      /* Rise CS and MOSI for 80 clocks cycles */
-      /* Send dummy byte 0xFF */
-      self.spi.switch_cs(false, 0);
-      self.spi.configure(
-        2,  // use lines
-        8,  // bits per word
-        true,  // endian: big-endian
-      );
-      self.write_data(&[0xff; 10]);
-      /*------------Put SD in SPI mode--------------*/
-      /* SD initialized and set to SPI mode properly */
+    /* Send dummy byte 0xFF, 10 times with CS high */
+    /* Rise CS and MOSI for 80 clocks cycles */
+    /* Send dummy byte 0xFF */
+    self.spi.switch_cs(false, 0);
+    self.spi.configure(
+      2,  // use lines
+      8,  // bits per word
+      true,  // endian: big-endian
+    );
+    self.write_data(&[0xff; 10]);
+    /*------------Put SD in SPI mode--------------*/
+    /* SD initialized and set to SPI mode properly */
 
-      /* Send software reset */
-      let mut result = 0;
-      let mut retry_times = 0;
-      while result != 0x01 {
-        self.send_cmd(CMD::CMD0, 0, 0x95);
+    /* Send software reset */
+    let mut result = 0;
+    let mut retry_times = 0;
+    if let Err(()) = self.retry_cmd(CMD::CMD0, 0, 0x95, 0x01, 200) {
+      return Err(InitError::CMDFailed(CMD::CMD0, 0));
+    }
+
+    /* Check voltage range */
+    self.send_cmd(CMD::CMD8, 0x01AA, 0x87);
+    result = self.get_response(); // 0x01 or 0x05
+    self.read_data(&mut frame);
+    self.end_cmd();
+    self.end_cmd();
+
+    if result != 0x01 {
+      // Standard Capacity Card
+      result = 0xff;
+
+      while result != 0x00 {
+        self.send_cmd(CMD::CMD55, 0, 0);
+        self.get_response();
+        self.end_cmd();
+        self.send_cmd(CMD::ACMD41, 0x40000000, 0);
         result = self.get_response();
         self.end_cmd();
-        retry_times += 1;
-        if retry_times > 5 {
-          return Err(InitError::CMDFailed(CMD::CMD0, 0));
+      }
+
+    } else {
+      // Need further discrimination
+      let mut cnt = 0;
+
+      cnt = 0xff;
+      while result != 0x00 {
+        self.send_cmd(CMD::CMD55, 0, 0);
+        self.get_response();
+        self.end_cmd();
+        self.send_cmd(CMD::ACMD41, 0x40000000, 0);
+        result = self.get_response();
+        self.end_cmd();
+
+        if cnt == 0 {
+          return Err(InitError::CMDFailed(CMD::ACMD41, 0));
+        } else {
+          cnt -= 1;
+        }
+      }
+      
+      cnt = 0xff;
+      result = 0xff;
+      while (result != 0x0) && (result != 0x1) {
+        self.send_cmd(CMD::CMD58, 0, 1);
+        result = self.get_response();
+        self.read_data(&mut frame);
+        self.end_cmd();
+
+        if cnt == 0 {
+          return Err(InitError::CMDFailed(CMD::CMD58, 0));
+        } else {
+          cnt -= 1;
         }
       }
 
-      /* Check voltage range */
-      self.send_cmd(CMD::CMD8, 0x01AA, 0x87);
-      /* 0x01 or 0x05 */
-      let result = self.get_response();
-      let mut frame = [0u8; 4];
-      self.read_data(&mut frame);
-      self.end_cmd();
-      self.end_cmd();
-
-      if result != 0x01 {
-          return Err(InitError::CMDFailed(CMD::CMD8, result));
-      }
-      let mut index = 255;
-      while index != 0 {
-          /* <ACMD> */
-          self.send_cmd(CMD::CMD55, 0, 0);
-          self.end_cmd();
-
-          /* Initiate SDC initialization process */
-          self.send_cmd(CMD::ACMD41, 0x40000000, 0);
-          let result = self.get_response();
-          self.end_cmd();
-          if result == 0x00 {
-              break;
-          }
-          index -= 1;
-      }
-      if index == 0 {
-          return Err(InitError::CMDFailed(CMD::ACMD41, result));
-      }
-      index = 0x1;
-      let mut frame = [0u8; 4];
-      while index != 0 {
-          /* Read OCR */
-          self.send_cmd(CMD::CMD58, 0, 1);
-          let result = self.get_response();
-          self.read_data(&mut frame);
-          self.end_cmd();
-          if result == 0 {
-              break;
-          }
-          index -= 1;
-      }
-      if index == 0 {
-          // return Err(InitError::CMDFailed(CMD::CMD58, result));
-      }
-      if (frame[0] & 0x40) == 0 {
-          // return Err(InitError::CardCapacityStatusNotSet(frame));
+      for i in 0..4 {
+        println!("OCR[{}]: 0x{:x}", i, frame[i]);
       }
 
-      self.spi.switch_cs(false, 0);
-      self.write_data(&[0xff; 10]);
+      if (frame[0] & 0x40) != 0 {
+        self.is_hc = true;
+      }
+    }
 
-      self.HIGH_SPEED_ENABLE();
-      self.get_cardinfo()
-          .map_err(|_| InitError::CannotGetCardInfo)
+    self.spi.switch_cs(false, 0);
+    self.write_data(&[0xff; 10]);
+
+    self.HIGH_SPEED_ENABLE();
+    match self.get_cardinfo() {
+      Ok(info)     => { Ok(info) }
+      Err(_)       => { Err(InitError::CannotGetCardInfo) }
+    }
   }
 
 
@@ -547,6 +577,10 @@ impl<T: SPIActions> SDCard<T> {
   */
   pub fn read_sector(&self, data_buf: &mut [u8], sector: u32) -> Result<(), ()> {
     assert!(data_buf.len() >= SEC_LEN && (data_buf.len() % SEC_LEN) == 0);
+    let sector: u32 = match self.is_hc {
+      true => { sector << 9 },
+      _ =>    { sector }
+    };
 
     let mut cur_sector = sector;
     
@@ -605,6 +639,11 @@ impl<T: SPIActions> SDCard<T> {
     */
   pub fn write_sector(&self, data_buf: &[u8], sector: u32) -> Result<(), ()> {
     assert!(data_buf.len() >= SEC_LEN && (data_buf.len() % SEC_LEN) == 0);
+    let sector: u32 = match self.is_hc {
+      true => { sector << 9 },
+      _ =>    { sector }
+    };
+
     let mut frame = [0xff, 0x00];
     if data_buf.len() == SEC_LEN {
       frame[1] = SD_START_DATA_SINGLE_BLOCK_WRITE;
@@ -673,8 +712,8 @@ pub fn init_sdcard() -> SDCard<SPIImpl> {
   // usleep(100000);
 
   let spi = SPIImpl::new(abstraction::SPIDevice::QSPI2);
-  let sd = SDCard::new(spi, SD_CS);
-  let _ = sd.init().unwrap();
+  let mut sd = SDCard::new(spi, SD_CS);
+  let info = sd.init().unwrap();
   // assert!(num_sectors > 0);
 
   println!("[kernel] init sdcard!");
