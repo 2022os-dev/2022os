@@ -184,7 +184,6 @@ impl Pgtbl {
     pub fn unmap_segments(&mut self, segments: &Segments, do_free: bool) {
         for (virt, (_, _)) in segments.iter() {
             log!(debug "unmap seg 0x{:x}", virt.page());
-            log!("pgtbl":"unmap_segments"> "vpage 0x{:x} -> 0x{:x}", virt.page(), phys.page());
             self.unmap(*virt, do_free);
         }
     }
