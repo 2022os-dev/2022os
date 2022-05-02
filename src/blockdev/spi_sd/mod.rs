@@ -463,6 +463,7 @@ impl<T: SPIActions> SDCard<T> {
     * @retval The SD Response info if succeeeded, otherwise Err
     */
   pub fn init(&mut self) -> Result<SDCardInfo, InitError> {
+    log!("sd":>"init: spi lowlevel init");
     /* Initialize SD_SPI */
     self.lowlevel_init();
     /* An empty frame for commands */
@@ -475,12 +476,15 @@ impl<T: SPIActions> SDCard<T> {
     /* Send dummy byte 0xFF, 10 times with CS high */
     /* Rise CS and MOSI for 80 clocks cycles */
     /* Send dummy byte 0xFF */
+    log!("sd":>"init: switch cs");
     self.spi.switch_cs(false, 0);
+    log!("sd":>"init: configure");
     self.spi.configure(
       2,  // use lines
       8,  // bits per word
       true,  // endian: big-endian
     );
+    log!("sd":>"init: write 10 0xff");
     self.write_data(&[0xff; 10]);
     /*------------Put SD in SPI mode--------------*/
     /* SD initialized and set to SPI mode properly */
@@ -488,11 +492,13 @@ impl<T: SPIActions> SDCard<T> {
     /* Send software reset */
     let mut result = 0;
     let mut retry_times = 0;
+    log!("sd":>"init: cmd0");
     if let Err(()) = self.retry_cmd(CMD::CMD0, 0, 0x95, 0x01, 200) {
       return Err(InitError::CMDFailed(CMD::CMD0, 0));
     }
 
     /* Check voltage range */
+    log!("sd":>"init: cmd8");
     self.send_cmd(CMD::CMD8, 0x01AA, 0x87);
     result = self.get_response(); // 0x01 or 0x05
     self.read_data(&mut frame);
@@ -501,28 +507,44 @@ impl<T: SPIActions> SDCard<T> {
 
     if result != 0x01 {
       // Standard Capacity Card
+      log!("sd":>"init: std");
       result = 0xff;
 
+      log!("sd":>"init: cmd55 and 41");
       while result != 0x00 {
+        log!("sd":>"init: send cmd55");
         self.send_cmd(CMD::CMD55, 0, 0);
+        log!("sd":>"init: send cmd55 1");
         self.get_response();
+        log!("sd":>"init: send cmd55 2");
         self.end_cmd();
+        log!("sd":>"init: send cmd55 3");
         self.send_cmd(CMD::ACMD41, 0x40000000, 0);
+        log!("sd":>"init: send cmd55 4");
         result = self.get_response();
+        log!("sd":>"init: send cmd55 5");
         self.end_cmd();
       }
 
     } else {
       // Need further discrimination
+      log!("sd":>"init: discriminate");
       let mut cnt = 0;
 
       cnt = 0xff;
+      log!("sd":>"init: cmd55 and 41");
       while result != 0x00 {
+        log!("sd":>"init: send cmd55");
         self.send_cmd(CMD::CMD55, 0, 0);
+        log!("sd":>"init: get_response cmd55");
         self.get_response();
+        log!("sd":>"init: end cmd55");
         self.end_cmd();
+        log!("sd":>"init: send cmd41");
         self.send_cmd(CMD::ACMD41, 0x40000000, 0);
+        log!("sd":>"init: get_response cmd41");
         result = self.get_response();
+        log!("sd":>"init: end cmd41");
         self.end_cmd();
 
         if cnt == 0 {
@@ -534,10 +556,15 @@ impl<T: SPIActions> SDCard<T> {
       
       cnt = 0xff;
       result = 0xff;
+      log!("sd":>"init: cmd58");
       while (result != 0x0) && (result != 0x1) {
+        log!("sd":>"init: send cmd58");
         self.send_cmd(CMD::CMD58, 0, 1);
+        log!("sd":>"init: get_response cmd58");
         result = self.get_response();
+        log!("sd":>"init: cmd58 read ocr");
         self.read_data(&mut frame);
+        log!("sd":>"init: cmd58 end cmd");
         self.end_cmd();
 
         if cnt == 0 {
