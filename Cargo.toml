@@ -12,7 +12,7 @@ overflow-check = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["load_contest_test", "FCFS", "shutdown_when_no_pcb"]
+default = ["load_contest_test", "FCFS", "shutdown_when_no_pcb", "kernel_log"]
 board_unleashed = []    # 使用unleashed开发板
 init_clock = ["board_unleashed"]    # 配置系统时钟，使用1G Hz
 read_buffer = []    # read调用使用缓存区
@@ -26,7 +26,7 @@ shutdown_when_no_pcb = []
 memfs = []
 
 # 下面的选项用于调试内核模块的输出
-kernel_log = ["pcb", "path_resolve", "pipe", "vfs", "execve", "hart", "sd", "syscall", "scheduler", "kalloc", "vfs", "trap", "vm", "time"] 
+kernel_log = ["pcb", "path_resolve", "pipe", "vfs", "execve", "hart", "sd", "scheduler", "vfs", "trap", "vm", "time"] 
 print_lock = []   # 使用互斥锁防止多核打印格式混乱
 time = []
 sd = []
