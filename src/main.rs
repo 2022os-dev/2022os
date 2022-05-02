@@ -81,7 +81,7 @@ extern "C" fn kernel_start() {
 
         init_hart();
 
-        blockdev::init_sdcard();
+        // blockdev::init_sdcard();
         log!("sd":>"sdcard drive successed");
 
         // fat32_wrapper::sd_test();
