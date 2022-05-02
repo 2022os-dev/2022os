@@ -9,7 +9,8 @@ apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
 
 run: toolchain qemu
 
-all: toolchain $(KERNEL_NAME).bin
+all: 
+	@mv src/build.rs os.bin
 
 toolchain:
 	@rustup target add $(TRIPLE)
