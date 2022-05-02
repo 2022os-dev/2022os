@@ -70,7 +70,7 @@ pub fn init_hart() {
     current_hart_pgtbl().map_pages(
         kernel_range(),
         kernel_range().start,
-        PTEFlag::R | PTEFlag::W | PTEFlag::X,
+        PTEFlag::R | PTEFlag::W | PTEFlag::X | PTEFlag::A | PTEFlag::D,
     );
 
     current_hart_pgtbl().map_pages(

@@ -46,7 +46,7 @@ pub fn activate_vm() {
     use core::arch::asm;
     // use riscv::register::satp;
     unsafe {
-        asm!("li a0, 1", "li a7, 1", "ecall");
+        asm!("li a0, 67", "li a7, 1");
         asm!("csrw satp, {}",
             "sfence.vma", in(reg) 8usize << 60 | p.root.0);
         // satp::set(satp::Mode::Sv39, 0, p.root.0);
