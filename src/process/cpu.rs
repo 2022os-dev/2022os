@@ -92,7 +92,6 @@ pub fn init_hart() {
 }
 
 pub fn current_hart() -> &'static mut Hart {
-    println!("current_hart {}", hartid());
     unsafe { &mut _HARTS[hartid()] }
 }
 

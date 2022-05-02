@@ -45,14 +45,21 @@ pub fn activate_vm() {
     log!("vm":>"Test finished before activate VM");
     use core::arch::asm;
     // use riscv::register::satp;
-    /*
     unsafe {
-        asm!("csrw satp, {}",
-            "sfence.vma", in(reg) 8usize << 60 | p.root.0);
+        asm!("li a0, 67",
+            "li a7, 1",
+            "ecall",
+            "csrw satp, {}",
+            "li a0, 68",
+            "li a7, 1",
+            "ecall",
+            "sfence.vma",
+            "li a0, 69",
+            "li a7, 1",
+            "ecall", in(reg) 8usize << 60 | p.root.0);
         // satp::set(satp::Mode::Sv39, 0, p.root.0);
         // asm!("sfence.vma");
     }
-    */
     log!("vm":>"Activated vm");
 }
 
