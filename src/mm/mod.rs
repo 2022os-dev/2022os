@@ -49,6 +49,7 @@ pub fn activate_vm() {
         satp::set(satp::Mode::Sv39, 0, p.root.0);
         asm!("sfence.vma");
     }
+    log!("vm":>"Activated vm");
 }
 
 pub fn kernel_range() -> Range<PageNum> {
