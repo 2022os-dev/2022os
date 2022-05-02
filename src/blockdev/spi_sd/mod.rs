@@ -547,52 +547,52 @@ impl<T: SPIActions> SDCard<T> {
   */
   pub fn read_sector(&self, data_buf: &mut [u8], sector: u32) -> Result<(), ()> {
     assert!(data_buf.len() >= SEC_LEN && (data_buf.len() % SEC_LEN) == 0);
-    /* Send CMD17 to read one block, or CMD18 for multiple */
-    let flag = if data_buf.len() == SEC_LEN {
-      self.send_cmd(CMD::CMD17, sector, 0);
-      false
-    } else {
-      self.send_cmd(CMD::CMD18, sector, 0);
-      true
-    };
-    /* Check if the SD acknowledged the read block command: R1 response (0x00: no errors) */
-    if self.get_response() != 0x00 {
-      // self.end_cmd();
-      // return Err(());
-    }
-    let mut error = false;
-    //let mut dma_chunk = [0u32; SEC_LEN];
-    let mut tmp_chunk= [0u8; SEC_LEN];
+
+    let mut cur_sector = sector;
+    
     for chunk in data_buf.chunks_mut(SEC_LEN) {
-      if self.get_response() != SD_START_DATA_SINGLE_BLOCK_READ {
-        error = true;
+      
+      /* Send CMD17 to read one block */
+      self.send_cmd(CMD::CMD17, cur_sector, 0);
+      /* Check if the SD acknowledged the read block command: R1 response (0x00: no errors) */
+      let res = self.get_response();
+      if res != 0x00 {
+        self.end_cmd();
+        return Err(());
+      }
+
+      //let mut dma_chunk = [0u32; SEC_LEN];
+      let mut tmp_chunk= [0u8; SEC_LEN];
+      let mut count = 0;
+      let mut resp = self.get_response();
+      if resp != SD_START_DATA_SINGLE_BLOCK_READ {
+        resp = self.get_response();
         break;
       }
+
       /* Read the SD block data : read NumByteToRead data */
-      //self.read_data_dma(&mut dma_chunk);
       self.read_data(&mut tmp_chunk);
       /* Place the data received as u32 units from DMA into the u8 target buffer */
       for (a, b) in chunk.iter_mut().zip(/*dma_chunk*/tmp_chunk.iter()) {
-        //*a = (b & 0xff) as u8;
         *a = *b;
       }
       /* Get CRC bytes (not really needed by us, but required by SD) */
       let mut frame = [0u8; 2];
       self.read_data(&mut frame);
+
+      // put some dummy bytes
+      self.end_cmd();
+      self.end_cmd();
+
+      cur_sector += SEC_LEN as u32;
     }
+
+    // put some dummy bytes
     self.end_cmd();
-    if flag {
-      self.send_cmd(CMD::CMD12, 0, 0);
-      self.get_response();
-      self.end_cmd();
-      self.end_cmd();
-    }
+    self.end_cmd();
+
     /* It is an error if not everything requested was read */
-    if error {
-      Err(())
-    } else {
-      Ok(())
-    }
+    Ok(())
   }
 
   /*
