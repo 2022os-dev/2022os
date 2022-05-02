@@ -16,9 +16,9 @@ toolchain:
 	@rustup target add $(TRIPLE)
 
 qemu: $(KERNEL_NAME).bin
-	qemu-system-riscv64 -M sifive_u -smp 5 \
+		qemu-system-riscv64 -M sifive_u -smp 5 \
 		-bios bootloader/fw_jump.bin \
-		-sd fat32.img \
+		-drive file=fat32.img,format=raw,if=sd \
 		-device loader,file=$(KERNEL_NAME).bin,addr=0x80200000 \
 		-nographic
 
