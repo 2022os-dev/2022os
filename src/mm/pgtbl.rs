@@ -192,7 +192,7 @@ impl Pgtbl {
     pub fn map_segments(&mut self, segments: &Segments) {
         for (virt, (phys, flags)) in segments.iter() {
             log!("pgtbl":"map_segments">"vpage 0x{:x} -> 0x{:x} ({:?})", virt.page(), phys.page(), flags);
-            self.map(*virt, *phys, *flags);
+            self.map(*virt, *phys, *flags | PTEFlag::A | PTEFlag::D);
         }
     }
 }
