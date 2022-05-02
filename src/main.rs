@@ -62,6 +62,7 @@ static mut BOOTHART: isize = -1;
 // [no_mangle] Turn off Rust's name mangling
 #[no_mangle]
 extern "C" fn kernel_start() {
+    unsafe { core::arch::asm!("li a0, 66", "li a7, 1", "ecall"); }
     log!("hart":"Booting">"");
     if unsafe { BOOTHART } == -1 {
         unsafe {
