@@ -1,7 +1,7 @@
 KERNEL_NAME = os
 KERNEL_BUILD = release
 CARGO_BUILD_FLAGS = --$(KERNEL_BUILD) --offline
-TRIPLE = riscv64gc-unknown-none-elf
+TRIPLE = riscv64imac-unknown-none-elf
 
 apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
 	  	forkboom signal_chld times nanosleep openat pipe dup \
@@ -29,10 +29,12 @@ user_apps:
 		echo "path = \"src/$$x.rs\"\n" >> userenv/Cargo.toml; \
 	done
 	@cd userenv && cargo build
-	done
+
+userenv/target/$(TRIPLE)/debug/%: userenv/src/
+	@make user_apps
 
 src/user/bin/%: userenv/target/$(TRIPLE)/debug/%
-	@mv -f $^ $@
+	@mv -f $^ src/user/bin
 
 $(KERNEL_NAME).bin: src/ Cargo.toml Makefile src/user/bin/contest_test src/user/bin/shell
 	@cargo build $(CARGO_BUILD_FLAGS)
