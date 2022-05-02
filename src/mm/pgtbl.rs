@@ -59,6 +59,7 @@ impl Pgtbl {
     }
 
     pub fn map_pages(&mut self, pages: Range<PageNum>, mut start: PageNum, flags: PTEFlag) {
+        log!("pgtbl":"pgtbl">"map_pages Range(0x{:x}-0x{:x}), start_page(0x{:x}), flags({:?})", pages.start.0, pages.end.0, start.0, flags);
         let start_num = pages.start;
         let end_num = pages.end;
         (start_num.page()..end_num.page())
@@ -71,7 +72,7 @@ impl Pgtbl {
     }
 
     pub fn map(&mut self, vpage: PageNum, page: PageNum, flags: PTEFlag) {
-        // log!("pgtbl":"map">"vpate(0x{:x}) -> page(0x{:x}) {:?}", vpage.page(), page.page(), flags);
+        log!("pgtbl":"map">"vpate(0x{:x}) -> page(0x{:x}) {:?}", vpage.page(), page.page(), flags);
         let pte = self.walk(vpage.offset(0), true);
         if pte.is_valid() {
             log!("pgtbl":"map""warn"> "remap page 0x{:x} -> 0x{:x}", vpage.page(), page.page());
