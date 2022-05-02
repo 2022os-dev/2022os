@@ -26,7 +26,7 @@ shutdown_when_no_pcb = []
 memfs = []
 
 # 下面的选项用于调试内核模块的输出
-kernel_log = ["pcb", "path_resolve", "pipe", "vfs", "execve", "hart", "sd", "syscall", "scheduler", "pgtbl", "kalloc", "vfs", "trap"] 
+kernel_log = ["pcb", "path_resolve", "pipe", "vfs", "execve", "hart", "sd", "syscall", "scheduler", "pgtbl", "kalloc", "vfs", "trap", "vm"] 
 print_lock = []   # 使用互斥锁防止多核打印格式混乱
 sd = []
 syscall = []
@@ -40,6 +40,7 @@ signal = []
 vfs = []
 pipe = []
 path_resolve = []
+vm = []
 execve = []
 
 [dependencies]

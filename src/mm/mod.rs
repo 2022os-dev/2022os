@@ -24,7 +24,7 @@ pub fn init() {
 }
 
 pub fn activate_vm() {
-    log!(debug "hart {} trying VM", hartid());
+    log!("vm":>"hart {} trying VM", hartid());
     // ################### TEST ######################
     let range = kernel_range();
     let p = current_hart_pgtbl();
@@ -42,7 +42,7 @@ pub fn activate_vm() {
         }
     }
     // ###############################################
-    log!(debug "Test finished before activate VM");
+    log!("vm":>"Test finished before activate VM");
     use core::arch::asm;
     use riscv::register::satp;
     unsafe {
