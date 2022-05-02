@@ -4,6 +4,9 @@ use alloc::collections::BTreeMap;
 
 pub type INT = i32;
 
+pub static CONTEST_TEST: &'static [u8] = include_bytes!("bin/contest_test");
+pub static SHELL: &'static [u8] = include_bytes!("bin/shell");
+/*
 pub static HELLO_WORLD: &'static [u8] = include_bytes!("bin/hello_world");
 pub static LOOP10: &'static [u8] = include_bytes!("bin/loop10");
 pub static GET_PID: &'static [u8] = include_bytes!("bin/get_pid");
@@ -23,7 +26,6 @@ pub static CHDIR: &'static [u8] = include_bytes!("bin/chdir");
 pub static GET_DIRENTS: &'static [u8] = include_bytes!("bin/get_dirents");
 pub static SYS_CLONE: &'static [u8] = include_bytes!("bin/sys_clone");
 pub static EXECVE: &'static [u8] = include_bytes!("bin/execve");
-pub static SHELL: &'static [u8] = include_bytes!("bin/shell");
 pub static FILELINK: &'static [u8] = include_bytes!("bin/filelink");
 
 #[cfg(feature = "gitee_test")]
@@ -259,3 +261,4 @@ lazy_static! {
         map
     };
 }
+*/

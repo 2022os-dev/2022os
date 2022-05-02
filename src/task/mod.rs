@@ -69,6 +69,8 @@ pub fn schedule() -> ! {
         } else {
             drop(pcb);
             current_hart_leak();
+            #[cfg(feature = "shutdown_when_no_pcb")]
+            crate::sbi::shutdown();
             #[cfg(feature = "batch")]
             {
                 // 查看是否已经释放所有pcb

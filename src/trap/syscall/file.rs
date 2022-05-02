@@ -527,6 +527,7 @@ fn copy_execve_str_array(
     str_array: &[usize],
     stack_pa: PhysAddr,
 ) -> Result<(PhysAddr, PhysAddr), ()> {
+    log!("execve":"copy_str_array">"stack 0x{:x}", stack_high.0);
     // 计算字符串复制的地址
     let mut str_pa = stack_pa - size_of::<usize>() * (str_array.len());
     // 计算数组复制的地址

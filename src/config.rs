@@ -11,7 +11,6 @@ pub const USER_STACK_PAGE: usize = 0x80000000 - USER_STACK_SIZE;
 // 每个hart使用的栈大小
 pub const BOOT_STACK_SIZE: usize = 2 * PAGE_SIZE;
 // 定时器频率
-#[cfg(feature = "board_unleashed")]
 pub const RTCLK_FREQ: usize = 1000_000; // 1M Hz
 
 pub const PTE_FLAG_SIZE: usize = 8;

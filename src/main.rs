@@ -9,10 +9,7 @@
 #![feature(ptr_to_from_bits)]
 #![feature(const_trait_impl)]
 
-use crate::{
-    clock::clock_init,
-    process::cpu::{hart_enable_timer_interrupt, init_hart},
-};
+use crate::process::cpu::{hart_enable_timer_interrupt, init_hart};
 use core::arch::asm;
 
 #[macro_use]
@@ -76,7 +73,7 @@ extern "C" fn kernel_start() {
         // 需要在开启虚拟内存之前初始化时钟，
         // 因为内核不会映射时钟配置寄存器
         #[cfg(feature = "init_clock")]
-        clock_init();
+        clock::clock_init();
 
         heap::init();
 
@@ -91,7 +88,10 @@ extern "C" fn kernel_start() {
 
 
         // Load shell
-        #[cfg(not(feature = "batch"))]
+        #[cfg(feature = "load_contest_test")]
+        scheduler_load_pcb(MemorySpace::from_elf_memory(user::CONTEST_TEST).unwrap());
+
+        #[cfg(feature = "load_shell")]
         scheduler_load_pcb(MemorySpace::from_elf_memory(user::SHELL).unwrap());
 
         #[cfg(feature = "batch")]

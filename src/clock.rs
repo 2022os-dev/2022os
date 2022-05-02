@@ -1,4 +1,6 @@
+#[allow(unused)]
 pub fn clock_init() {
+    #[cfg(feature = "board_unleashed")]
     board_clock_init();
 }
 

@@ -8,14 +8,14 @@ CARGO_BUILD_FLAGS = --release
 
 apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
 	  	forkboom signal_chld times nanosleep openat pipe dup \
-		mkdirat chdir get_dirents sys_clone execve shell read filelink
+		mkdirat chdir get_dirents sys_clone execve shell read filelink contest_test
 
 qemu:
-	make kernel.bin
+	make os.bin
 	qemu-system-riscv64 -M sifive_u -smp 5 \
 		-bios bootloader/fw_jump.bin \
 		-sd fat32.img \
-		-device loader,file=kernel.bin,addr=0x80200000 \
+		-device loader,file=os.bin,addr=0x80200000 \
 		-nographic
 
 user_apps:
@@ -31,14 +31,14 @@ user_apps:
 		mv -f userenv/target/riscv64gc-unknown-none-elf/debug/$$x src/user/bin/$$x; \
 	done
 
-kernel.bin: user_apps
+os.bin: user_apps
 	@cargo build $(CARGO_BUILD_FLAGS)
 	@if which rust-objcopy ; then \
-		rust-objcopy target/riscv64gc-unknown-none-elf/release/os -O binary kernel.bin; \
+		rust-objcopy target/riscv64gc-unknown-none-elf/release/os -O binary os.bin; \
 	elif which riscv-objcopy; then \
-		riscv-objcopy target/riscv64gc-unknown-none-elf/release/os -O binary kernel.bin; \
+		riscv-objcopy target/riscv64gc-unknown-none-elf/release/os -O binary os.bin; \
 	elif which objcopy ; then \
-		objcopy target/riscv64gc-unknown-none-elf/release/os -O binary kernel.bin; \
+		objcopy target/riscv64gc-unknown-none-elf/release/os -O binary os.bin; \
 	else \
 	  @echo objcopy not found; \
 	fi
@@ -58,9 +58,9 @@ fat32.img:
 		dd if=/dev/zero of=fat32.img bs=1M count=512
 		mkfs.fat -F 32 fat32.img
 
-rootfs: sdcard.part fat32.img kernel.bin
+rootfs: sdcard.part fat32.img os.bin
 		sudo mount fat32.img mnt
-		sudo cp kernel.bin mnt/kernel
+		sudo cp os.bin mnt/os
 		sudo umount mnt
 		dd if=fat32.img of=sdcard.img bs=512 seek=10240 conv=notrunc
 
@@ -73,25 +73,25 @@ qemu-unleashed: sdcard-unleashed
 			-bios bootloader/fw_payload_u-boot_unleashed.bin \
 			-drive file=sdcard.img,if=sd,format=raw \
 			-nographic
-qemu-unleashed-jump: kernel.bin
+qemu-unleashed-jump: os.bin
 		qemu-system-riscv64 -M sifive_u\
 			-bios bootloader/fw_jump.bin \
 			-drive file=sdcard.img,if=sd,format=raw \
-			-device loader,file=kernel.bin,addr=0x80200000 \
+			-device loader,file=os.bin,addr=0x80200000 \
 			-nographic
-gdb: kernel.bin
+gdb: os.bin
 		qemu-system-riscv64 -M sifive_u\
 			-bios bootloader/fw_jump.bin \
 			-drive file=sdcard.img,if=sd,format=raw \
 			-kernel target/riscv64gc-unknown-none-elf/debug/os \
 			-S -s -nographic
-qemu-unleashed-rustsbi: kernel.bin
+qemu-unleashed-rustsbi: os.bin
 		qemu-system-riscv64 --machine virt \
 			-bios bootloader/rustsbi-qemu.bin \
-			-device loader,file=kernel.bin,addr=0x80200000 \
+			-device loader,file=os.bin,addr=0x80200000 \
 			-nographic
 
 clean:
-		@rm -f kernel.bin
+		@rm -f os.bin
 		@rm -f src/user/bin/*
 		@cargo clean

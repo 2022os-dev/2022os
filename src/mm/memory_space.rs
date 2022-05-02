@@ -215,8 +215,7 @@ impl MemorySpace {
         let mut elf = vec![0; ehdr_size];
         if let Ok(_) = inode.read_offset(0, elf.as_mut_slice()) {
             let elf = elf_parser::Elf64::from_bytes(elf.as_slice());
-            if let Err(e) = elf {
-                println!("{:?}", e);
+            if let Err(_) = elf {
                 return Err(FileErr::NotDefine);
             }
             let elf = elf.unwrap();
