@@ -46,10 +46,7 @@ pub fn activate_vm() {
     use core::arch::asm;
     // use riscv::register::satp;
     unsafe {
-        asm!("li a0, 67",
-            "li a7, 1",
-            "ecall",
-            "csrw satp, {}",
+        asm!("csrw satp, {}",
             "sfence.vma",
             "li a0, 68",
             "li a7, 1",

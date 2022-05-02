@@ -166,6 +166,9 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> ! {
     log!("hart":"run">"sepc: 0x{:x}", pcblock.trapframe()["sepc"]);
     let tf = VirtualAddr(pcblock.trapframe() as *const _ as usize);
     pcblock.stimes_add(get_time() - current_hart_set_trap_times(get_time()));
+    // ################# TEST #########################
+    let pte = current_hart_pgtbl().walk(VirtualAddr(pcblock.trapframe()["sepc"]),false);
+    log!("hart":"test">"sepc mapped to page 0x{:x}, {:?}", pte.ppn().page(), pte.flags());
     drop(pcblock);
     current_hart().pcb = Some(pcb);
     // 因为是在对当前使用的页表进行映射，所以可能需要刷新快表

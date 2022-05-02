@@ -11,10 +11,6 @@ boot_stack_top:
     .section .text.entry
     .globl _start
 _start:
-    li a0, 65
-    li a7, 1
-    ecall
-    li a0, 1
     mv tp, a0
     # addi a0, a0, 48
     # li a7, 1
