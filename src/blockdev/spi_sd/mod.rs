@@ -446,9 +446,11 @@ impl<T: SPIActions> SDCard<T> {
   }
 
   fn retry_cmd(&self, cmd: CMD, arg: u32, crc: u8, expect: u8, retry_times: u32) -> Result<(), ()> {
-    for _ in 0..retry_times {
+    for i in 0..retry_times {
+      log!("sd":"retry_cmd">"retry {} time", i);
       self.send_cmd(cmd, arg, crc);
       let resp = self.get_response();
+      log!("sd":"retry_cmd">"responded {}, except {}", resp, expect);
       self.end_cmd();
       if resp == expect {
         return Ok(());
