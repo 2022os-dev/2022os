@@ -61,11 +61,11 @@ impl FileSystems {
         return 0;
     }
 
-    pub fn umount(&mut self, special: Special) -> isize {
+    pub fn umount(&mut self, dir: Path) -> isize {
         let len = self.fs_queue.len();
 
         for i in 0..len {
-            if self.fs_queue[i].0 == special {
+            if self.fs_queue[i].1 == dir {
                 self.fs_queue.remove(i);
                 for j in 0..self.fs_queue.len() {
                     println!(

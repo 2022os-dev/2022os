@@ -15,6 +15,7 @@ use mm::*;
 use sysinfo::*;
 use process::*;
 use signal::*;
+use crate::vfs::*;
 
 const SYSCALL_GETCWD: usize = 17;
 const SYSCALL_DUP: usize = 23;
@@ -205,12 +206,13 @@ pub fn syscall_handler() {
             pcblock.trapframe()["a0"] = sys_umount2(special, flag) as usize;
         }
 
-        // SYSCALL_FSTAT => {
-        //     let _special = trapframe["a0"];
-        //     let _flag = trapframe["a1"];
-        //     log!("syscall":"umount2" > "pid({}) ({}, {})", pcblock.pid, _special, _flag);
-        //     pcblock.trapframe()["a0"] = sys_fstat(_special, _flag).0;
-        // }
+        SYSCALL_FSTAT => {
+            let fd = trapframe["a0"] as isize;
+            let kstat = unsafe{(trapframe["a1"] as *mut Kstat).as_mut().unwrap()};
+            log!("syscall":"fstat" > "pid({}) ({}, {})", pcblock.pid, fd, kstat);
+            pcblock.trapframe()["a0"] = sys_fstat(&mut pcblock, fd, kstat) as usize;
+        }
+
         SYSCALL_EXIT => {
             let xcode = trapframe["a0"];
             drop(trapframe);

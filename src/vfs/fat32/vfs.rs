@@ -242,6 +242,7 @@ impl VFSFile {
                 &self.fs.read().get_fat(),
                 &self.fs,
             );
+           
             // 假如你读了个寂寞
             if length == 0 {
                 return None;
@@ -267,7 +268,6 @@ impl VFSFile {
             }
             // 该目录项不是要找的，则寻找下一个
             else {
-                
                 offset += 32;
             }
         }
@@ -278,9 +278,11 @@ impl VFSFile {
     pub fn find_long_name(&self, name: &str, dir: &ShortDirEntry) -> Option<VFSFile> {
         let mut entry = ShortDirEntry::empty();
         let mut long_entry = LongDirEntry::empty();
-        let convert_short_name = Fat32Manager::long_name_to_short(name);
+        let convert_short_name = Fat32Manager::long_name_to_short(name); 
         let mut offset: u32 = 0;
+        
         loop {
+            
             let length = dir.read_at(
                 offset,
                 entry.trans_to_mut_bytes(),
@@ -298,6 +300,7 @@ impl VFSFile {
             }
             // 如果找到对应短目录项，从下往上找出所有被分割的长目录项，检验其校验和，如果全部正确则将偏移量加入向量并且返回
             else if !entry.is_delete() && entry.get_name() == convert_short_name {
+                
                 // 首先计算一共有多少个被分割的长目录项，新建向量
                 let mut long_dir_location = Vec::new();
                 let entry_num = (name.as_bytes().len() + 12) / 13;
@@ -316,6 +319,7 @@ impl VFSFile {
                     }
                     // 否则返回空，因为出现被分割的长目录项检验和与短目录项不一致的情况
                     else {
+                        
                         return None;
                     }
                 }
@@ -333,6 +337,7 @@ impl VFSFile {
             }
             // 该目录项不是要找的，则寻找下一个
             else {
+                
                 offset += 32;
             }
         }
@@ -546,21 +551,21 @@ impl VFSFile {
         }
     }
 
-    #[allow(unused)]
-    pub fn delete(&mut self) {
-        if self.is_dir() {
-            self.delete_dirent()
-        } else {
-            self.delete_file()
-        }
-    }
+    // #[allow(unused)]
+    // pub fn delete(&mut self) {
+    //     if self.is_dir() {
+    //         self.delete_dirent()
+    //     } else {
+    //         self.delete_file()
+    //     }
+    // }
 
     #[allow(unused)]
-    //将自身文件内容删除(必须是普通文件)
-    pub fn delete_file(&mut self) {
-        if self.is_dir() {
-            panic!("dirent can not call this method!");
-        }
+    //将自身文件内容删除(必须是普通文件或者空目录)
+    pub fn delete(&mut self) {
+        // if self.is_dir() {
+        //     panic!("dirent can not call this method!");
+        // }
 
         self.fs
             .read()
@@ -579,13 +584,13 @@ impl VFSFile {
         }
     }
 
-    #[allow(unused)]
-    //将自身文件内容删除(必须是目录文件),注意，删除目录文件时内部目录项所代表的所有文件都要被删除！！！(日后实现)
-    pub fn delete_dirent(&mut self) {
-        if !self.is_dir() {
-            panic!("no-dirent can not call this method!");
-        }
-    }
+    // #[allow(unused)]
+    // //将自身文件内容删除(必须是目录文件),注意，删除目录文件时内部目录项所代表的所有文件都要被删除！！！(日后实现)
+    // pub fn delete_dirent(&mut self) {
+    //     if !self.is_dir() {
+    //         panic!("no-dirent can not call this method!");
+    //     }
+    // }
 
     #[allow(unused)]
     //获取相关文件信息
@@ -605,9 +610,51 @@ impl VFSFile {
             self.get_start_cluster(),
         )
     }
+
+    //判断目录中是否没有一个文件了
+    pub fn have_nothing(&self) -> bool {
+        if !self.is_dir() {
+            panic!("no-dirent can not call this method!");
+        }
+        let end = self.find_next_free_dirent().unwrap();
+        //前两个分别为.和..，故直接跳过，判断64~end之间的目录项是否被删除，即判断目录项文件名第一个字符ascii码是否为0x20
+        let offset = 64 as u32;
+        while offset < end {
+            let (name, _, offset, _) = self.get_dirent_info(offset as u32);
+            if name.as_bytes()[0] as u8 != 0xE5 as u8 {
+                return false;
+            }
+        }
+        return true;
+
+    }
 }
 
 impl _Inode for VFSFile {
+    fn unlink_child(&self, name: &str, if_delete_dir: bool) -> Result<usize, FileErr> {
+        if !self.is_dir() {
+            return Err(FileErr::InodeNotDir);
+        }
+        if let Some(mut inode) = self.find_name(name) {
+            if inode.is_dir() && if_delete_dir &&inode.have_nothing() {
+                inode.delete();
+                return Ok(0);
+            }
+            else if !inode.is_dir() {
+                inode.delete();
+                return Ok(0);
+            }
+            else {
+                return Ok(1);
+            }
+        }
+        else {
+            return Err(FileErr::InodeNotChild);
+        }
+    }
+
+
+
     // 获取一个目录项, offset用于供inode判断读取哪个dirent 返回需要File更新的offset量
     //     读到目录结尾返回InodeEndOfDir
     fn get_dirent(&self, offset: usize, dirent: &mut LinuxDirent) -> Result<usize, FileErr> {
@@ -641,6 +688,7 @@ impl _Inode for VFSFile {
 
     // 从Inode的某个偏移量读出
     fn read_offset(&self, offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
+        
         Ok(self.read_at(offset as u32, buf) as usize)
     }
 
@@ -652,10 +700,8 @@ impl _Inode for VFSFile {
     fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
         println!("fat32 get child {}", name);
         if let Some(child) = self.find_name(name) {
-            
             Ok(Arc::new(child.clone()))
         } else {
-            
             Err(FileErr::InodeNotChild)
         }
     }
@@ -701,13 +747,21 @@ impl _Inode for VFSFile {
 
     fn get_kstat(&self, kstat: &mut Kstat) {
         let (ctime, atime, mtime, size, id) = self.stat();
+        
         let mode: u32;
         if self.is_dir() {
             mode = kstat::S_IFDIR | kstat::S_IRWXU | kstat::S_IRWXG | kstat::S_IRWXO
         } else {
             mode = kstat::S_IFREG | kstat::S_IRWXU | kstat::S_IRWXG | kstat::S_IRWXO
         }
-        kstat.create(atime, mtime, ctime, size, 0, id, mode, 1);
+        
+        let st_dev: u64 = 0;
+        let st_nlink: u32 = 1;
+        
+        kstat.create(atime, mtime, ctime, size as i64, st_dev, id as u64, mode, st_nlink);
+        // println!("id: {}, mode: {}, st_nlink: {}, uid: {}, gid: {} , st_blksize: {}, st_blocks: {},  size: {}, ctime: {}, atime: {}, mtime: {}",
+        // kstat.st_ino, kstat.st_mode, kstat.st_nlink, kstat.st_uid, kstat.st_gid, kstat.st_blksize, kstat.st_blocks, 
+        // kstat.st_size, kstat.st_ctime_sec, kstat.st_atime_sec, kstat.st_mtime_sec, );
     }
 }
 

@@ -764,13 +764,11 @@ impl SDCardWrapper {
 
 impl BlockDevice for SDCardWrapper {
   fn read_block(&self, block_id: usize, buf: &mut [u8]) {
-    println!("read block {}", block_id/512);
     if let Err(_) = self.0.read_sector(buf, block_id as u32) {
         panic!("read_block invalid {}", block_id);
     }
   }
   fn write_block(&self, block_id: usize, buf: &[u8]) {
-    println!("write block {}", block_id);
     if let Err(_) = self.0.write_sector(buf, block_id as u32) {
         panic!("write_block invalid {}", block_id/512);
     }

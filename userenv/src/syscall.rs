@@ -4,6 +4,50 @@ use crate::println;
 use core::mem::size_of;
 use core::slice::from_raw_parts_mut;
 
+
+#[repr(C)]
+pub struct Kstat {
+    pub st_dev: u64,   /* ID of device containing file */
+    pub st_ino: u64,   /* Inode number */
+    pub st_mode: u32,  /* File type and mode */
+    pub st_nlink: u32, /* Number of hard links */
+    pub st_uid: u32,   /* User ID of owner */
+    pub st_gid: u32,   /* Group ID of owner */
+
+    // dev_t st_rdev;
+	// unsigned long __pad;
+	// off_t st_size;
+	// blksize_t st_blksize;
+	// int __pad2;
+	// blkcnt_t st_blocks;
+
+    // dev_t     st_rdev;        /* Device ID (if special file) */
+    // off_t     st_size;        /* Total size, in bytes */
+    // blksize_t st_blksize;     /* Block size for filesystem I/O */
+    // blkcnt_t  st_blocks;      /* Number of 512B blocks allocated */
+
+    // st_rdev: u32,  /* Device ID (if special file) */
+    // long_pad: u32,
+
+    
+    pub st_blksize: u32, /* Block size for filesystem I/O */
+
+    
+
+
+    // _pad2: u32,
+    pub st_blocks: u64, /* Number of 512B blocks allocated */
+
+    pub st_size: i64,    /* Total size, in bytes */
+
+    pub st_atime_sec: i64,
+    st_atime_nsec: i64,
+    pub st_mtime_sec: i64,
+    st_mtime_nsec: i64,
+    pub st_ctime_sec: i64,
+    st_ctime_nsec: i64,
+}
+
 pub type INT = i32;
 
 const SYSCALL_GETCWD: usize = 17;
@@ -352,12 +396,14 @@ pub fn syscall_umount2(special: &str, flags: u32) -> isize {
     a0 as isize
 }
 
-pub fn syscall_fstat() -> isize {
-    let mut ret = 0;
+pub fn syscall_fstat(fd: INT, kstat: &mut Kstat) -> isize {
+    let mut a0 = fd as usize;
     unsafe {
-        asm!("ecall", out("x10") ret, in("x17") SYSCALL_FSYNC);
+        asm!("ecall", inout("x10") a0,
+            in("x11") kstat as *const _ as usize,
+            in("x17") SYSCALL_FSYNC);
     }
-    ret
+    a0 as isize
 }
 
 pub fn syscall_exit(xcode: isize) -> !{
@@ -410,6 +456,7 @@ pub fn syscall_clone(flags: CloneFlags, stack_top: *const u8, ptid: usize, ctid:
 
 pub fn syscall_execve(path: &str, argv: &[usize], envp: &[usize]) {
     let mut a0 = path.as_ptr() as usize; 
+    
     unsafe {
         asm!("ecall", inout("x10") a0,
             in("x11") argv.as_ptr() as usize,

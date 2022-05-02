@@ -180,9 +180,11 @@ impl File {
 
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, FileErr> {
         if !self.flags.readable() {
+            
             return Err(FileErr::FileNotRead);
         }
         if self.pos >= self.inode.len() {
+            
             return Err(FileErr::FileEOF);
         }
         self.inode.read_offset(self.pos, buf).and_then(|size| {

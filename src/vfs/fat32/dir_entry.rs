@@ -26,6 +26,10 @@ const SUB_DIRECTORY: u8 = 0b00010000;
 const FILING: u8 = 0b00100000;
 const LONG_DIR_ENTRY: u8 = 0b00001111;
 
+const LAST_CLUSTER: u32 = 0x0fffffff;
+const LAST_CLUSTER1: u32 = 0x0ffffff8;
+
+
 type DataBlock = [u8; BLOCK_SIZE];
 
 #[allow(unused)]
@@ -169,7 +173,7 @@ impl ShortDirEntry {
 
     #[allow(unused)]
     // 获取文件名
-    pub fn get_name(&self) -> String {
+    pub fn get_name_upper_case(&self) -> String {
         let mut name = String::new();
         for c in self.file_name {
             if c == 0x20 {
@@ -186,6 +190,30 @@ impl ShortDirEntry {
                 break;
             } else {
                 name.push(c as char);
+            }
+        }
+        name
+    }
+
+    #[allow(unused)]
+    // 获取文件名
+    pub fn get_name(&self) -> String {
+        let mut name = String::new();
+        for c in self.file_name {
+            if c == 0x20 {
+                break;
+            } else {
+                name.push((c as char).to_ascii_lowercase());
+            }
+        }
+        if self.extension_name[0] != 0x20 {
+            name.push('.');
+        }
+        for c in self.extension_name {
+            if c == 0x20 {
+                break;
+            } else {
+                name.push((c as char).to_ascii_lowercase());
             }
         }
         name
@@ -309,11 +337,6 @@ impl ShortDirEntry {
             file_length = self.file_length;
         }
 
-        // 2.越界判断,若越界则返回读取到0字节
-        if total_read_length + offset > file_length {
-            return 0;
-        }
-
         // 3.找到offset所在的簇号,簇内块号,块内字节偏移,确定块内开始字节与最后读取块内的结束字节,当前读取的簇号,当前读取的簇内块号
         let (current, sector_in_cluster, byte_offset) = self.get_offset_position(
             offset,
@@ -352,7 +375,7 @@ impl ShortDirEntry {
                 } else {
                     get_data_block_buffer(
                         first_sector
-                            + current_cluster * sectors_per_cluster as u32
+                            + (current_cluster - 2) * sectors_per_cluster as u32
                             + current_sector,
                         dev,
                     )
@@ -373,6 +396,9 @@ impl ShortDirEntry {
             }
 
             current_cluster = fat_read.get_next_cluster(current_cluster, dev);
+            if current_cluster == LAST_CLUSTER || current_cluster == LAST_CLUSTER1 {
+                break 'counting_up;
+            }
             current_sector = 0;
         }
         have_read_length
@@ -501,7 +527,7 @@ impl ShortDirEntry {
                     current_sector += 1;
                 } else {
                     get_data_block_buffer(
-                        first_sector + current_cluster * sectors_per_cluster + current_sector,
+                        first_sector + (current_cluster - 2) * sectors_per_cluster + current_sector,
                         dev,
                     )
                     .write()
@@ -537,24 +563,38 @@ impl ShortDirEntry {
     }
 
     #[allow(unused)]
-    pub fn get_check_sum(&self) -> u8 {
-        let mut check_sum: u16 = 0;
+    // pub fn get_check_sum(&self) -> u8 {
+    //     let mut check_sum: u16 = 0;
 
-        for i in (0..8) {
-            if (check_sum & 1) != 0 {
-                check_sum = 0x80 + (check_sum >> 1) + self.file_name[i] as u16;
-            } else {
-                check_sum = 0 + (check_sum >> 1) + self.file_name[i] as u16;
+    //     for i in (0..8) {
+    //         if (check_sum & 1) != 0 {
+    //             check_sum = 0x80 + (check_sum >> 1) + self.file_name[i] as u16;
+    //         } else {
+    //             check_sum = 0 + (check_sum >> 1) + self.file_name[i] as u16;
+    //         }
+    //     }
+    //     for i in (8..11) {
+    //         if (check_sum & 1) != 0 {
+    //             check_sum = 0x80 + (check_sum >> 1) + self.extension_name[i - 8] as u16;
+    //         } else {
+    //             check_sum = 0 + (check_sum >> 1) + self.extension_name[i - 8] as u16;
+    //         }
+    //     }
+    //     check_sum as u8
+    // }
+    pub fn get_check_sum(&self)->u8{
+        let mut name_buff:[u8;11] = [0u8;11]; 
+        let mut sum:u8 = 0;
+        for i in 0..8 { name_buff[i] = self.file_name[i]; }
+        for i in 0..3 { name_buff[i+8] = self.extension_name[i]; }
+        for i in 0..11{ 
+            if (sum & 1) != 0 {
+                sum = 0x80 + (sum>>1) + name_buff[i];
+            }else{
+                sum = (sum>>1) + name_buff[i];
             }
         }
-        for i in (8..11) {
-            if (check_sum & 1) != 0 {
-                check_sum = 0x80 + (check_sum >> 1) + self.extension_name[i - 8] as u16;
-            } else {
-                check_sum = 0 + (check_sum >> 1) + self.extension_name[i - 8] as u16;
-            }
-        }
-        check_sum as u8
+        sum
     }
 
     #[allow(unused)]

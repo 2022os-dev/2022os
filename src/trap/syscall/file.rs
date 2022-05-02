@@ -113,9 +113,10 @@ pub(super) fn sys_mkdirat(
     let mode = FileMode::from_bits(mode).unwrap();
     let path_tuple = make_path_tuple(&mut *pcb, dirfd, path);
     if path_tuple.is_none() {
+        
         return -1;
     }
-
+   
     let (node, path) = path_tuple.unwrap();
     match get_parent_inode(&node, path.as_str()) {
         Ok((parent, name)) => {
@@ -124,6 +125,7 @@ pub(super) fn sys_mkdirat(
             }
         }
         Err(e) => {
+            
             log!("syscall":"mkdirat">"{:?}", e);
         }
     }
@@ -287,7 +289,9 @@ pub(super) fn sys_openat(
         .and_then(|inode| File::open(inode, flags))
         .and_then(|file| pcb.fds_insert(file).ok_or(FileErr::NotDefine))
     {
-        Ok(fd) => return fd as isize,
+        Ok(fd) => {
+            return fd as isize;
+        }
         Err(FileErr::InodeNotChild) if flags.contains(OpenFlags::CREATE) => {
             return get_parent_inode(&node, path.as_str())
                 .and_then(|(parent, name)| parent.create(name, FileMode::empty(), InodeType::File))
@@ -298,7 +302,9 @@ pub(super) fn sys_openat(
                     -1 as isize as usize
                 }) as isize;
         }
-        Err(_) => return -1,
+        Err(_) => {
+            return -1;
+        }
     };
 }
 
@@ -407,7 +413,9 @@ pub(super) fn sys_read(
     let buf: &mut [u8] = buf.as_slice_mut(len);
     if let Some(file) = pcb.get_fd(fd) {
         match file.write().read(buf) {
-            Ok(size) => size as isize,
+            Ok(size) => {
+                return size as isize;
+            }
             Err(FileErr::PipeReadWait) => {
                 // 需要等待另一端，回退到ecall
                 log!("vfs":"sys_read">"waiting fd({})", fd);
@@ -438,6 +446,7 @@ pub(super) fn sys_read(
         }
     } else {
         log!("syscall":"sys_read">"fd invalid");
+        
         -1
     }
 }
@@ -474,6 +483,7 @@ pub(super) fn sys_execve(
     argv: VirtualAddr,
     envp: VirtualAddr,
 ) {
+    
     let path: PhysAddr = path.into();
     let path = get_str(&path);
     let argv: PhysAddr = argv.into();
@@ -491,6 +501,7 @@ pub(super) fn sys_execve(
     log!("execve":>"path {}", path);
     if let Ok(_) = parse_path(&node, path.as_str()).and_then(|inode| {
         let mut ms = MemorySpace::from_elf_inode(inode)?;
+        
         // 用户栈底的物理地址(栈由上往下增长)
         let mut user_stack_high = ms.user_stack.offset_phys(USER_STACK_SIZE);
         // 将argv和envp数组拷贝到用户栈上
@@ -522,6 +533,7 @@ pub(super) fn sys_execve(
             Err(_) => Err(FileErr::NotDefine),
         }
     }) {
+        
         log!("syscall":"execve""success">"");
     } else {
         log!("syscall":"execve""fail">"");
@@ -588,7 +600,7 @@ fn copy_execve_str_array(
 pub(super) fn sys_fstat(pcb: &mut MutexGuard<Pcb>, fd: isize, kstat: &mut Kstat) -> isize {
     if let Some(file) = pcb.get_fd(fd) {
         file.write().fstat(kstat);
-        1
+        0
     } else {
         -1
     }

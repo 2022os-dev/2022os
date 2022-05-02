@@ -28,58 +28,79 @@ pub const S_IXOTH: u32 = 00001; //others have execute permission
 
 #[repr(C)]
 pub struct Kstat {
-    st_dev: u32,   /* ID of device containing file */
-    st_ino: u32,   /* Inode number */
-    st_mode: u32,  /* File type and mode */
-    st_nlink: u32, /* Number of hard links */
-    st_uid: u32,   /* User ID of owner */
-    st_gid: u32,   /* Group ID of owner */
-    st_rdev: u32,  /* Device ID (if special file) */
-    long_pad: u32,
-    st_size: u32,    /* Total size, in bytes */
-    st_blksize: u32, /* Block size for filesystem I/O */
-    _pad2: u32,
-    st_blocks: u32, /* Number of 512B blocks allocated */
-    st_atime_sec: i64,
+    pub st_dev: u64,   /* ID of device containing file */
+    pub st_ino: u64,   /* Inode number */
+    pub st_mode: u32,  /* File type and mode */
+    pub st_nlink: u32, /* Number of hard links */
+    pub st_uid: u32,   /* User ID of owner */
+    pub st_gid: u32,   /* Group ID of owner */
+
+    // dev_t st_rdev;
+	// unsigned long __pad;
+	// off_t st_size;
+	// blksize_t st_blksize;
+	// int __pad2;
+	// blkcnt_t st_blocks;
+
+    // dev_t     st_rdev;        /* Device ID (if special file) */
+    // off_t     st_size;        /* Total size, in bytes */
+    // blksize_t st_blksize;     /* Block size for filesystem I/O */
+    // blkcnt_t  st_blocks;      /* Number of 512B blocks allocated */
+
+    // st_rdev: u32,  /* Device ID (if special file) */
+    // long_pad: u32,
+
+    
+    pub st_blksize: u32, /* Block size for filesystem I/O */
+
+    
+
+
+    // _pad2: u32,
+    pub st_blocks: u64, /* Number of 512B blocks allocated */
+
+    pub st_size: i64,    /* Total size, in bytes */
+
+    pub st_atime_sec: i64,
     st_atime_nsec: i64,
-    st_mtime_sec: i64,
+    pub st_mtime_sec: i64,
     st_mtime_nsec: i64,
-    st_ctime_sec: i64,
+    pub st_ctime_sec: i64,
     st_ctime_nsec: i64,
 }
 
 impl Kstat {
-    pub fn empty() -> Self {
-        Self {
-            st_dev: 0,
-            st_ino: 0,
-            st_mode: 0,
-            st_nlink: 0,
-            st_uid: 0,
-            st_gid: 0,
-            st_rdev: 0,
-            long_pad: 0,
-            st_size: 0,
-            st_blksize: 0,
-            _pad2: 0,
-            st_blocks: 0,
-            st_atime_sec: 0,
-            st_atime_nsec: 0,
-            st_mtime_sec: 0,
-            st_mtime_nsec: 0,
-            st_ctime_sec: 0,
-            st_ctime_nsec: 0,
-        }
-    }
+    // pub fn empty() -> Self {
+    //     Self {
+    //         st_dev: 0,
+    //         st_ino: 0,
+    //         st_mode: 0100777,
+    //         st_nlink: 0,
+    //         st_uid: 0,
+    //         st_gid: 0,
+    //         st_rdev: 0,
+    //         long_pad: 0,
+    //         st_size: 0,
+    //         st_blksize: 512,
+    //         _pad2: 0,
+    //         st_blocks: 0,
+    //         st_atime_sec: 0,
+    //         st_atime_nsec: 0,
+    //         st_mtime_sec: 0,
+    //         st_mtime_nsec: 0,
+    //         st_ctime_sec: 0,
+    //         st_ctime_nsec: 0,
+    //     }
+    // }
 
     pub fn create(
         &mut self,
         st_atime_sec: i64,
         st_mtime_sec: i64,
         st_ctime_sec: i64,
-        st_size: u32,
-        st_dev: u32,
-        st_ino: u32,
+        st_size: i64,
+        st_dev: u64,
+        st_ino: u64,
         st_mode: u32,
         st_nlink: u32,
     ) {
@@ -90,12 +111,13 @@ impl Kstat {
             st_nlink: st_nlink,
             st_uid: 0,
             st_gid: 0,
-            st_rdev: 0,
-            long_pad: 0,
+            // st_rdev: 0,
+            // long_pad: 0,
             st_size: st_size,
             st_blksize: 512,
-            _pad2: 0,
-            st_blocks: (st_size + self.st_blksize - 1) / self.st_blksize,
+            // _pad2: 0,
+            st_blocks: (st_size as u64 + 511) / 512,
+
             st_atime_sec: st_atime_sec,
             st_atime_nsec: 0,
             st_mtime_sec: st_mtime_sec,

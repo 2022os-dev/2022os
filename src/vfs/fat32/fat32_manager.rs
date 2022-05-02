@@ -313,7 +313,7 @@ impl Fat32Manager {
     }
 
     #[allow(unused)]
-    //此方法需要更改，返回值为文件全名
+    //此方法需要更改,改了，返回值为文件全名
     pub fn long_name_to_short(long_name: &str) -> String {
         // 取长文件名的前6个字符加上”~1”形成短文件名，扩展名不变。若一旦产生同名，后续处理暂时不实现
         let mut file_name = String::new();
@@ -321,7 +321,7 @@ impl Fat32Manager {
         let file_byte_arr = file.as_bytes();
         let extension_byte_arr = extension.as_bytes();
         for i in (0..6) {
-            file_name.push(file_byte_arr[i] as char)
+            file_name.push(file_byte_arr[i] as char);
         }
         file_name.push('~');
         file_name.push('1');
@@ -355,7 +355,7 @@ impl Fat32Manager {
         let mut file_arr: [u8; 8] = [0; 8];
         for i in 0..8 {
             if i < file_name_arr.len() {
-                file_arr[i] = file_name_arr[i];
+                file_arr[i] = (file_name_arr[i] as char).to_ascii_uppercase() as u8;
             } else {
                 file_arr[i] = 0x20;
             }
@@ -364,7 +364,7 @@ impl Fat32Manager {
         let mut extension_arr: [u8; 3] = [0; 3];
         for i in 0..3 {
             if i < extension_name_arr.len() {
-                extension_arr[i] = extension_name_arr[i];
+                extension_arr[i] = (extension_name_arr[i] as char).to_ascii_uppercase() as u8;
             } else {
                 extension_arr[i] = 0x20;
             }
