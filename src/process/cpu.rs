@@ -76,10 +76,11 @@ pub fn init_hart() {
     current_hart_pgtbl().map_pages(
         frames_range(),
         frames_range().start,
-        PTEFlag::R | PTEFlag::W,
+        PTEFlag::R | PTEFlag::W | PTEFlag::A | PTEFlag::D,
     );
 
-    current_hart_pgtbl().map_pages(0x10040.into()..0x10051.into(), 0x10040.into(), PTEFlag::R | PTEFlag::W);
+    current_hart_pgtbl().map_pages(0x10040.into()..0x10051.into(),
+         0x10040.into(), PTEFlag::R | PTEFlag::W | PTEFlag::A | PTEFlag::D);
 
     unsafe {
         riscv::register::sstatus::set_sum();
@@ -128,7 +129,8 @@ fn map_mmap_areas(pcb: &Pcb) {
     for mappage in pcb.memory_space.mmap_areas.pages() {
         if let Some(ppage) = mappage.ppage {
             log!("mmap":"map">"vpage 0x{:x} -> ppage 0x{:x} ({:?})", mappage.vpage.page(), ppage.page(), mappage.get_pte_flags());
-            current_hart_pgtbl().map(mappage.vpage, ppage, mappage.get_pte_flags() | PTEFlag::U);
+            current_hart_pgtbl().map(mappage.vpage, ppage,
+                 mappage.get_pte_flags() | PTEFlag::U | PTEFlag::A | PTEFlag::D);
         }
     }
 }
@@ -158,7 +160,7 @@ pub fn current_hart_run(pcb: Arc<Mutex<Pcb>>) -> ! {
     current_hart_pgtbl().map(
         MemorySpace::get_stack_start().floor(),
         stack,
-        PTEFlag::R | PTEFlag::W | PTEFlag::U,
+        PTEFlag::R | PTEFlag::W | PTEFlag::U | PTEFlag::A | PTEFlag::D,
     );
 
     // 设置内核栈
