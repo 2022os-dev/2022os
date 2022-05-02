@@ -88,7 +88,9 @@ pub fn init_hart() {
     }
     activate_vm();
 
+    log!("time":>"try to set trap times");
     current_hart_set_trap_times(get_time());
+    log!("time":>"set trap times successed");
 }
 
 pub fn current_hart() -> &'static mut Hart {
