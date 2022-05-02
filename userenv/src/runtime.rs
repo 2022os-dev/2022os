@@ -78,6 +78,7 @@ static mut ENVP: Option<&'static [*const u8]> = None;
 
 #[no_mangle]
 extern "C" fn _start(_argc: usize, _argv: *const *const u8, _envp: *const *const u8) {
+    println!("fxxk!");
     unsafe {
         ARGC = _argc;
         ARGV = if _argv as usize != 0 { Some(core::slice::from_raw_parts(_argv, _argc)) }  else { None };
