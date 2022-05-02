@@ -17,11 +17,45 @@ struct SDCard {}
 impl block_device::BlockDevice for SDCard {
     type Error = ();
     fn read(&self, buf: &mut[u8], address: usize, _number_of_blocks: usize) -> Result<(), Self::Error> {
-        crate::blockdev::read_block(address, buf);
+        let mut blk = address / 512;
+        let mut len_left = buf.len();
+        let mut blk_off = address % 512;
+        let mut tmp_buf: [u8; 512] = [0; 512];
+        let total_len = buf.len();
+
+        while len_left > 0 {
+            crate::blockdev::read_block(blk, &mut tmp_buf);
+            let single_len = core::cmp::min(len_left, 512 - blk_off);
+            buf[total_len - len_left..(total_len - len_left + single_len)]
+                .copy_from_slice(&tmp_buf[blk_off..blk_off+single_len]);
+
+            len_left -= single_len;
+            blk += 1;
+            blk_off = (blk_off + single_len) % 512;
+        }
         Ok(())
     }
     fn write(&self, buf: &[u8], address: usize, _number_of_blocks: usize) -> Result<(), Self::Error> {
-        crate::blockdev::write_block(address, buf);
+        let mut blk = address / 512;
+        let mut len_left = buf.len();
+        let mut blk_off = address % 512;
+        let mut tmp_buf: [u8; 512] = [0; 512];
+        let total_len = buf.len();
+
+        while len_left > 0 {
+            let single_len = core::cmp::min(len_left, 512 - blk_off);
+            if single_len != 512 {
+                crate::blockdev::read_block(blk, &mut tmp_buf);
+            }
+            tmp_buf[blk_off..blk_off+single_len]
+                .copy_from_slice(&buf[total_len - len_left..(total_len - len_left + single_len)]);
+
+            crate::blockdev::write_block(blk, &mut tmp_buf);
+
+            len_left -= single_len;
+            blk += 1;
+            blk_off = (blk_off + single_len) % 512;
+        }
         Ok(())
     }
 }
