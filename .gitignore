@@ -1,6 +1,5 @@
 target
 /Cargo.lock
-/os.bin
 /fat32.img
 /src/user/bin/*
 /userenv/Cargo.toml
