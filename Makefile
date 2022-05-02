@@ -10,8 +10,7 @@ apps = loop10 hello_world get_pid sys_wait4 sys_brk sys_kill \
 	  	forkboom signal_chld times nanosleep openat pipe dup \
 		mkdirat chdir get_dirents sys_clone execve shell read filelink contest_test
 
-all: 
-	@echo empty
+all: os.bin
 
 qemu:
 	make os.bin
