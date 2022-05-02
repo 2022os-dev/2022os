@@ -85,6 +85,22 @@ extern "C" fn kernel_start() {
     blockdev::init_sdcard();
     blockdev::write_block(0, &[0xab; 2048]);
     blockdev::write_block(4096, &[0x23; 2048]);
+    let mut arr = [0x0u8; 2048];
+    blockdev::read_block(3072, &mut arr);
+
+    println!("=============3072:");
+    for i in 0..2048 {
+        if (i&0xf) == 0xf { println!("") }
+        print!("0x{:x} ", arr[i]);
+    }
+    blockdev::read_block(4096, &mut arr);
+
+    println!("=============4096:");
+    for i in 0..2048 {
+        if (i&0xf) == 0xf { println!("") }
+        print!("0x{:x} ", arr[i]);
+    }
+
     println!("[kernel] after init sd");
     schedule_pcb();
 }
