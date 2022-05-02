@@ -50,4 +50,4 @@ spin = "0.7.0"
 bitflags = "1.2.1"
 elf_parser = { version = "0.1.1", path = "crates/elfparser" }
 fat32 = { path = "crates/fat32" }
-block_device = { version = "^0.1", path = "crates/block_device" }
+block_device = { version = "0.1", path = "crates/block_device" }

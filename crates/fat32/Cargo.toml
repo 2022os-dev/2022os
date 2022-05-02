@@ -10,12 +10,8 @@ repository = "https://github.com/Spxg/fat32"
 readme = "README.md"
 license = "MIT"
 
-[target.'cfg(windows)'.dev-dependencies.winapi]
-version = "0.3"
-features = ["fileapi", "winioctl", "ioapiset"]
-
 [dependencies]
-block_device = "0.1"
+block_device = { version = "0.1", path = "../block_device" }
 
 [features]
 default = ["512"]
