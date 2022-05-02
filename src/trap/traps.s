@@ -73,11 +73,6 @@ __restore:
         .set n, n+1
     .endr
     # back to user stack
-    mv a6, a0
-    li a0, 68
-    li a7, 1
-    ecall
-    mv a0, a6
     ld sp, 2*8(sp)
     sret
 trampoline:
