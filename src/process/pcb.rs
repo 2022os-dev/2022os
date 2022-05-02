@@ -75,7 +75,7 @@ impl Pcb {
             children: Vec::new(),
             sabinds: SigActionBinds::new(),
             // 默认根目录
-            root: crate::fat32_wrapper::FAT32ROOT.clone(),
+            root: crate::vfs::ROOT.clone(),
 
             utimes: 0,
             stimes: 0,

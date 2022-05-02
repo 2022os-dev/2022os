@@ -13,6 +13,7 @@ lazy_static! {
 
 pub fn scheduler_load_pcb(memory_space: MemorySpace) {
     let pcb = Arc::new(Mutex::new(Pcb::new(memory_space, 1, String::from("/"))));
+    log!("scheduler":"load">"");
     scheduler_insert_front(pcb);
 }
 

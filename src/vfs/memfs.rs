@@ -205,11 +205,7 @@ impl _Inode for MemRootInode {
     }
     fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
         // 用于将用户态程序放到根目录下，方便execve系统调用测试
-        if let Some(app) = crate::user::APP.get(name) {
-            return Ok(Arc::new(ProgInode { data: app }));
-        } else {
-            self.0.get_child(name)
-        }
+        self.0.get_child(name)
     }
 }
 
