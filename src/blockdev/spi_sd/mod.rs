@@ -498,8 +498,13 @@ impl<T: SPIActions> SDCard<T> {
 
     let mut retry = 200;
     loop {
+      log!("sd":>"init: send cmd0");
       self.send_cmd(CMD::CMD0, 0, 0x95);
-      if self.get_response() == 0x01 {
+      log!("sd":>"init: wait cmd0");
+      for _ in 0..1000000 { }
+      let res = self.get_response();
+      log!("sd":>"init: get response cmd0 {}", res);
+      if res == 0x01 {
         break;
       }
       self.end_cmd();
