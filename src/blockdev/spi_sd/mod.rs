@@ -532,7 +532,9 @@ impl<T: SPIActions> SDCard<T> {
 
     /* Check voltage range */
     log!("sd":>"init: cmd8");
+    for i in 0..100000 { }
     self.send_cmd(CMD::CMD8, 0x01AA, 0x87);
+    for i in 0..100000 { }
     result = self.get_response(); // 0x01 or 0x05
     self.read_data(&mut frame);
     self.end_cmd();
