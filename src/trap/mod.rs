@@ -102,9 +102,10 @@ pub extern "C" fn trap_handler() {
         }
         _ => {
             panic!(
-                "Unsupported trap {:?}:0x{:x}, stval = {:#x}!",
+                "Unsupported trap {:?}:0x{:x}, sepc = {:#x} stval = {:#x}!",
                 scause.cause(),
                 scause.bits(),
+                current_pcb().unwrap().lock().trapframe()["sepc"],
                 stval
             );
         }
