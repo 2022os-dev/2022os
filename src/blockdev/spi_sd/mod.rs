@@ -445,6 +445,7 @@ impl<T: SPIActions> SDCard<T> {
     Ok(info)
   }
 
+  #[allow(unused)]
   fn retry_cmd(&self, cmd: CMD, arg: u32, crc: u8, expect: u8, retry_times: u32) -> Result<(), ()> {
     for i in 0..retry_times {
       log!("sd":"retry_cmd">"retry {} time", i);
@@ -492,12 +493,21 @@ impl<T: SPIActions> SDCard<T> {
     /* SD initialized and set to SPI mode properly */
 
     /* Send software reset */
-    let mut result = 0;
-    let mut retry_times = 0;
+    let mut result;
     log!("sd":>"init: cmd0");
-    if let Err(()) = self.retry_cmd(CMD::CMD0, 0, 0x95, 0x01, 200) {
-      return Err(InitError::CMDFailed(CMD::CMD0, 0));
+
+    let mut retry = 200;
+    loop {
+      self.send_cmd(CMD::CMD0, 0, 0x95);
+      if self.get_response() == 0x01 {
+        break;
+      }
+      if retry == 0 {
+        return Err(InitError::CMDFailed(CMD::CMD0, 0));
+      }
+      retry -= 1;
     }
+
 
     /* Check voltage range */
     log!("sd":>"init: cmd8");
