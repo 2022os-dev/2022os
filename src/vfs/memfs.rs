@@ -205,6 +205,9 @@ impl _Inode for MemRootInode {
     }
     fn get_child(&self, name: &str) -> Result<Inode, FileErr> {
         // 用于将用户态程序放到根目录下，方便execve系统调用测试
+        if let Some(app) = crate::user::APPS.get(name) {
+            return Ok(Arc::new(ProgInode {data: app}))
+        }
         self.0.get_child(name)
     }
 }
@@ -241,9 +244,9 @@ impl _Inode for ProgInode {
     }
 
     fn read_offset(&self, offset: usize, buf: &mut [u8]) -> Result<usize, FileErr> {
-        for i in 0..buf.len() {
+        for i in 0..core::cmp::min(buf.len(), self.data.len()) {
             buf[i] = self.data[offset + i];
         }
-        Ok(buf.len())
+        Ok(core::cmp::min(buf.len(), self.data.len()))
     }
 }
