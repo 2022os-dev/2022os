@@ -485,7 +485,7 @@ impl<T: SPIActions> SDCard<T> {
     self.spi.configure(
       1,  // use lines
       8,  // bits per word
-      true,  // endian: big-endian
+      false,  // endian: big-endian
     );
     log!("sd":>"init: write 20 0xff");
     self.write_data(&[0xff; 20]);
