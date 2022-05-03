@@ -327,8 +327,8 @@ impl _Inode for Console {
         usize::MAX
     }
     fn write_offset(&self, _: usize, buf: &[u8]) -> Result<usize, FileErr> {
+        #[cfg(not(feature = "no_user_output"))]
         unsafe {
-            #[cfg(not(feature = "no_user_output"))]
             print!("{}", core::str::from_utf8_unchecked(buf));
         }
         Ok(buf.len())

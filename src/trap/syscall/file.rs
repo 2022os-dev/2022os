@@ -480,7 +480,7 @@ pub(super) fn sys_execve(
                 // 更新栈, 对齐
                 // Todo: 对齐
                 ms.trapframe()["sp"] = (sp - 0xf) & (!0xf);
-                println!("stack is {:#x}", ms.trapframe()["sp"]);
+                log!("execve":>"stack is {:#x}", ms.trapframe()["sp"]);
                 // 更新args
                 ms.trapframe()["a0"] = argv.len() - 1;
                 // 计算argv数组的虚拟地址

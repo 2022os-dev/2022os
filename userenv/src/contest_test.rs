@@ -29,37 +29,37 @@ fn main() {
     run_app("dup");
     run_app("fork");
     run_app("getpid");
-    run_app("mmap");
+    //run_app("mmap");
     run_app("open");
     run_app("sleep");
-    run_app("umount");
+    //run_app("umount");
     run_app("waitpid");
-    run_app("chdir");
+    // run_app("chdir");
     run_app("dup2");
-    run_app("fstat");
+    // run_app("fstat");
     run_app("getppid");
  
-    run_app("openat");
+    // run_app("openat");
     run_app("uname");
-    run_app("write");
+    // run_app("write");
  
     run_app("clone");
     run_app("execve");
     run_app("getcwd");
     run_app("gettimeofday");
  
-    run_app("mount");
+    // run_app("mount");
     run_app("pipe");
-    run_app("unlink");
+    // run_app("unlink");
     run_app("yield");
  
     run_app("close");
     run_app("exit");
-    run_app("getdents");
-    run_app("mkdir_");
-    run_app("munmap");
+    // run_app("getdents");
+    // run_app("mkdir_");
+    // run_app("munmap");
  
-    run_app("read");
+    // run_app("read");
     run_app("times");
     run_app("wait");
 }
