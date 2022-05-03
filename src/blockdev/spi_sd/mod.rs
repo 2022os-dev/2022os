@@ -502,6 +502,8 @@ impl<T: SPIActions> SDCard<T> {
       if self.get_response() == 0x01 {
         break;
       }
+      self.end_cmd();
+      self.end_cmd();
       if retry == 0 {
         return Err(InitError::CMDFailed(CMD::CMD0, 0));
       }
