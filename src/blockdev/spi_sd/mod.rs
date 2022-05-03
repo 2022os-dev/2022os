@@ -180,7 +180,7 @@ impl<T: SPIActions> SDCard<T> {
     // gpiohs::set_direction(self.cs_gpionum, gpio::direction::OUTPUT);
     // at first clock rate shall be low (below 200khz)
     self.spi.init();
-    self.spi.set_clk_rate(100000);
+    self.spi.set_clk_rate(50000);
   }
 
   fn write_data(&self, data: &[u8]) {
@@ -189,6 +189,7 @@ impl<T: SPIActions> SDCard<T> {
       8,  // bits per word
       true,  // endian: big-endian
     );
+    for i in 0..1000000 {  }
     self.spi.send_data(self.spi_cs, data);
   }
   
@@ -198,6 +199,7 @@ impl<T: SPIActions> SDCard<T> {
       8,  // bits per word
       true,  // endian: big-endian
     );
+    for i in 0..1000000 {  }
     self.spi.recv_data(self.spi_cs, data);
   }
 
@@ -244,7 +246,7 @@ impl<T: SPIActions> SDCard<T> {
   */
   fn get_response(&self) -> u8 {
     let result = &mut [0xffu8];
-    let mut timeout = 0xFFFF;
+    let mut timeout = 0xFFF;
     /* Check if response is got or a timeout is happen */
     while timeout != 0 {
       self.read_data(result);
@@ -255,6 +257,7 @@ impl<T: SPIActions> SDCard<T> {
       timeout -= 1;
     }
     /* After time out */
+    log!("sd":"get_response">"seq failed");
     return 0xFF;
   }
 
@@ -765,11 +768,11 @@ const SD_CS: u32 = 0;
 
 pub fn init_sdcard() -> SDCard<SPIImpl> {
   // wait previous output
-  // usleep(100000);
+  for i in 0..1000000 { }
 
-  let spi = SPIImpl::new(abstraction::SPIDevice::QSPI1);
+  let spi = SPIImpl::new(abstraction::SPIDevice::QSPI2);
   let mut sd = SDCard::new(spi, SD_CS);
-  // let info = sd.init().unwrap();
+  let info = sd.init().unwrap();
   // assert!(num_sectors > 0);
 
   println!("[kernel] init sdcard!");
