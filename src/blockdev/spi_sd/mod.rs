@@ -769,7 +769,7 @@ pub fn init_sdcard() -> SDCard<SPIImpl> {
 
   let spi = SPIImpl::new(abstraction::SPIDevice::QSPI2);
   let mut sd = SDCard::new(spi, SD_CS);
-  let info = sd.init().unwrap();
+  // let info = sd.init().unwrap();
   // assert!(num_sectors > 0);
 
   println!("[kernel] init sdcard!");
