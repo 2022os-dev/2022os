@@ -180,7 +180,7 @@ impl<T: SPIActions> SDCard<T> {
     // gpiohs::set_direction(self.cs_gpionum, gpio::direction::OUTPUT);
     // at first clock rate shall be low (below 200khz)
     self.spi.init();
-    self.spi.set_clk_rate(50000);
+    self.spi.set_clk_rate(150000);
   }
 
   fn write_data(&self, data: &[u8]) {
