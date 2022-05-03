@@ -556,7 +556,7 @@ impl SPIActions for SPIImpl {
     // endianness
     spi.fmt.set_endian(msb_first);
     // clock mode: from sifive_spi_prepare_message
-    spi.sckmode.reset();
+    // spi.sckmode.reset();
   }
 
   fn switch_cs(&self, enable: bool, csid: u32) {
