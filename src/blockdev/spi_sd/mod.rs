@@ -185,7 +185,7 @@ impl<T: SPIActions> SDCard<T> {
 
   fn write_data(&self, data: &[u8]) {
     self.spi.configure(
-      2,  // use lines
+      1,  // use lines
       8,  // bits per word
       true,  // endian: big-endian
     );
@@ -194,7 +194,7 @@ impl<T: SPIActions> SDCard<T> {
   
   fn read_data(&self, data: &mut [u8]) {
     self.spi.configure(
-      2,  // use lines
+      1,  // use lines
       8,  // bits per word
       true,  // endian: big-endian
     );
@@ -483,7 +483,7 @@ impl<T: SPIActions> SDCard<T> {
     self.spi.switch_cs(false, 0);
     log!("sd":>"init: configure");
     self.spi.configure(
-      2,  // use lines
+      1,  // use lines
       8,  // bits per word
       true,  // endian: big-endian
     );
@@ -501,7 +501,6 @@ impl<T: SPIActions> SDCard<T> {
       log!("sd":>"init: send cmd0");
       self.send_cmd(CMD::CMD0, 0, 0x95);
       log!("sd":>"init: wait cmd0");
-      for _ in 0..1000000 { }
       let res = self.get_response();
       log!("sd":>"init: get response cmd0 {}", res);
       if res == 0x01 {
