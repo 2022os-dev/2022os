@@ -189,7 +189,6 @@ impl<T: SPIActions> SDCard<T> {
       8,  // bits per word
       true,  // endian: big-endian
     );
-    for i in 0..1000000 {  }
     self.spi.send_data(self.spi_cs, data);
   }
   
@@ -199,7 +198,6 @@ impl<T: SPIActions> SDCard<T> {
       8,  // bits per word
       true,  // endian: big-endian
     );
-    for i in 0..1000000 {  }
     self.spi.recv_data(self.spi_cs, data);
   }
 

@@ -305,7 +305,7 @@ mod registers {
 
     // TODO FIX BITWISE OPS
     pub fn set_endian(&self, msb: bool) {
-      let end = if msb { 0b100u32 } else { 0u32 };
+      let end = if !msb { 0b100u32 } else { 0u32 };
       let r = self.read();
       self.write((r & (!0b100u32)) | end);
     }
@@ -596,6 +596,7 @@ impl SPIActions for SPIImpl {
       // read out all data from rx fifo
       for i in 0..n_words {
         rx_buf[len - remaining] = self.rx_deque();
+        for _ in 0..100000 { }
         remaining = remaining - 1;
       }
     }
@@ -620,6 +621,7 @@ impl SPIActions for SPIImpl {
       // enque spi
       for _ in 0..n_words {
         self.tx_enque(tx_buf[len - remaining]);
+        for _ in 0..100000 { }
         remaining = remaining - 1;
       }
     }
