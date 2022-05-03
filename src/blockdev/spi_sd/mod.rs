@@ -487,8 +487,8 @@ impl<T: SPIActions> SDCard<T> {
       8,  // bits per word
       true,  // endian: big-endian
     );
-    log!("sd":>"init: write 10 0xff");
-    self.write_data(&[0xff; 10]);
+    log!("sd":>"init: write 20 0xff");
+    self.write_data(&[0xff; 20]);
     /*------------Put SD in SPI mode--------------*/
     /* SD initialized and set to SPI mode properly */
 
@@ -502,7 +502,7 @@ impl<T: SPIActions> SDCard<T> {
       self.send_cmd(CMD::CMD0, 0, 0x95);
       log!("sd":>"init: wait cmd0");
       let res = self.get_response();
-      log!("sd":>"init: get response cmd0 {}", res);
+      log!("sd":>"init: get response cmd0 0x{:x}", res);
       if res == 0x01 {
         break;
       }
