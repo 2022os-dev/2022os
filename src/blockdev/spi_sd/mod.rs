@@ -767,7 +767,7 @@ pub fn init_sdcard() -> SDCard<SPIImpl> {
   // wait previous output
   // usleep(100000);
 
-  let spi = SPIImpl::new(abstraction::SPIDevice::QSPI2);
+  let spi = SPIImpl::new(abstraction::SPIDevice::QSPI1);
   let mut sd = SDCard::new(spi, SD_CS);
   // let info = sd.init().unwrap();
   // assert!(num_sectors > 0);
