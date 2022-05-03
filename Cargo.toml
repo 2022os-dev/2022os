@@ -28,7 +28,7 @@ fat32 = []           # 使用fat32
 no_user_output = []  # 不打印用户态输出
 
 # 下面的选项用于调试内核模块的输出
-kernel_log = ["pcb", "path_resolve", "pipe", "vfs", "execve", "hart", "sd", "scheduler", "trap", "vm"] 
+kernel_log = ["pcb", "path_resolve", "pipe", "vfs", "execve", "sd", "scheduler", "trap", "vm"] 
 print_lock = []   # 使用互斥锁防止多核打印格式混乱
 time = []
 sd = []
