@@ -297,13 +297,19 @@ impl<T: SPIActions> SDCard<T> {
   fn get_csdregister(&self) -> Result<SDCardCSD, ()> {
     let mut csd_tab = [0u8; 18];
     /* Send CMD9 (CSD register) */
+    log!("sd":"csd">"sending cmd 9");
     self.send_cmd(CMD::CMD9, 0, 0);
     /* Wait for response in the R1 format (0x00 is no errors) */
-    if self.get_response() != 0x00 {
+    let resp = self.get_response();
+    if resp != 0x00 {
+      log!("sd":"csd">"cmd9 response error: 0x{:x}", resp);
       self.end_cmd();
       return Err(());
     }
-    if self.get_response() != SD_START_DATA_SINGLE_BLOCK_READ {
+
+    let resp = self.get_response();
+    if resp != SD_START_DATA_SINGLE_BLOCK_READ {
+      log!("sd":"csd">"cmd9 get_data error: 0x{:x}", resp);
       self.end_cmd();
       return Err(());
     }
@@ -381,13 +387,19 @@ impl<T: SPIActions> SDCard<T> {
   fn get_cidregister(&self) -> Result<SDCardCID, ()> {
     let mut cid_tab = [0u8; 18];
     /* Send CMD10 (CID register) */
+    log!("sd":"csd">"sending cmd 10");
     self.send_cmd(CMD::CMD10, 0, 0);
     /* Wait for response in the R1 format (0x00 is no errors) */
-    if self.get_response() != 0x00 {
+    let resp = self.get_response();
+    if resp != 0x00 {
+      log!("sd":"csd">"sending cmd 10: 0x{:x}", resp);
       self.end_cmd();
       return Err(());
     }
-    if self.get_response() != SD_START_DATA_SINGLE_BLOCK_READ {
+
+    let resp = self.get_response();
+    if resp != SD_START_DATA_SINGLE_BLOCK_READ {
+      log!("sd":"csd">"cmd 10 get_data error: 0x{:x}", resp);
       self.end_cmd();
       return Err(());
     }
