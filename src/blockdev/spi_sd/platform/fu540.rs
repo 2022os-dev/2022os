@@ -561,7 +561,7 @@ impl SPIActions for SPIImpl {
 
   fn switch_cs(&self, enable: bool, csid: u32) {
     // manual cs
-    self.spi.csmode.switch_csmode(if enable { Mode::HOLD } else { Mode::OFF } );
+    self.spi.csmode.switch_csmode(if enable { Mode::AUTO } else { Mode::OFF } );
     self.spi.csid.write(csid);
   }
 
