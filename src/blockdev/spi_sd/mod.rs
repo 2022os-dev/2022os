@@ -478,7 +478,6 @@ impl<T: SPIActions> SDCard<T> {
     * @retval The SD Response info if succeeeded, otherwise Err
     */
   pub fn init(&mut self) -> Result<SDCardInfo, InitError> {
-    /*
     log!("sd":>"init: spi lowlevel init");
     /* Initialize SD_SPI */
     self.lowlevel_init();
@@ -574,7 +573,7 @@ impl<T: SPIActions> SDCard<T> {
         self.send_cmd(CMD::ACMD41, 0x40000000, 0);
         log!("sd":>"init: get_response cmd41");
         result = self.get_response();
-        log!("sd":>"init: end cmd41");
+        log!("sd":>"init: end cmd41 with response 0x{:x}", result);
         self.end_cmd();
 
         if cnt == 0 {
@@ -617,7 +616,6 @@ impl<T: SPIActions> SDCard<T> {
     self.write_data(&[0xff; 10]);
 
     self.HIGH_SPEED_ENABLE();
-    */
     match self.get_cardinfo() {
       Ok(info)     => { Ok(info) }
       Err(_)       => { Err(InitError::CannotGetCardInfo) }
