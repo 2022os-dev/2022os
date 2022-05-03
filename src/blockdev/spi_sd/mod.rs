@@ -180,7 +180,7 @@ impl<T: SPIActions> SDCard<T> {
     // gpiohs::set_direction(self.cs_gpionum, gpio::direction::OUTPUT);
     // at first clock rate shall be low (below 200khz)
     self.spi.init();
-    self.spi.set_clk_rate(150000);
+    self.spi.set_clk_rate(100000);
   }
 
   fn write_data(&self, data: &[u8]) {
@@ -244,7 +244,7 @@ impl<T: SPIActions> SDCard<T> {
   */
   fn get_response(&self) -> u8 {
     let result = &mut [0xffu8];
-    let mut timeout = 0x0FFF;
+    let mut timeout = 0xFFFF;
     /* Check if response is got or a timeout is happen */
     while timeout != 0 {
       self.read_data(result);
@@ -500,7 +500,6 @@ impl<T: SPIActions> SDCard<T> {
     loop {
       log!("sd":>"init: send cmd0");
       self.send_cmd(CMD::CMD0, 0, 0x95);
-      log!("sd":>"init: wait cmd0");
       let res = self.get_response();
       log!("sd":>"init: get response cmd0 0x{:x}", res);
       if res == 0x01 {
