@@ -500,7 +500,7 @@ impl<T: SPIActions> SDCard<T> {
     self.spi.configure(
       1,  // use lines
       8,  // bits per word
-      false,  // endian: big-endian
+      true,  // endian: big-endian
     );
     log!("sd":>"init: write 20 0xff");
     self.write_data(&[0xff; 20]);
@@ -514,13 +514,16 @@ impl<T: SPIActions> SDCard<T> {
     let mut retry = 200;
     loop {
       log!("sd":>"init: send cmd0");
+      for i in 0..100000 { }
       self.send_cmd(CMD::CMD0, 0, 0x95);
       let res = self.get_response();
       log!("sd":>"init: get response cmd0 0x{:x}", res);
       if res == 0x01 {
         break;
       }
+      for i in 0..100000 { }
       self.end_cmd();
+      for i in 0..100000 { }
       self.end_cmd();
       if retry == 0 {
         return Err(InitError::CMDFailed(CMD::CMD0, 0));
