@@ -7,6 +7,10 @@ pub mod entry;
 pub mod file;
 pub mod fat;
 
+pub mod sbi;
+pub mod console;
+
+
 #[cfg(feature = "512")]
 const BUFFER_SIZE: usize = 512;
 #[cfg(feature = "1024")]

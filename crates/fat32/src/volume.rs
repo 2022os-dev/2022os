@@ -31,6 +31,12 @@ impl<T> Volume<T>
     /// Make volume from device which implement BlockDevice
     pub fn new(device: T) -> Volume<T> {
         let mut buf = [0; 512];
+        for i in 0..usize::MAX {
+            device.read(&mut buf, 512 * i, 1).unwrap();
+            for j in 0..512 {
+                crate::println!("{:#x} ", buf[j]);
+            }
+        }
         device.read(&mut buf, 0, 1).unwrap();
 
         let mut volume_label = [0; 11];
